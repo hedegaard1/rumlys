@@ -68,3 +68,7 @@ python -m venv .venv
 Home Assistant er ikke lavet til Windows. Der skal testene køres med
 `PYTHONPATH=tests/windows`, som giver to Linux-moduler, Home Assistant importerer, en tom
 erstatning.
+
+## Licens
+
+[Apache-2.0](LICENSE).
