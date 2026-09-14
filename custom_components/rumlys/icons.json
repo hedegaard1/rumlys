@@ -1,0 +1,34 @@
+{
+  "entity": {
+    "number": {
+      "sluk_efter_bevaegelse": {
+        "default": "mdi:motion-sensor"
+      },
+      "sluk_efter_tryk": {
+        "default": "mdi:gesture-tap"
+      },
+      "hold_tid": {
+        "default": "mdi:timer-outline"
+      }
+    },
+    "sensor": {
+      "tilstand": {
+        "default": "mdi:lightbulb-auto",
+        "state": {
+          "slukket": "mdi:lightbulb-off-outline",
+          "bevaegelse": "mdi:motion-sensor",
+          "haand": "mdi:gesture-tap",
+          "hold": "mdi:lightbulb-on"
+        }
+      }
+    },
+    "switch": {
+      "hold": {
+        "default": "mdi:lightbulb-on-outline",
+        "state": {
+          "on": "mdi:lightbulb-on"
+        }
+      }
+    }
+  }
+}

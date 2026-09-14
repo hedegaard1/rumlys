@@ -1,0 +1,127 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Rumlys",
+        "description": "Rumlys brings the light in each room together: motion, off timers, hold and time periods. Once the integration is set up, add rooms with \"Add room\"."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Rumlys is already set up. Add rooms under the integration."
+    }
+  },
+  "config_subentries": {
+    "rum": {
+      "entry_type": "Room",
+      "initiate_flow": {
+        "user": "Add room",
+        "reconfigure": "Edit room"
+      },
+      "step": {
+        "rum": {
+          "title": "Room",
+          "data": {
+            "navn": "Name",
+            "lys": "Lights",
+            "sensorer": "Motion sensors",
+            "lysstyrke": "Brightness",
+            "kelvin": "White light",
+            "overgang": "Transition"
+          },
+          "data_description": {
+            "navn": "The room's name. It also becomes the name of the device and its entities.",
+            "lys": "Lights or groups that motion turns on and Rumlys turns off.",
+            "sensorer": "The light turns on when one of them detects motion. Without a sensor the light only turns off after \"off after press\".",
+            "lysstyrke": "Brightness when motion turns the light on outside the time periods.",
+            "kelvin": "Colour temperature in kelvin, e.g. 2700 (warm) to 6500 (cool). Leave empty to keep the colour.",
+            "overgang": "Seconds to fade on and off. 0 is instant."
+          }
+        },
+        "menu": {
+          "title": "Time periods in {navn}",
+          "description": "A time period gives the light its own brightness and colour between two times of day. Outside the periods the room's own light is used. If two periods overlap, the top one wins.\n\n{tidsrum}",
+          "menu_options": {
+            "tilfoej_tidsrum": "Add time period",
+            "ret_tidsrum": "Edit a time period",
+            "slet_tidsrum": "Delete a time period",
+            "gem": "Save room"
+          }
+        },
+        "tidsrum": {
+          "title": "Time period",
+          "data": {
+            "navn": "Name",
+            "start": "Start",
+            "slut": "End",
+            "lysstyrke": "Brightness",
+            "kelvin": "White light",
+            "sluk_efter": "Off after motion"
+          },
+          "data_description": {
+            "navn": "E.g. Day or Night.",
+            "slut": "A period may run past midnight, e.g. 22:00 to 06:30.",
+            "kelvin": "Colour temperature in kelvin. Leave empty to keep the colour.",
+            "sluk_efter": "Seconds. Leave empty to use the room's own \"off after motion\"."
+          }
+        },
+        "ret_tidsrum": {
+          "title": "Edit a time period",
+          "data": {
+            "tidsrum": "Time period"
+          }
+        },
+        "slet_tidsrum": {
+          "title": "Delete a time period",
+          "data": {
+            "tidsrum": "Time period"
+          }
+        }
+      },
+      "error": {
+        "samme_tid": "Start and end cannot be the same time."
+      },
+      "abort": {
+        "reconfigure_successful": "The room has been saved."
+      }
+    }
+  },
+  "entity": {
+    "number": {
+      "sluk_efter_bevaegelse": {
+        "name": "Off after motion"
+      },
+      "sluk_efter_tryk": {
+        "name": "Off after press"
+      },
+      "hold_tid": {
+        "name": "Hold time"
+      }
+    },
+    "sensor": {
+      "tilstand": {
+        "name": "State",
+        "state": {
+          "slukket": "Off",
+          "bevaegelse": "Motion",
+          "haand": "Turned on by hand",
+          "hold": "Held on"
+        },
+        "state_attributes": {
+          "slukker": {
+            "name": "Turns off"
+          }
+        }
+      }
+    },
+    "switch": {
+      "hold": {
+        "name": "Hold light",
+        "state_attributes": {
+          "slutter": {
+            "name": "Ends"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,127 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Rumlys",
+        "description": "Rumlys samler lyset i hvert rum: bevægelse, sluk-tider, «hold lys» og tidsrum. Når integrationen er sat op, tilføjes rummene med «Tilføj rum»."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Rumlys er allerede sat op. Tilføj rum under integrationen."
+    }
+  },
+  "config_subentries": {
+    "rum": {
+      "entry_type": "Rum",
+      "initiate_flow": {
+        "user": "Tilføj rum",
+        "reconfigure": "Ret rum"
+      },
+      "step": {
+        "rum": {
+          "title": "Rum",
+          "data": {
+            "navn": "Navn",
+            "lys": "Lys",
+            "sensorer": "Bevægelsessensorer",
+            "lysstyrke": "Lysstyrke",
+            "kelvin": "Hvidt lys",
+            "overgang": "Overgang"
+          },
+          "data_description": {
+            "navn": "Rummets navn. Det bliver også navnet på enheden og dens entiteter.",
+            "lys": "Lamper eller grupper, som bevægelse tænder, og som Rumlys slukker.",
+            "sensorer": "Lyset tænder, når en af dem melder bevægelse. Uden sensor slukker lyset kun efter «sluk efter tryk».",
+            "lysstyrke": "Lysstyrken, når bevægelse tænder lyset uden for tidsrummene.",
+            "kelvin": "Farvetemperatur i kelvin, fx 2700 (gult) til 6500 (blåligt). Står feltet tomt, røres farven ikke.",
+            "overgang": "Sekunder om at tænde og slukke. 0 er med det samme."
+          }
+        },
+        "menu": {
+          "title": "Tidsrum i {navn}",
+          "description": "Et tidsrum giver lyset sin egen lysstyrke og farve mellem to klokkeslæt. Uden for tidsrummene bruges rummets eget lys. Overlapper to tidsrum, gælder det øverste.\n\n{tidsrum}",
+          "menu_options": {
+            "tilfoej_tidsrum": "Tilføj tidsrum",
+            "ret_tidsrum": "Ret et tidsrum",
+            "slet_tidsrum": "Slet et tidsrum",
+            "gem": "Gem rummet"
+          }
+        },
+        "tidsrum": {
+          "title": "Tidsrum",
+          "data": {
+            "navn": "Navn",
+            "start": "Start",
+            "slut": "Slut",
+            "lysstyrke": "Lysstyrke",
+            "kelvin": "Hvidt lys",
+            "sluk_efter": "Sluk efter bevægelse"
+          },
+          "data_description": {
+            "navn": "Fx Dag eller Nat.",
+            "slut": "Et tidsrum må gå hen over midnat, fx 22:00 til 06:30.",
+            "kelvin": "Farvetemperatur i kelvin. Står feltet tomt, røres farven ikke.",
+            "sluk_efter": "Sekunder. Står feltet tomt, gælder rummets egen «sluk efter bevægelse»."
+          }
+        },
+        "ret_tidsrum": {
+          "title": "Ret et tidsrum",
+          "data": {
+            "tidsrum": "Tidsrum"
+          }
+        },
+        "slet_tidsrum": {
+          "title": "Slet et tidsrum",
+          "data": {
+            "tidsrum": "Tidsrum"
+          }
+        }
+      },
+      "error": {
+        "samme_tid": "Start og slut kan ikke være samme klokkeslæt."
+      },
+      "abort": {
+        "reconfigure_successful": "Rummet er gemt."
+      }
+    }
+  },
+  "entity": {
+    "number": {
+      "sluk_efter_bevaegelse": {
+        "name": "Sluk efter bevægelse"
+      },
+      "sluk_efter_tryk": {
+        "name": "Sluk efter tryk"
+      },
+      "hold_tid": {
+        "name": "Hold-tid"
+      }
+    },
+    "sensor": {
+      "tilstand": {
+        "name": "Tilstand",
+        "state": {
+          "slukket": "Slukket",
+          "bevaegelse": "Bevægelse",
+          "haand": "Tændt i hånden",
+          "hold": "Holdes tændt"
+        },
+        "state_attributes": {
+          "slukker": {
+            "name": "Slukker"
+          }
+        }
+      }
+    },
+    "switch": {
+      "hold": {
+        "name": "Hold lys",
+        "state_attributes": {
+          "slutter": {
+            "name": "Slutter"
+          }
+        }
+      }
+    }
+  }
+}

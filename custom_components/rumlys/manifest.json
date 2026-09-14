@@ -1,0 +1,14 @@
+{
+  "domain": "rumlys",
+  "name": "Rumlys",
+  "codeowners": ["@hedegaard1"],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/hedegaard1/rumlys",
+  "integration_type": "hub",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/hedegaard1/rumlys/issues",
+  "requirements": [],
+  "single_config_entry": true,
+  "version": "0.1.0"
+}
