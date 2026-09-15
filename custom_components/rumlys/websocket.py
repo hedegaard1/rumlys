@@ -88,6 +88,8 @@ def _rum_kort(hass: HomeAssistant, entry: ConfigEntry, subentry: ConfigSubentry)
         "navn": rum.navn if rum else subentry.title,
         "omraade": subentry.data.get(CONF_OMRAADE),
         "lamper": subentry.data.get("lamper", []),
+        "sensorer": subentry.data.get("sensorer", []),
+        "tidsrum": [tidsrum["navn"] for tidsrum in subentry.data.get("tidsrum", [])],
         "scener": subentry.data.get("scener", []),
         "entiteter": _entiteter(hass, subentry.subentry_id),
     }

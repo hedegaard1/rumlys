@@ -38,7 +38,7 @@ from .const import (
     LYS_LYSSTYRKE,
     RUM,
 )
-from . import tjenester, websocket
+from . import sidepanel, tjenester, websocket
 from .rum import Rum
 
 PLATFORMS = [Platform.NUMBER, Platform.SENSOR, Platform.SWITCH]
@@ -46,9 +46,10 @@ CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Kommandoerne og tjenesterne findes, så snart integrationen er indlæst."""
+    """Kommandoerne, tjenesterne, sidepanelet og kortet findes, så snart integrationen er indlæst."""
     websocket.async_register(hass)
     tjenester.async_register(hass)
+    await sidepanel.async_register(hass)
     return True
 
 

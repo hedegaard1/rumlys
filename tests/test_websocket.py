@@ -77,6 +77,8 @@ async def test_liste_til_kortet(hass: HomeAssistant, hass_ws_client: WebSocketGe
         "navn": "Gang",
         "omraade": "gang",
         "lamper": [{"entity_id": SPOTS, "bevaegelse": True}],
+        "sensorer": [],
+        "tidsrum": [],
         "scener": ["a", "b"],
         "entiteter": {
             "hold": "switch.gang_hold_lys",
