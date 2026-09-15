@@ -38,7 +38,7 @@ from .const import (
     LYS_LYSSTYRKE,
     RUM,
 )
-from . import sidepanel, tjenester, websocket
+from . import scener, sidepanel, tjenester, websocket
 from .rum import Rum
 
 PLATFORMS = [Platform.NUMBER, Platform.SENSOR, Platform.SWITCH]
@@ -122,6 +122,7 @@ def _rum_fra_0_1(data: Any, omraade: str | None) -> dict[str, Any]:
 async def async_setup_entry(hass: HomeAssistant, entry: RumlysConfigEntry) -> bool:
     lager = _lager(hass, entry)
     gemt = await lager.async_load() or {}
+    katalog = await scener.async_hent_katalog(hass)
     data = RumlysData(lager)
 
     def gem() -> None:
@@ -129,7 +130,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: RumlysConfigEntry) -> bo
 
     for subentry in entry.get_subentries_of_type(RUM):
         data.rum[subentry.subentry_id] = Rum(
-            hass, subentry, gemt.get(subentry.subentry_id, {}), gem
+            hass, subentry, gemt.get(subentry.subentry_id, {}), gem, katalog
         )
     entry.runtime_data = data
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

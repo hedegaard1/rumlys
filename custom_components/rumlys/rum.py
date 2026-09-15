@@ -48,6 +48,7 @@ from .const import (
     CONF_NAVN,
     CONF_OMRAADE,
     CONF_OVERGANG,
+    CONF_SCENE,
     CONF_SCENER,
     CONF_SENSORER,
     CONF_SLUK_EFTER,
@@ -63,12 +64,14 @@ from .const import (
     HUSK_EFTER,
     LYS_FARVE,
     LYS_HVID,
+    LYS_SCENE,
     SLUK_EFTER_BEVAEGELSE,
     SLUK_EFTER_TRYK,
     SLUKKET,
     STANDARD_INDSTILLINGER,
     STANDARD_LYS,
 )
+from . import scener
 from .omraade import omraadets_navn
 
 UKENDT = (STATE_UNAVAILABLE, STATE_UNKNOWN)
@@ -93,9 +96,11 @@ class Rum:
         subentry: ConfigSubentry,
         gemt: dict[str, Any],
         gem: Callable[[], None],
+        katalog: dict[str, dict[str, Any]] | None = None,
     ) -> None:
         data = subentry.data
         self.hass = hass
+        self._katalog = katalog or {}
         self.id = subentry.subentry_id
         self.omraade: str | None = data.get(CONF_OMRAADE)
         self._titel = subentry.title
@@ -504,8 +509,14 @@ class Rum:
 
     @callback
     def _anvend(self, lys: dict[str, Any], lamper: list[str]) -> None:
-        """Tænd lamperne med et lysvalg."""
-        self._kald("turn_on", _lysdata(lys), lamper)
+        """Tænd lamperne med et lysvalg. En scene giver hver lampe sit eget lys."""
+        scene = self._katalog.get(lys.get(CONF_SCENE)) if lys.get(CONF_TYPE) == LYS_SCENE else None
+        if scene is None:
+            self._kald("turn_on", _lysdata(lys), lamper)
+            return
+        kontekst: Context | None = None
+        for ids, data in scener.kommandoer(self.hass, scene, lamper, lys.get(CONF_LYSSTYRKE)):
+            kontekst = self._kald("turn_on", data, ids, kontekst)
 
     @callback
     def _gendan(self, husket: dict[str, dict[str, Any]], lamper: list[str]) -> bool:
@@ -547,7 +558,7 @@ class Rum:
 
 
 def _lysdata(lys: dict[str, Any]) -> dict[str, Any]:
-    """Et lysvalg som data til light.turn_on. En scene tænder foreløbig kun med lysstyrken."""
+    """Et lysvalg som data til light.turn_on. En scene, der ikke findes, tænder kun med lysstyrken."""
     data: dict[str, Any] = {}
     if lys.get(CONF_LYSSTYRKE) is not None:
         data["brightness_pct"] = lys[CONF_LYSSTYRKE]

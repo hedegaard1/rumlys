@@ -17,7 +17,8 @@
 <body>
 <rumlys-panel></rumlys-panel>
 <script type="module">
-  import { hass, vedOpdatering } from "./mock.js";
+  window.rumlysFiler = "/custom_components/rumlys/frontend/";
+  const { hass, vedOpdatering } = await import("./mock.js");
   await import("../../custom_components/rumlys/frontend/rumlys-panel.js");
   const panel = document.querySelector("rumlys-panel");
   const rute = () => ({ prefix: "/rumlys", path: location.pathname.indexOf("/rumlys") === 0 ? location.pathname.slice(7) : new URLSearchParams(location.search).get("sti") || "" });

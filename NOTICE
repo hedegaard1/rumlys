@@ -1,0 +1,10 @@
+Rumlys
+Copyright 2026 hedegaard1
+
+Licenseret under Apache License 2.0, se LICENSE.
+
+Scenerne i custom_components/rumlys/frontend/scener/ (scener.json og billederne) og
+beregningen af en scenes lyskommandoer i custom_components/rumlys/scener.py stammer fra
+Scene Presets af Hypfer — https://github.com/Hypfer/hass-scene_presets, version 2.4.0 —
+også under Apache License 2.0. Billederne er beskåret til kvadrater, skaleret ned til
+192 × 192 pixel og gemt som WebP; filnavnene i scener.json er rettet til det.

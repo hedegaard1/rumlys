@@ -23,10 +23,13 @@ const KATALOG = {
   ]),
 };
 
+// Scenerne hentes fra repoets egne filer (window.rumlysFiler sættes på testsiden). Uden dem
+// bruges det lille katalog herover.
 const aegteFetch = window.fetch.bind(window);
-window.fetch = (url, ...rest) => {
-  if (String(url).indexOf("scener.json") >= 0) return Promise.resolve(new Response(JSON.stringify(KATALOG), { status: 200 }));
-  return aegteFetch(url, ...rest);
+window.fetch = async (url, ...rest) => {
+  const svar = await aegteFetch(url, ...rest);
+  if (!svar.ok && String(url).indexOf("scener.json") >= 0) return new Response(JSON.stringify(KATALOG), { status: 200 });
+  return svar;
 };
 
 customElements.define("ha-icon", class extends HTMLElement {

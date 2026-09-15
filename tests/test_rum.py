@@ -18,6 +18,7 @@ from homeassistant.core import Context, HomeAssistant
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.util import dt as dt_util
 
+from custom_components.rumlys import scener
 from custom_components.rumlys.const import DOMAIN, RUM
 
 SPOTS = "light.traeningsrum_spots"
@@ -713,6 +714,30 @@ async def test_vaelg_lys_til_rummet(hus: Hus) -> None:
         "hs_color": [200, 80],
         "transition": 3,
     }
+    assert hus.tilstand() == "haand"
+
+
+async def test_scene_som_tidsrummets_lys(hass: HomeAssistant, hus: Hus) -> None:
+    hass.states.async_set(SPOTS, "off", {"supported_color_modes": ["color_temp", "xy"]})
+    hus.freezer.move_to(lokal("2026-09-14 23:00:00"))
+    hvile = {"type": "scene", "scene": "e03267e7-9914-4f47-97fe-63c0bd317fe7"}
+    await hus.saet_op(RUMMET | {"tidsrum": [NAT | {"lys": hvile}]})
+    await hus.bevaegelse("on")
+    assert hus.taend[-1].data == {
+        "entity_id": [SPOTS],
+        "brightness": 90,
+        "xy_color": [0.561, 0.4042],
+        "transition": 3,
+    }
+
+
+async def test_vaelg_scene_til_rummet(hass: HomeAssistant, hus: Hus) -> None:
+    hass.states.async_set(SPOTS, "off", {"supported_color_modes": ["color_temp"]})
+    await hus.saet_op()
+    await hus.tjeneste(DOMAIN, "anvend_scene", rum="traeningsrum", scene="e03267e7-9914-4f47-97fe-63c0bd317fe7", lysstyrke=40)
+    data = hus.taend[-1].data
+    assert data["brightness"] == 102
+    assert data["color_temp_kelvin"] == scener.naermeste_kelvin(0.561, 0.4042) == 2400
     assert hus.tilstand() == "haand"
 
 

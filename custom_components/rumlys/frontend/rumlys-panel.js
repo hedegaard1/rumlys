@@ -15,6 +15,7 @@ import {
   hsRgb,
   hueFarve,
   ikon,
+  kategoriNavn,
   kelvinGraenser,
   klokken,
   lysvalgBaggrund,
@@ -1037,16 +1038,16 @@ class RumlysPanel extends HTMLElement {
       const q = soeg.value.trim().toLowerCase();
       liste.textContent = "";
       const grupper = new Map();
-      const standard = this._katalog.scener.filter((s) => STANDARDSCENER.indexOf(s.id) >= 0);
+      const standard = this._katalog.scener.filter((s) => STANDARDSCENER.indexOf(s.id) >= 0).sort((a, b) => STANDARDSCENER.indexOf(a.id) - STANDARDSCENER.indexOf(b.id));
       const oevrige = this._katalog.scener.filter((s) => STANDARDSCENER.indexOf(s.id) < 0);
       [...standard, ...oevrige].forEach((s) => {
         const navn = sceneNavn(this._hass, s);
-        if (q && (navn + " " + s.navn + " " + s.kategori).toLowerCase().indexOf(q) < 0) return;
+        if (q && (navn + " " + s.navn + " " + s.kategori + " " + kategoriNavn(this._hass, s.kategori)).toLowerCase().indexOf(q) < 0) return;
         if (!grupper.has(s.kategori)) grupper.set(s.kategori, []);
         grupper.get(s.kategori).push(s);
       });
       grupper.forEach((scener, kategori) => {
-        liste.appendChild(h("div", { class: "kategori" }, kategori));
+        liste.appendChild(h("div", { class: "kategori" }, kategoriNavn(this._hass, kategori)));
         const gitter = h("div", { class: "scenegitter" });
         scener.forEach((s) => {
           const felt = this._scenefelt(s, false);
@@ -1137,10 +1138,10 @@ class RumlysPanel extends HTMLElement {
             const q = soeg.value.trim().toLowerCase();
             gitterPlads.textContent = "";
             const gitter = h("div", { class: "scenegitter", style: { marginTop: "8px" } });
-            const standard = this._katalog.scener.filter((s) => STANDARDSCENER.indexOf(s.id) >= 0);
+            const standard = this._katalog.scener.filter((s) => STANDARDSCENER.indexOf(s.id) >= 0).sort((a, b) => STANDARDSCENER.indexOf(a.id) - STANDARDSCENER.indexOf(b.id));
             const oevrige = this._katalog.scener.filter((s) => STANDARDSCENER.indexOf(s.id) < 0);
             [...standard, ...oevrige]
-              .filter((s) => !q || (sceneNavn(this._hass, s) + " " + s.navn + " " + s.kategori).toLowerCase().indexOf(q) >= 0)
+              .filter((s) => !q || (sceneNavn(this._hass, s) + " " + s.navn + " " + s.kategori + " " + kategoriNavn(this._hass, s.kategori)).toLowerCase().indexOf(q) >= 0)
               .forEach((s) => {
                 const felt = this._scenefelt(s, false);
                 if (vaerdi.type === "scene" && vaerdi.scene === s.id) felt.classList.add("valgt");

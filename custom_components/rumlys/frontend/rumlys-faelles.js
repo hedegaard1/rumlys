@@ -5,7 +5,8 @@
 */
 
 export const VERSION = "0.3.0";
-export const FILER = "/rumlys_filer/";
+// Testsiden i tests/frontend peger på repoets egne filer; i Home Assistant serverer Rumlys dem.
+export const FILER = window.rumlysFiler || "/rumlys_filer/";
 // Scenerne ligger i Rumlys selv; findes de ikke, bruges en installeret Scene Presets.
 const SCENE_KILDER = [
   [FILER + "scener/scener.json", FILER + "scener/"],
@@ -473,14 +474,139 @@ export function paerer(hass, ids) {
   return ud;
 }
 
-// Farverne i lamperne lige nu, uden dubletter og sorteret efter nuance.
-export function rummetsFarver(hass, lamper) {
+// Den farvetemperatur Scene Presets giver et hvidt farvepunkt: nærmeste punkt i en tabel over
+// 2000–6500 K regnet med HA's egne farvefunktioner.
+function xyForKelvin(k) {
+  const t = k / 100;
+  const b = (v) => Math.max(0, Math.min(255, v));
+  const r = t <= 66 ? 255 : b(329.698727446 * Math.pow(t - 60, -0.1332047592));
+  const g = t <= 66 ? b(99.4708025861 * Math.log(t) - 161.1195681661) : b(288.1221695283 * Math.pow(t - 60, -0.0755148492));
+  const bl = t >= 66 ? 255 : t <= 19 ? 0 : b(138.5177312231 * Math.log(t - 10) - 305.0447927307);
+  const lin = (c) => (c / 255 > 0.04045 ? Math.pow((c / 255 + 0.055) / 1.055, 2.4) : c / 255 / 12.92);
+  const R = lin(r);
+  const G = lin(g);
+  const B = lin(bl);
+  const X = R * 0.664511 + G * 0.154324 + B * 0.162028;
+  const Y = R * 0.283881 + G * 0.668433 + B * 0.047685;
+  const Z = R * 0.000088 + G * 0.07231 + B * 0.986039;
+  return [X / (X + Y + Z), Y / (X + Y + Z)];
+}
+
+const KELVIN_TABEL = [];
+for (let k = 2000; k <= 6500; k += 50) KELVIN_TABEL.push([k, xyForKelvin(k)]);
+
+function kelvinAfXy(x, y) {
+  let bedst = KELVIN_TABEL[0];
+  let mindst = Infinity;
+  KELVIN_TABEL.forEach((p) => {
+    const d = Math.hypot(p[1][0] - x, p[1][1] - y);
+    if (d < mindst) {
+      mindst = d;
+      bedst = p;
+    }
+  });
+  return bedst[0];
+}
+
+// Gennemsnitsfarven i en scenes billede, målt i browseren én gang pr. billede.
+const billedFarver = {};
+const billedMaalinger = {};
+
+function maalBillede(url) {
+  if (!billedMaalinger[url]) {
+    billedMaalinger[url] = new Promise((resolve) => {
+      const billede = new Image();
+      billede.onload = () => {
+        const c = document.createElement("canvas");
+        c.width = 32;
+        c.height = 32;
+        const ctx = c.getContext("2d");
+        ctx.drawImage(billede, 0, 0, 32, 32);
+        const px = ctx.getImageData(0, 0, 32, 32).data;
+        const sum = [0, 0, 0];
+        for (let i = 0; i < px.length; i += 4) {
+          sum[0] += px[i];
+          sum[1] += px[i + 1];
+          sum[2] += px[i + 2];
+        }
+        billedFarver[url] = sum.map((s) => Math.round(s / (px.length / 4)));
+        resolve(billedFarver[url]);
+      };
+      billede.onerror = () => resolve(null);
+      billede.src = url;
+    });
+  }
+  return billedMaalinger[url];
+}
+
+// Hvide scener med de punkter, en pære kan genkendes på: lysstyrke og, for hvert punkt, både
+// farvepunktet og den farvetemperatur (mired), en hvid pære får.
+function hvideScener(katalog) {
+  if (!katalog._hvide) {
+    katalog._hvide = katalog.scener
+      .filter((s) => s.billede && s.punkter.length && s.punkter.every(([x, y]) => afstandTilHvid(x, y) <= HVID_DUV))
+      .map((s) => ({ billede: s.billede, bri: s.bri, punkter: s.punkter.map(([x, y]) => ({ x, y, mired: 1e6 / kelvinAfXy(x, y) })) }));
+  }
+  return katalog._hvide;
+}
+
+// Hvor langt en pære er fra en scenes nærmeste punkt: 1 er grænsen. Pærerne afrunder lidt, så der
+// tillades 6 i lysstyrke, 12 mired og 0,01 i farvepunkt. Scenens farvetemperatur klemmes ind i
+// pærens eget område først (Aqara T2 CCT kan ikke gå under 2700 K).
+function afstandTilPunkt(scene, a) {
+  const bri = Number(a.brightness);
+  if (!(bri > 0) || Math.abs(bri - scene.bri) > 6) return null;
+  const kelvin = Number(a.color_temp_kelvin);
+  const koldest = Number(a.max_color_temp_kelvin) > 0 ? 1e6 / Number(a.max_color_temp_kelvin) : 0;
+  const varmest = Number(a.min_color_temp_kelvin) > 0 ? 1e6 / Number(a.min_color_temp_kelvin) : Infinity;
+  const xy = a.xy_color;
+  let bedst = null;
+  scene.punkter.forEach((p, i) => {
+    let d;
+    if (a.color_mode === "color_temp" && kelvin > 0) d = Math.abs(1e6 / kelvin - Math.min(varmest, Math.max(koldest, p.mired))) / 12;
+    else if (Array.isArray(xy) && xy.length === 2) d = Math.hypot(Number(xy[0]) - p.x, Number(xy[1]) - p.y) / 0.01;
+    else return;
+    if (d <= 1 && (!bedst || d < bedst.d)) bedst = { d, i };
+  });
+  return bedst;
+}
+
+// Den hvide scene alle tændte pærer står i. En scene med flere punkter kræver pærer på så mange
+// forskellige punkter; ellers ligner én farvetemperatur ved fuld lysstyrke flere scener.
+function findHvidScene(scener, lys) {
+  let bedst = null;
+  let mindst = Infinity;
+  scener.forEach((scene) => {
+    if (scene.punkter.length > 1 && lys.length < 2) return;
+    const brugt = {};
+    let sum = 0;
+    for (const st of lys) {
+      const m = afstandTilPunkt(scene, st.attributes);
+      if (!m) return;
+      brugt[m.i] = true;
+      sum += m.d;
+    }
+    if (Object.keys(brugt).length < Math.min(lys.length, scene.punkter.length)) return;
+    if (sum < mindst) {
+      mindst = sum;
+      bedst = scene;
+    }
+  });
+  return bedst;
+}
+
+// Farverne i lamperne lige nu, uden dubletter og sorteret efter nuance. Står alle tændte pærer i en
+// hvid scene, er det farven fra scenens billede; er billedet ikke målt endnu, kaldes efterMaaling.
+export function rummetsFarver(hass, lamper, katalog, efterMaaling) {
   const taendte = paerer(hass, lamper)
     .map((id) => hass.states[id])
     .filter((st) => st && st.state === "on");
   const direkte = lamper.map((id) => hass.states[id]).filter((st) => st && st.state === "on");
   const lys = taendte.length ? taendte : direkte;
-  let farver = lys.map((st) => lysFarve(st.attributes));
+  if (!lys.length) return [];
+  const scene = katalog && katalog.scener.length ? findHvidScene(hvideScener(katalog), lys) : null;
+  if (scene && !billedFarver[scene.billede]) maalBillede(scene.billede).then((f) => { if (f && efterMaaling) efterMaaling(); });
+  let farver = scene && billedFarver[scene.billede] ? [billedFarver[scene.billede]] : lys.map((st) => lysFarve(st.attributes));
   farver = farver.filter((f, i) => farver.findIndex((g) => g.join() === f.join()) === i);
   farver.sort((x, y) => nuance(x) - nuance(y));
   return farver;
@@ -594,6 +720,37 @@ export const STANDARDSCENER = Object.keys(DANSKE_SCENER);
 export function sceneNavn(hass, scene) {
   if (sprog(hass) === "da" && DANSKE_SCENER[scene.id]) return DANSKE_SCENER[scene.id];
   return scene.navn;
+}
+
+// Scene Presets' kategorier på dansk.
+const DANSKE_KATEGORIER = {
+  Defaults: "Standard",
+  Refreshing: "Forfriskende",
+  Cozy: "Hyggelig",
+  "Party vibes": "Fest",
+  Serenity: "Sindsro",
+  Dreamy: "Drømmende",
+  Peaceful: "Fredfyldt",
+  Sunrise: "Solopgang",
+  Luxurious: "Luksus",
+  Pure: "Rent",
+  Lush: "Frodig",
+  Futuristic: "Futuristisk",
+  Halloween: "Halloween",
+  "Winter holidays": "Juletid",
+  Daily: "Hverdag",
+  "Race Day": "Racerdag",
+  Romantic: "Romantisk",
+  Vibrant: "Livlig",
+  Wanderlust: "Udlængsel",
+  Rustic: "Rustik",
+  "Misc Additions": "Andet",
+  "Winter whisper": "Vinterhvisken",
+  "Sports live": "Sport",
+};
+
+export function kategoriNavn(hass, navn) {
+  return sprog(hass) === "da" && DANSKE_KATEGORIER[navn] ? DANSKE_KATEGORIER[navn] : navn;
 }
 
 /* ---------- tider ---------- */
