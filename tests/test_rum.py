@@ -15,6 +15,7 @@ from pytest_homeassistant_custom_component.common import (
 
 from homeassistant.config_entries import ConfigSubentryData
 from homeassistant.core import Context, HomeAssistant
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.util import dt as dt_util
 
 from custom_components.rumlys.const import DOMAIN, RUM
@@ -672,3 +673,59 @@ async def test_haendelser_til_sidepanelet(hus: Hus) -> None:
         {"hvad": "hold_fra"},
         {"hvad": "slukket_i_haanden"},
     ]
+
+
+async def test_daemp_hele_rummet_i_samme_forhold(hass: HomeAssistant, hus: Hus) -> None:
+    to_lamper = [{"entity_id": SPOTS, "bevaegelse": True}, {"entity_id": STENLAMPE, "bevaegelse": False}]
+    hass.states.async_set(STENLAMPE, "on", {"brightness": 128})
+    await hus.lys("on", brightness=255)
+    await hus.saet_op(RUMMET | {"lamper": to_lamper})
+    await hus.tjeneste(DOMAIN, "daemp", rum="traeningsrum", lysstyrke=50)
+    assert sorted((k.data["entity_id"][0], k.data["brightness"]) for k in hus.taend) == [
+        (SPOTS, 128),
+        (STENLAMPE, 64),
+    ]
+    assert hus.tilstand() == "haand"
+
+
+async def test_daemp_slukket_rum_taender_med_lampernes_egen_farve(hus: Hus) -> None:
+    await hus.saet_op()
+    await hus.tjeneste(DOMAIN, "daemp", rum="traeningsrum", lysstyrke=40)
+    assert hus.taend[-1].data == {"entity_id": [SPOTS], "brightness_pct": 40, "transition": 3}
+
+
+async def test_daemp_til_0_slukker(hus: Hus) -> None:
+    await hus.lys("on", brightness=255)
+    await hus.saet_op()
+    await hus.tjeneste(DOMAIN, "daemp", rum="traeningsrum", lysstyrke=0)
+    assert hus.sluk[-1].data == {"entity_id": [SPOTS], "transition": 3}
+    assert hus.tilstand() == "slukket"
+
+
+async def test_vaelg_lys_til_rummet(hus: Hus) -> None:
+    await hus.saet_op()
+    await hus.tjeneste(
+        DOMAIN, "anvend_lys", rum="traeningsrum", lys={"type": "farve", "lysstyrke": 70, "farve": [200, 80]}
+    )
+    assert hus.taend[-1].data == {
+        "entity_id": [SPOTS],
+        "brightness_pct": 70,
+        "hs_color": [200, 80],
+        "transition": 3,
+    }
+    assert hus.tilstand() == "haand"
+
+
+async def test_tjeneste_til_et_rum_der_ikke_findes(hus: Hus) -> None:
+    await hus.saet_op()
+    with pytest.raises(ServiceValidationError):
+        await hus.tjeneste(DOMAIN, "daemp", rum="stue", lysstyrke=50)
+
+
+async def test_haendelserne_overlever_genindlaesning(hass: HomeAssistant, hus: Hus) -> None:
+    entry = await hus.saet_op()
+    await hus.bevaegelse("on")
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    rum = entry.runtime_data.rum["traeningsrum"]
+    assert [h["hvad"] for h in rum.haendelser] == ["taendt"]

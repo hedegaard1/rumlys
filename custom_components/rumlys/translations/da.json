@@ -41,6 +41,41 @@
       }
     }
   },
+  "services": {
+    "daemp": {
+      "name": "Dæmp rummet",
+      "description": "Dæmper alle rummets lamper i samme forhold: den lyseste får lysstyrken, og de andre følger med. 0 slukker rummet.",
+      "fields": {
+        "rum": { "name": "Rum", "description": "Rummets id fra Rumlys." },
+        "omraade": { "name": "Område", "description": "Eller rummets område." },
+        "lysstyrke": { "name": "Lysstyrke", "description": "Den lyseste lampes lysstyrke." }
+      }
+    },
+    "anvend_lys": {
+      "name": "Vælg lys til rummet",
+      "description": "Tænder rummets lamper med et lysvalg: hvidt lys, farve, scene eller kun lysstyrke. Rummet husker det som valgt lys.",
+      "fields": {
+        "rum": { "name": "Rum", "description": "Rummets id fra Rumlys." },
+        "omraade": { "name": "Område", "description": "Eller rummets område." },
+        "lys": { "name": "Lys", "description": "Fx {\"type\": \"hvid\", \"lysstyrke\": 80, \"kelvin\": 2700}." }
+      }
+    },
+    "anvend_scene": {
+      "name": "Vælg scene til rummet",
+      "description": "Tænder rummets lamper med en scene. Rummet husker den som valgt lys.",
+      "fields": {
+        "rum": { "name": "Rum", "description": "Rummets id fra Rumlys." },
+        "omraade": { "name": "Område", "description": "Eller rummets område." },
+        "scene": { "name": "Scene", "description": "Scenens id." },
+        "lysstyrke": { "name": "Lysstyrke", "description": "Tom: scenens egen lysstyrke." }
+      }
+    }
+  },
+  "exceptions": {
+    "rum_findes_ikke": {
+      "message": "Rumlys har intet rum «{rum}»."
+    }
+  },
   "entity": {
     "number": {
       "sluk_efter_bevaegelse": {

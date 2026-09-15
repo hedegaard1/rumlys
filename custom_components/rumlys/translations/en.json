@@ -41,6 +41,41 @@
       }
     }
   },
+  "services": {
+    "daemp": {
+      "name": "Dim room",
+      "description": "Dims all the room's lights in the same proportion: the brightest gets the brightness and the others follow. 0 turns the room off.",
+      "fields": {
+        "rum": { "name": "Room", "description": "The room's id in Rumlys." },
+        "omraade": { "name": "Area", "description": "Or the room's area." },
+        "lysstyrke": { "name": "Brightness", "description": "The brightest light's brightness." }
+      }
+    },
+    "anvend_lys": {
+      "name": "Choose light for room",
+      "description": "Turns the room's lights on with a light choice: white light, colour, scene or brightness only. The room remembers it as the chosen light.",
+      "fields": {
+        "rum": { "name": "Room", "description": "The room's id in Rumlys." },
+        "omraade": { "name": "Area", "description": "Or the room's area." },
+        "lys": { "name": "Light", "description": "For example {\"type\": \"hvid\", \"lysstyrke\": 80, \"kelvin\": 2700}." }
+      }
+    },
+    "anvend_scene": {
+      "name": "Choose scene for room",
+      "description": "Turns the room's lights on with a scene. The room remembers it as the chosen light.",
+      "fields": {
+        "rum": { "name": "Room", "description": "The room's id in Rumlys." },
+        "omraade": { "name": "Area", "description": "Or the room's area." },
+        "scene": { "name": "Scene", "description": "The scene's id." },
+        "lysstyrke": { "name": "Brightness", "description": "Empty: the scene's own brightness." }
+      }
+    }
+  },
+  "exceptions": {
+    "rum_findes_ikke": {
+      "message": "Rumlys has no room «{rum}»."
+    }
+  },
   "entity": {
     "number": {
       "sluk_efter_bevaegelse": {

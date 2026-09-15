@@ -307,6 +307,56 @@ class Rum:
         self.valgt_i_haanden()
 
     @callback
+    def anvend_lys(self, lys: dict[str, Any]) -> None:
+        """Nogen har valgt et lys til hele rummet — på kortet, i sidepanelet eller i en automatisering."""
+        self._anvend(lys, self.lys)
+        self.valgt_i_haanden()
+
+    @callback
+    def daemp(self, procent: int) -> None:
+        """Hele rummet i samme forhold: den lyseste lampe får procenten, og de andre følger med."""
+        if procent <= 0:
+            self._kald("turn_off", {}, self.lys)
+            if self.kilde is not None:
+                self._log("slukket_i_haanden")
+            self._nulstil()
+            return
+        taendte = {
+            entity_id: tilstand.attributes.get("brightness") or 255
+            for entity_id in self.lys
+            if (tilstand := self.hass.states.get(entity_id)) is not None
+            and tilstand.state == STATE_ON
+        }
+        if not taendte:
+            # Slukket: lamperne tænder med deres egen farve, ved den valgte lysstyrke.
+            self._kald("turn_on", {"brightness_pct": procent}, self.foelger)
+        else:
+            faktor = procent * 255 / 100 / max(taendte.values())
+            kontekst: Context | None = None
+            for entity_id, lysstyrke in taendte.items():
+                kontekst = self._kald(
+                    "turn_on",
+                    {"brightness": max(1, min(255, round(lysstyrke * faktor)))},
+                    [entity_id],
+                    kontekst,
+                )
+        self.valgt_i_haanden()
+
+    def status(self) -> dict[str, Any]:
+        """Hvad rummet gør lige nu — til sidepanelet."""
+        tidsrum = self.aktivt_tidsrum()
+        return {
+            "tilstand": self.tilstand,
+            "slukker": self.slukker and self.slukker.isoformat(),
+            "hold_slutter": self.hold_slutter and self.hold_slutter.isoformat(),
+            "bevaegelse": self.bevaegelse,
+            "tidsrum": tidsrum[CONF_NAVN] if tidsrum else None,
+            "husket": self._husket_lys() is not None,
+            "indstillinger": dict(self.indstillinger),
+            "haendelser": list(self.haendelser),
+        }
+
+    @callback
     def valgt_i_haanden(self) -> None:
         """Nogen har selv valgt lyset — på kortet, med en scene, i appen eller på væggen."""
         if self.kilde != HAAND:
