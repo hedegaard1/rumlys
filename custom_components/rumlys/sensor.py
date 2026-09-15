@@ -1,10 +1,14 @@
-"""Rummets tilstand: slukket, bevægelse, tændt i hånden eller holdes tændt."""
+"""Rummets tilstand: slukket, tændt af sensor, valgt lys eller holdes tændt."""
 
 from __future__ import annotations
 
 from typing import Any
 
-from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
+from homeassistant.components.sensor import (
+    DOMAIN as SENSOR_DOMAIN,
+    SensorDeviceClass,
+    SensorEntity,
+)
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
@@ -19,7 +23,9 @@ async def async_setup_entry(
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     for rum_id, rum in entry.runtime_data.rum.items():
-        async_add_entities([Tilstand(rum, "tilstand")], config_subentry_id=rum_id)
+        async_add_entities(
+            [Tilstand(rum, "tilstand", SENSOR_DOMAIN)], config_subentry_id=rum_id
+        )
 
 
 class Tilstand(RumEntitet, SensorEntity):

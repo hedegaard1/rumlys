@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from homeassistant.components.switch import SwitchEntity
+from homeassistant.components.switch import DOMAIN as SWITCH_DOMAIN, SwitchEntity
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
@@ -18,7 +18,7 @@ async def async_setup_entry(
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     for rum_id, rum in entry.runtime_data.rum.items():
-        async_add_entities([HoldLys(rum, "hold")], config_subentry_id=rum_id)
+        async_add_entities([HoldLys(rum, "hold", SWITCH_DOMAIN)], config_subentry_id=rum_id)
 
 
 class HoldLys(RumEntitet, SwitchEntity):

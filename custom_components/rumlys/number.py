@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from homeassistant.components.number import (
+    DOMAIN as NUMBER_DOMAIN,
     NumberDeviceClass,
     NumberEntity,
     NumberEntityDescription,
@@ -65,7 +66,7 @@ async def async_setup_entry(
 
 class Tid(RumEntitet, NumberEntity):
     def __init__(self, rum: Rum, beskrivelse: NumberEntityDescription) -> None:
-        super().__init__(rum, beskrivelse.key)
+        super().__init__(rum, beskrivelse.key, NUMBER_DOMAIN)
         self.entity_description = beskrivelse
 
     @property

@@ -20,27 +20,28 @@ from homeassistant.util import dt as dt_util
 from custom_components.rumlys.const import DOMAIN, RUM
 
 SPOTS = "light.traeningsrum_spots"
+STENLAMPE = "light.traeningsrum_stenlampe"
 SENSOR = "binary_sensor.bevaegelse_traeningsrum"
-HOLD = "switch.traeningsrum_hold_light"
-TILSTAND = "sensor.traeningsrum_state"
-SLUK_BEVAEGELSE = "number.traeningsrum_off_after_motion"
-SLUK_TRYK = "number.traeningsrum_off_after_press"
-HOLD_TID = "number.traeningsrum_hold_time"
+HOLD = "switch.traeningsrum_hold_lys"
+TILSTAND = "sensor.traeningsrum_tilstand"
+SLUK_BEVAEGELSE = "number.traeningsrum_sluk_efter_bevaegelse"
+SLUK_TRYK = "number.traeningsrum_sluk_efter_tryk"
+HOLD_TID = "number.traeningsrum_hold_tid"
 
 RUMMET = {
-    "lys": [SPOTS],
+    "omraade": None,
+    "lamper": [{"entity_id": SPOTS, "bevaegelse": True}],
     "sensorer": [SENSOR],
-    "lysstyrke": 100,
-    "kelvin": 3500,
+    "lys": {"type": "hvid", "lysstyrke": 100, "kelvin": 3500},
     "overgang": 3,
     "tidsrum": [],
+    "scener": [],
 }
 NAT = {
     "navn": "Nat",
     "start": "22:00:00",
     "slut": "06:30:00",
-    "lysstyrke": 10,
-    "kelvin": 2700,
+    "lys": {"type": "hvid", "lysstyrke": 10, "kelvin": 2700},
     "sluk_efter": 60,
 }
 
@@ -60,6 +61,7 @@ class Hus:
         entry = MockConfigEntry(
             domain=DOMAIN,
             title="Rumlys",
+            minor_version=2,
             subentries_data=[
                 ConfigSubentryData(
                     data=rummet,
@@ -412,8 +414,8 @@ async def test_tidsrummet_skifter_ikke_lys_valgt_i_haanden(hus: Hus) -> None:
     assert len(hus.taend) == 1
 
 
-async def test_farven_roeres_ikke_uden_kelvin(hus: Hus) -> None:
-    rummet = {k: v for k, v in RUMMET.items() if k not in ("kelvin", "overgang")}
+async def test_kun_lysstyrke_roerer_ikke_farven(hus: Hus) -> None:
+    rummet = RUMMET | {"lys": {"type": "lysstyrke", "lysstyrke": 100}, "overgang": 0}
     await hus.saet_op(rummet)
     await hus.bevaegelse("on")
     assert [k.data for k in hus.taend] == [{"entity_id": [SPOTS], "brightness_pct": 100}]
@@ -519,3 +521,154 @@ async def test_tilstand_gemmes_ved_genindlaesning(hass: HomeAssistant, hus: Hus)
     assert hus.tilstand() == "bevaegelse"
     await hus.vent(31)
     assert len(hus.sluk) == 1
+
+
+async def test_farve_som_rummets_lys(hus: Hus) -> None:
+    await hus.saet_op(RUMMET | {"lys": {"type": "farve", "lysstyrke": 60, "farve": [300, 90]}})
+    await hus.bevaegelse("on")
+    assert hus.taend[-1].data == {
+        "entity_id": [SPOTS],
+        "brightness_pct": 60,
+        "hs_color": [300, 90],
+        "transition": 3,
+    }
+
+
+async def test_valgt_lys_taender_igen_ved_naeste_bevaegelse(hus: Hus) -> None:
+    await hus.saet_op()
+    await hus.bevaegelse("on")
+    await hus.lampen_svarer()
+    await hus.lys("on", Context(user_id="martin"), brightness=60, color_mode="hs", hs_color=(300, 90))
+    assert hus.tilstand() == "haand"
+    await hus.vent(4)  # rummet husker lyset, når lamperne har meldt det hele
+    await hus.bevaegelse("off")
+    await hus.vent(301)
+    assert len(hus.sluk) == 1
+    await hus.lys("off", hus.sluk[-1].context)
+
+    await hus.bevaegelse("on")
+    assert hus.taend[-1].data == {
+        "entity_id": [SPOTS],
+        "brightness": 60,
+        "hs_color": [300, 90],
+        "transition": 3,
+    }
+    assert hus.tilstand() == "bevaegelse"
+
+
+async def test_valgt_lys_huskes_ogsaa_naar_det_slukkes_i_haanden(hus: Hus) -> None:
+    await hus.saet_op()
+    await hus.lys("on", Context(user_id="martin"), brightness=40, color_mode="color_temp", color_temp_kelvin=2200)
+    await hus.vent(4)
+    await hus.lys("off", Context(user_id="martin"))
+    assert hus.tilstand() == "slukket"
+    await hus.bevaegelse("on")
+    assert hus.taend[-1].data == {
+        "entity_id": [SPOTS],
+        "brightness": 40,
+        "color_temp_kelvin": 2200,
+        "transition": 3,
+    }
+
+
+async def test_nyt_tidsrum_glemmer_det_valgte_lys(hus: Hus) -> None:
+    hus.freezer.move_to(lokal("2026-09-14 21:00:00"))
+    await hus.saet_op(RUMMET | {"tidsrum": [NAT]})
+    await hus.lys("on", Context(user_id="martin"), brightness=200, color_mode="hs", hs_color=(0, 100))
+    await hus.vent(4)
+    await hus.lys("off", Context(user_id="martin"))
+
+    # Stadig samme tidsrum: det valgte lys.
+    hus.freezer.move_to(lokal("2026-09-14 21:30:00"))
+    await hus.vent(0)
+    await hus.bevaegelse("on")
+    assert hus.taend[-1].data["hs_color"] == [0, 100]
+    await hus.lys("off", Context(user_id="martin"))
+    await hus.bevaegelse("off")
+
+    # Natten er begyndt: nattens eget lys.
+    hus.freezer.move_to(lokal("2026-09-14 22:30:00"))
+    await hus.vent(0)
+    await hus.bevaegelse("on")
+    assert hus.taend[-1].data == {
+        "entity_id": [SPOTS],
+        "brightness_pct": 10,
+        "color_temp_kelvin": 2700,
+        "transition": 3,
+    }
+
+
+async def test_husket_lys_overlever_genstart(hus: Hus) -> None:
+    await hus.saet_op(
+        gemt={
+            "indstillinger": {},
+            "kilde": None,
+            "slukker": None,
+            "hold_slutter": None,
+            "husket": {"lamper": {SPOTS: {"state": "on", "brightness": 40, "color_temp_kelvin": 2200}}, "til": None},
+        }
+    )
+    await hus.bevaegelse("on")
+    assert hus.taend[-1].data == {
+        "entity_id": [SPOTS],
+        "brightness": 40,
+        "color_temp_kelvin": 2200,
+        "transition": 3,
+    }
+
+
+async def test_hold_lys_taender_med_det_valgte_lys(hus: Hus) -> None:
+    await hus.saet_op()
+    await hus.lys("on", Context(user_id="martin"), brightness=90, color_mode="xy", xy_color=(0.4, 0.3))
+    await hus.vent(4)
+    await hus.lys("off", Context(user_id="martin"))
+    await hus.tjeneste("switch", "turn_on", entity_id=HOLD)
+    assert hus.taend[-1].data == {
+        "entity_id": [SPOTS],
+        "brightness": 90,
+        "xy_color": [0.4, 0.3],
+        "transition": 3,
+    }
+
+
+async def test_lampe_der_ikke_taender_ved_bevaegelse(hass: HomeAssistant, hus: Hus) -> None:
+    hass.states.async_set(STENLAMPE, "off")
+    await hus.saet_op(
+        RUMMET
+        | {
+            "lamper": [
+                {"entity_id": SPOTS, "bevaegelse": True},
+                {"entity_id": STENLAMPE, "bevaegelse": False},
+            ]
+        }
+    )
+    await hus.bevaegelse("on")
+    assert [k.data["entity_id"] for k in hus.taend] == [[SPOTS]]
+    await hus.lampen_svarer()
+    await hus.bevaegelse("off")
+    await hus.vent(31)
+    # Den hører stadig til rummet og slukker med det.
+    assert [k.data for k in hus.sluk] == [{"entity_id": [SPOTS, STENLAMPE], "transition": 3}]
+
+
+async def test_haendelser_til_sidepanelet(hus: Hus) -> None:
+    hus.freezer.move_to(lokal("2026-09-14 21:59:00"))
+    entry = await hus.saet_op(RUMMET | {"tidsrum": [NAT]})
+    await hus.bevaegelse("on")
+    await hus.lampen_svarer()
+    await hus.vent(60)
+    await hus.lys("on", Context(user_id="martin"), brightness=10)
+    await hus.bevaegelse("off")
+    await hus.tjeneste("switch", "turn_on", entity_id=HOLD)
+    await hus.tjeneste("switch", "turn_off", entity_id=HOLD)
+    await hus.lys("off", Context(user_id="martin"))
+
+    rum = entry.runtime_data.rum["traeningsrum"]
+    assert [{k: v for k, v in h.items() if k != "tid"} for h in rum.haendelser] == [
+        {"hvad": "taendt", "lys": "rummet"},
+        {"hvad": "tidsrum", "navn": "Nat"},
+        {"hvad": "valgt"},
+        {"hvad": "hold_til"},
+        {"hvad": "hold_fra"},
+        {"hvad": "slukket_i_haanden"},
+    ]
