@@ -161,6 +161,13 @@ const TEKSTER = {
     smaa: "Små",
     store: "Store med navn",
     kort_hint: "Lamper, hold lys og scener hentes fra rummet. De rettes i Rumlys i sidepanelet.",
+    vaelg_rum_hint: "Vælg rummet i kortets opsætning",
+    taend_sluk: "Tænd eller sluk",
+    luk: "Luk",
+    detaljer: "Historik og indstillinger i Home Assistant",
+    findes_ikke: "Findes ikke",
+    kort_navn: "Rumlys",
+    kort_beskrivelse: "Lyset i et rum fra Rumlys: lysstyrke, hold lys og rummets scener.",
   },
   en: {
     titel: "Rumlys",
@@ -306,6 +313,13 @@ const TEKSTER = {
     smaa: "Small",
     store: "Large with name",
     kort_hint: "Lights, keep light on and scenes come from the room. They are edited in Rumlys in the sidebar.",
+    vaelg_rum_hint: "Choose the room in the card's settings",
+    taend_sluk: "Turn on or off",
+    luk: "Close",
+    detaljer: "History and settings in Home Assistant",
+    findes_ikke: "Does not exist",
+    kort_navn: "Rumlys",
+    kort_beskrivelse: "The light in a room from Rumlys: brightness, keep light on and the room's scenes.",
   },
 };
 

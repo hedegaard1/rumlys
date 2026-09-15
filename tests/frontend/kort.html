@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rumlys kort (test)</title>
+<style>
+  :root {
+    --primary-color: #f39200; --text-primary-color: #fff; --primary-text-color: #1d1b19; --secondary-text-color: #6b645d;
+    --primary-background-color: #efedea; --secondary-background-color: #f6f4f1; --card-background-color: #fff;
+    --divider-color: #e0dad2; --ha-card-border-radius: 16px; --ha-font-family-body: Figtree, system-ui, sans-serif;
+  }
+  body { margin: 0; padding: 16px; background: var(--primary-background-color); font-family: var(--ha-font-family-body); display: grid; gap: 12px; max-width: 640px; }
+  .editor { background: #fff; border-radius: 16px; padding: 16px; }
+</style>
+</head>
+<body>
+<rumlys-card id="kontor"></rumlys-card>
+<rumlys-card id="traening"></rumlys-card>
+<rumlys-card id="gang"></rumlys-card>
+<div class="editor"><rumlys-card-editor></rumlys-card-editor></div>
+<script type="module">
+  window.rumlysFiler = "/custom_components/rumlys/frontend/";
+  const { hass, vedOpdatering } = await import("./mock.js");
+  await import("../../custom_components/rumlys/frontend/rumlys-card.js");
+  const kort = [["kontor", { rum: "kontor" }], ["traening", { rum: "traeningsrum", scene_size: "large" }], ["gang", { rum: "gang", size: "small" }]];
+  kort.forEach(([id, config]) => {
+    const el = document.getElementById(id);
+    el.setConfig(Object.assign({ type: "custom:rumlys-card" }, config));
+    el.hass = hass;
+  });
+  const editor = document.querySelector("rumlys-card-editor");
+  editor.setConfig({ type: "custom:rumlys-card", rum: "kontor" });
+  editor.hass = hass;
+  editor.addEventListener("config-changed", (ev) => console.log("config-changed", JSON.stringify(ev.detail.config)));
+  vedOpdatering(() => kort.forEach(([id]) => { document.getElementById(id).hass = hass; }));
+</script>
+</body>
+</html>
