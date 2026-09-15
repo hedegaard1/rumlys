@@ -1,10 +1,11 @@
 # Rumlys
 
-Home Assistant-integration, der samler lyset i hvert rum ét sted: bevægelse, to sluk-tider,
-«hold lys» og tidsrum med hvert sit lys.
+Home Assistant-integration, der samler lyset i hvert rum ét sted: bevægelse, sluk-tider, «hold lys»,
+døgnets tidsrum og 146 scener — med sit eget sidepanel til opsætningen og sit eget kort til hverdag.
 
-*A Home Assistant integration for the light in each room: motion, two off timers, "hold light" and
-time periods. The integration is translated to English; this README is in Danish.*
+*A Home Assistant integration for the light in each room: motion, turn-off times, "keep light on",
+periods of the day and 146 scenes, with its own sidebar panel for setup and its own card for daily
+use. The integration is translated to English; this README is in Danish.*
 
 ## Installation
 
@@ -13,47 +14,96 @@ Gennem HACS som eget repository:
 1. Åbn HACS, vælg menuen øverst til højre og **Custom repositories**.
 2. Skriv `https://github.com/hedegaard1/rumlys` og vælg typen **Integration**.
 3. Hent **Rumlys**, og genstart Home Assistant.
-4. Gå til **Indstillinger → Enheder & tjenester → Tilføj integration**, og vælg **Rumlys**.
+4. Gå til **Indstillinger → Enheder og tjenester → Tilføj integration**, og vælg **Rumlys**.
 
 Kræver Home Assistant 2026.9 eller nyere.
 
-## Rum
+## Tre steder, hvert med sit job
 
-Rummene tilføjes under integrationen med **Tilføj rum**. Et rum har:
+| Sted | Til | Hvad |
+|---|---|---|
+| **Kortet** `custom:rumlys-card` | alle i husstanden | tænd, sluk og dæmp hele rummet, vælg scene, farve eller hvidt lys, hold lyset tændt |
+| **Rumlys i sidepanelet** | administratorer | al opsætning af et rum på én side, og hvad rummet har gjort og hvorfor |
+| **Enheder og tjenester** | — | integrationen og nye rum: kun området |
 
-- **Lys:** lamper eller grupper, som bevægelse tænder, og som Rumlys slukker.
-- **Bevægelsessensorer** (valgfrit).
-- **Lysstyrke og hvidt lys**, når bevægelse tænder lyset. Uden farvetemperatur røres farven ikke.
-- **Overgang** i sekunder, når lyset tændes og slukkes.
-- **Tidsrum**, fx *Nat* 22:00–06:30 med 10 %. Et tidsrum har sit eget lys og kan have sin egen
-  sluk-tid. Uden for tidsrummene bruges rummets eget lys.
+### Et rum er et område
 
-Hvert rum bliver en enhed med fem entiteter:
+**Tilføj rum** — i sidepanelet eller under integrationen — spørger kun om området i Home Assistant.
+Rummet får områdets navn og følger med, hvis området omdøbes, og områdets lamper og
+bevægelsessensorer er valgt på forhånd. Er en gruppe med, er dens pærer det ikke. Ét rum pr. område.
+
+### Rummets side i sidepanelet
+
+- **Lamper** — hver lampe kan sættes til ikke at tænde ved bevægelse; den hører stadig til rummet og
+  slukker med det.
+- **Sensorer** — med «ser nogen nu».
+- **Rummets lys** — scene, farve, hvidt lys eller kun lysstyrke, og blød tænd og sluk.
+- **Døgnet** — tidsrum som tidslinje, fx *Nat* 22:00–06:30 med scenen Natlys. Hvert tidsrum har sit
+  eget lys og kan have sin egen sluk-tid; uden for tidsrummene gælder rummets lys.
+- **Når ingen er i rummet** — hvornår lys tændt af sensoren, og lys nogen selv har valgt, slukker.
+- **Hold lys tændt** — hvor længe.
+- **Scener på kortet** — de samme på alle kort for rummet.
+- **Seneste hændelser** — fx «Slukket: ingen i rummet, valgt lys».
+
+### Kortet
+
+Ét kort pr. rum. Baggrunden viser lampernes farver; skyderen dæmper alle rummets lamper i samme
+forhold; knappen holder lyset tændt og tæller ned. Tryk på kortet åbner menuen med lysstyrke, hvidt
+lys, farve, scener og hver lampe for sig. Kortets opsætning er kun rummet og udseendet:
+
+```yaml
+type: custom:rumlys-card
+rum: <rummets id>                  # vælges i kortets opsætning
+size: medium                       # small, medium eller large
+scene_size: small                  # small eller large (med navn)
+```
+
+## Entiteter
+
+Hvert rum er en enhed med fem entiteter. Id'erne dannes af nøglen, så de er ens på alle sprog:
 
 | Entitet | Hvad den gør |
 |---|---|
-| Hold lys | Holder lyset tændt i hold-tiden; sensoren er ude af spil imens |
-| Sluk efter bevægelse | Sekunder, fra sensoren holder op med at se bevægelse (standard 30) |
-| Sluk efter tryk | Minutter, efter lyset er tændt eller ændret i hånden (standard 5; 0 = aldrig) |
-| Hold-tid | Timer (standard 4) |
-| Tilstand | Slukket, Bevægelse, Tændt i hånden eller Holdes tændt — med tidspunktet for næste sluk |
+| `switch.<rum>_hold_lys` — Hold lys | Holder lyset tændt i hold-tiden; attributten `slutter` siger hvornår |
+| `number.<rum>_sluk_efter_bevaegelse` — Automatisk lys slukker efter | Sekunder (standard 30) |
+| `number.<rum>_sluk_efter_tryk` — Valgt lys slukker efter | Minutter (standard 5; 0 = aldrig) |
+| `number.<rum>_hold_tid` — Hold lys i | Timer (standard 4) |
+| `sensor.<rum>_tilstand` — Tilstand | Slukket, Tændt af sensor, Valgt lys eller Holdes tændt; attributten `slukker` |
+
+## Tjenester
+
+| Tjeneste | Hvad |
+|---|---|
+| `rumlys.daemp` | Dæmper rummet i samme forhold — den lyseste lampe får lysstyrken. 0 slukker |
+| `rumlys.anvend_lys` | Tænder rummet med et lysvalg, fx `{"type": "hvid", "lysstyrke": 80, "kelvin": 2700}` |
+| `rumlys.anvend_scene` | Tænder rummet med en scene, eventuelt med egen lysstyrke |
+
+Rummet angives med `rum` (id'et) eller `omraade`. Begge tæller som lys valgt i hånden og huskes.
 
 ## Sådan opfører lyset sig
 
 | Situation | Hvad sker der |
 |---|---|
-| Bevægelse, og lyset er slukket | Tænder med rummets lys — eller tidsrummets, når klokken er inde i et |
-| Bevægelsen holder op | Slukker efter «sluk efter bevægelse»; ny bevægelse stopper nedtællingen |
-| Lyset tændes eller ændres i hånden (kort, scene, app, væg) | Slukker efter «sluk efter tryk», når der ikke er bevægelse |
+| Bevægelse, og lyset er slukket | Tænder med det lys, der sidst blev valgt i tidsrummet; ellers tidsrummets eller rummets eget lys |
+| Et nyt tidsrum begynder | Tidsrummets eget lys gælder, indtil nogen vælger andet; lys tændt af bevægelse skifter med |
+| Bevægelsen holder op | Slukker efter «automatisk lys slukker efter»; ny bevægelse stopper nedtællingen |
+| Lyset tændes eller ændres i hånden (kort, scene, app, væg) | Rummet husker lyset og slukker efter «valgt lys slukker efter», når ingen er der |
 | Bevægelse, mens lyset er valgt i hånden | Lyset bliver, som det er; bevægelsen forlænger kun tiden |
-| Tidsrummet skifter, mens bevægelse har tændt lyset | Skifter til det nye tidsrums lys |
-| «Hold lys» slås til | Sensor og nedtælling er ude af spil; slukket lys tændes med sidste lysstyrke og farve |
-| Hold-tiden løber ud, eller hold slås fra | Tilbage til sensoren; uden bevægelse slukker lyset efter «sluk efter bevægelse» |
-| Lyset slukkes i hånden | Alt stopper, og hold slås fra; lyset tænder igen ved næste bevægelse |
-| Home Assistant genstarter | Tider og tilstand huskes; en tid, der er løbet ud imens, afvikles straks |
+| «Hold lys» slås til | Sensor og nedtælling er ude af spil; slukket lys tændes med det sidst valgte lys |
+| Hold-tiden løber ud, eller hold slås fra | Tilbage til sensoren |
+| Lyset slukkes i hånden | Nedtælling og hold stopper; det valgte lys huskes stadig |
+| Home Assistant genstarter | Tider, tilstand og det valgte lys huskes; en tid, der er løbet ud imens, afvikles straks |
 
-Rumlys kender sine egne kommandoer på Home Assistants *context* og på et kort vindue bagefter,
-fordi en Zigbee2MQTT-gruppe melder tilbage et par sekunder senere.
+Rumlys kender sine egne kommandoer på Home Assistants *context* og på et kort vindue bagefter, fordi
+en Zigbee2MQTT-gruppe melder tilbage et par sekunder senere. Rum fra 0.1.0 flyttes automatisk: navnet
+slås op som område, og lysstyrke og farvetemperatur bliver et lysvalg.
+
+## Scener
+
+De 146 scener i 23 kategorier stammer fra [Scene Presets](https://github.com/Hypfer/hass-scene_presets)
+af Hypfer (Apache-2.0), se [NOTICE](NOTICE). En scenes farvepunkter fordeles på lamperne efter tur;
+en farvelampe får punktet, en hvid lampe nærmeste farvetemperatur, og en lampe, der kun kan dæmpes,
+lysstyrken. Får alle pærer i en gruppe det samme, sendes det til gruppen som én kommando.
 
 ## Udvikling
 
@@ -65,10 +115,12 @@ python -m venv .venv
 .venv/Scripts/python -m pytest
 ```
 
-Home Assistant er ikke lavet til Windows. Der skal testene køres med
-`PYTHONPATH=tests/windows`, som giver to Linux-moduler, Home Assistant importerer, en tom
-erstatning.
+Home Assistant er ikke lavet til Windows. Der skal testene køres med `PYTHONPATH=tests/windows`, som
+giver to Linux-moduler, Home Assistant importerer, en tom erstatning.
+
+Sidepanelet og kortet kan ses uden Home Assistant: `python -m http.server 8766`, og åbn
+`/tests/frontend/panel.html` eller `/tests/frontend/kort.html`, der bruger et falsk Home Assistant.
 
 ## Licens
 
-[Apache-2.0](LICENSE).
+[Apache-2.0](LICENSE), se også [NOTICE](NOTICE).
