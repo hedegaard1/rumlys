@@ -74,7 +74,6 @@ button { font: inherit; color: inherit; }
 .rumfelt b { display: block; font-size: 15px; font-weight: 600; }
 .rumfelt .status { font-size: 13px; color: var(--rl-daempet); }
 .rumfelt .meta { font-size: 12px; color: var(--rl-daempet); margin-top: 6px; }
-.rumfelt.nyt { border: 2px dashed var(--rl-linje); background: transparent; box-shadow: none; align-items: center; justify-content: center; min-height: 140px; color: var(--rl-p); font-weight: 600; gap: 6px; }
 
 /* rummets side */
 .hoved { background: var(--rl-flade); border-radius: var(--rl-radius); box-shadow: var(--rl-skygge); padding: 14px 16px; margin-bottom: 14px; }
@@ -468,7 +467,6 @@ class RumlysPanel extends HTMLElement {
     }
     const gitter = h("div", { class: "rumgitter" });
     (this._liste || []).forEach((rum) => gitter.appendChild(this._rumfelt(rum)));
-    gitter.appendChild(h("button", { class: "rumfelt nyt", onclick: () => this._nytRum() }, ikon("mdi:plus"), this.t("nyt_rum")));
     indhold.appendChild(gitter);
     if (this._liste && !this._liste.length) indhold.appendChild(h("p", { class: "hint" }, this.t("ingen_rum")));
     this._tegnRamme(this.t("titel"), indhold);

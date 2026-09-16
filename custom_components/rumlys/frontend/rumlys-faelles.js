@@ -4,7 +4,7 @@
   ha-martin: hvidt lys tegnes som i Hue-appen, og en hvid scene genkendes på pærerne.
 */
 
-export const VERSION = "0.4.2";
+export const VERSION = "0.4.3";
 // Mappen, filen selv ligger i — i Home Assistant med versionen i stien, på testsiden repoets egen.
 export const FILER = new URL("./", import.meta.url).href;
 // Scenerne ligger i Rumlys selv; findes de ikke, bruges en installeret Scene Presets.
