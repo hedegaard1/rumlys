@@ -20,7 +20,6 @@
 <rumlys-card id="gang"></rumlys-card>
 <div class="editor"><rumlys-card-editor></rumlys-card-editor></div>
 <script type="module">
-  window.rumlysFiler = "/custom_components/rumlys/frontend/";
   const { hass, vedOpdatering } = await import("./mock.js");
   await import("../../custom_components/rumlys/frontend/rumlys-card.js");
   const kort = [["kontor", { rum: "kontor" }], ["traening", { rum: "traeningsrum", scene_size: "large" }], ["gang", { rum: "gang", size: "small" }]];

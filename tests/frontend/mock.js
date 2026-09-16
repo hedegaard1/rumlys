@@ -23,8 +23,8 @@ const KATALOG = {
   ]),
 };
 
-// Scenerne hentes fra repoets egne filer (window.rumlysFiler sættes på testsiden). Uden dem
-// bruges det lille katalog herover.
+// Scenerne hentes fra repoets egne filer ved siden af rumlys-faelles.js. Uden dem bruges det
+// lille katalog herover.
 const aegteFetch = window.fetch.bind(window);
 window.fetch = async (url, ...rest) => {
   const svar = await aegteFetch(url, ...rest);

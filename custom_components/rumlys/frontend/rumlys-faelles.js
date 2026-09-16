@@ -4,9 +4,9 @@
   ha-martin: hvidt lys tegnes som i Hue-appen, og en hvid scene genkendes på pærerne.
 */
 
-export const VERSION = "0.4.0";
-// Testsiden i tests/frontend peger på repoets egne filer; i Home Assistant serverer Rumlys dem.
-export const FILER = window.rumlysFiler || "/rumlys_filer/";
+export const VERSION = "0.4.1";
+// Mappen, filen selv ligger i — i Home Assistant med versionen i stien, på testsiden repoets egen.
+export const FILER = new URL("./", import.meta.url).href;
 // Scenerne ligger i Rumlys selv; findes de ikke, bruges en installeret Scene Presets.
 const SCENE_KILDER = [
   [FILER + "scener/scener.json", FILER + "scener/"],
@@ -88,13 +88,20 @@ const TEKSTER = {
     alle_dage: "Alle dage",
     hverdage: "Hverdage",
     weekend: "Weekend",
-    dag_0: "Man",
-    dag_1: "Tir",
-    dag_2: "Ons",
-    dag_3: "Tor",
-    dag_4: "Fre",
-    dag_5: "Lør",
-    dag_6: "Søn",
+    dag_0: "Mandag",
+    dag_1: "Tirsdag",
+    dag_2: "Onsdag",
+    dag_3: "Torsdag",
+    dag_4: "Fredag",
+    dag_5: "Lørdag",
+    dag_6: "Søndag",
+    kort_dag_0: "Man",
+    kort_dag_1: "Tir",
+    kort_dag_2: "Ons",
+    kort_dag_3: "Tor",
+    kort_dag_4: "Fre",
+    kort_dag_5: "Lør",
+    kort_dag_6: "Søn",
     mangler_navn: "Tidsrummet skal have et navn.",
     mangler_tid: "Vælg både Fra og Til.",
     mangler_dage: "Vælg mindst én dag.",
@@ -252,13 +259,20 @@ const TEKSTER = {
     alle_dage: "Every day",
     hverdage: "Weekdays",
     weekend: "Weekend",
-    dag_0: "Mon",
-    dag_1: "Tue",
-    dag_2: "Wed",
-    dag_3: "Thu",
-    dag_4: "Fri",
-    dag_5: "Sat",
-    dag_6: "Sun",
+    dag_0: "Monday",
+    dag_1: "Tuesday",
+    dag_2: "Wednesday",
+    dag_3: "Thursday",
+    dag_4: "Friday",
+    dag_5: "Saturday",
+    dag_6: "Sunday",
+    kort_dag_0: "Mon",
+    kort_dag_1: "Tue",
+    kort_dag_2: "Wed",
+    kort_dag_3: "Thu",
+    kort_dag_4: "Fri",
+    kort_dag_5: "Sat",
+    kort_dag_6: "Sun",
     mangler_navn: "The period needs a name.",
     mangler_tid: "Choose both From and To.",
     mangler_dage: "Choose at least one day.",

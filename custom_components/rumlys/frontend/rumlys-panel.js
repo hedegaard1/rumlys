@@ -24,6 +24,7 @@ import {
   rummetsFarver,
   sceneFarver,
   sceneNavn,
+  sprog,
   statusTekst,
   tekst,
   css,
@@ -120,7 +121,7 @@ select, input[type=text], input[type=time], input[type=search] {
 .naar .tx { flex: 1; min-width: 180px; }
 .naar .tx b { display: block; font-size: 14px; font-weight: 500; }
 .naar .tx small { color: var(--rl-daempet); font-size: 12px; }
-.uge { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 4px 8px; align-items: center; }
+.uge { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 10px; align-items: center; }
 .uge .dag { font-size: 12px; color: var(--rl-daempet); }
 .uge .dag.idag { color: var(--primary-text-color); font-weight: 700; }
 .spor { position: relative; height: 26px; border-radius: 8px; overflow: hidden; cursor: pointer; box-shadow: inset 0 0 0 1px var(--rl-linje); }
@@ -879,6 +880,8 @@ class RumlysPanel extends HTMLElement {
       }
       uge.append(h("span", { class: "dag" + (dag === idag ? " idag" : "") }, this.t("dag_" + dag)), spor);
     });
+    // Klokkeslættene i samme gitter som dagene, så de står under sporene, uanset hvor lange navnene er.
+    uge.append(h("span", {}), h("div", { class: "timer" }, ...["00", "06", "12", "18", "24"].map((t) => h("span", {}, t))));
     this._levende.push(() => {
       const n = new Date();
       nu.style.left = (n.getHours() * 60 + n.getMinutes()) / 14.4 + "%";
@@ -916,7 +919,6 @@ class RumlysPanel extends HTMLElement {
       this.t("tidsplan"),
       this.t("tidsplan_hint"),
       uge,
-      h("div", { class: "uge" }, h("span", {}), h("div", { class: "timer" }, ...["00", "06", "12", "18", "24"].map((t) => h("span", {}, t)))),
       liste,
       fast,
       h("button", { class: "knap t", onclick: () => this._retTidsrum(null) }, ikon("mdi:plus"), this.t("tilfoej_tidsrum"))
@@ -934,16 +936,19 @@ class RumlysPanel extends HTMLElement {
     if (noegle === "0123456") return this.t("alle_dage");
     if (noegle === "01234") return this.t("hverdage");
     if (noegle === "56") return this.t("weekend");
-    // Tre dage eller flere i træk skrives som et spænd, fx Man–Ons.
+    // På dansk skrives ugedage med lille inde i teksten: Mandag, onsdag og fredag.
+    const navn = (dag) => (sprog(this._hass) === "da" ? this.t("dag_" + dag).toLowerCase() : this.t("dag_" + dag));
+    // Tre dage eller flere i træk skrives som et spænd, fx mandag–onsdag.
     const dele = [];
     for (let i = 0; i < valgt.length; ) {
       let j = i;
       while (j + 1 < valgt.length && valgt[j + 1] === valgt[j] + 1) j++;
-      if (j - i >= 2) dele.push(this.t("dag_" + valgt[i]) + "–" + this.t("dag_" + valgt[j]));
-      else valgt.slice(i, j + 1).forEach((dag) => dele.push(this.t("dag_" + dag)));
+      if (j - i >= 2) dele.push(navn(valgt[i]) + "–" + navn(valgt[j]));
+      else valgt.slice(i, j + 1).forEach((dag) => dele.push(navn(dag)));
       i = j + 1;
     }
-    return dele.join(", ");
+    const tekst = dele.join(", ");
+    return tekst.charAt(0).toUpperCase() + tekst.slice(1);
   }
 
   _retTidsrum(plads) {
@@ -971,7 +976,7 @@ class RumlysPanel extends HTMLElement {
       dagvalg.textContent = "";
       ALLE_DAGE.forEach((dag) => {
         const valgt = dage.includes(dag);
-        const knap = h("button", { class: "dagknap" + (valgt ? " til" : ""), type: "button", "aria-pressed": String(valgt) }, this.t("dag_" + dag));
+        const knap = h("button", { class: "dagknap" + (valgt ? " til" : ""), type: "button", "aria-pressed": String(valgt), title: this.t("dag_" + dag) }, this.t("kort_dag_" + dag));
         knap.addEventListener("click", () => {
           dage = valgt ? dage.filter((v) => v !== dag) : dage.concat([dag]);
           tegnDage();
