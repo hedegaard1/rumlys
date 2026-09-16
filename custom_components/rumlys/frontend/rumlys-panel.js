@@ -79,6 +79,7 @@ button { font: inherit; color: inherit; }
 .rumfelt .tekst { padding: 10px 12px 12px; }
 .rumfelt b { display: block; font-size: 15px; font-weight: 600; }
 .rumfelt .status { font-size: 13px; color: var(--rl-daempet); }
+.rumfelt.nyt { border: 2px dashed var(--rl-linje); background: transparent; box-shadow: none; align-items: center; justify-content: center; min-height: 140px; color: var(--rl-p); font-weight: 600; gap: 6px; }
 .rumfelt .meta { font-size: 12px; color: var(--rl-daempet); margin-top: 6px; }
 
 /* rummets side */
@@ -358,11 +359,16 @@ class RumlysPanel extends HTMLElement {
   connectedCallback() {
     this._ur = setInterval(() => this._opdaterLevende(), 15000);
     window.addEventListener(OPDATERET, this._vedOpdatering);
+    this._lytTilPaneler();
   }
 
   disconnectedCallback() {
     clearInterval(this._ur);
     window.removeEventListener(OPDATERET, this._vedOpdatering);
+    if (this._afmeldPaneler) {
+      this._afmeldPaneler.then((afmeld) => afmeld(), () => {});
+      this._afmeldPaneler = null;
+    }
   }
 
   t(noegle, vaerdier) {
@@ -370,12 +376,33 @@ class RumlysPanel extends HTMLElement {
   }
 
   async _start() {
+    this._lytTilPaneler();
     hentScener().then((k) => {
       this._katalog = k;
       if (this._aktiv && this._kladde) this._tegnRum();
     });
     await this._hentListe();
     this._visSide();
+  }
+
+  // Kortene følger med, når et betjeningspanel gemmes — også i en anden fane eller på en anden skærm.
+  _lytTilPaneler() {
+    if (this._afmeldPaneler || !this._hass || !this.isConnected) return;
+    this._afmeldPaneler = this._hass.connection.subscribeEvents(() => {
+      clearTimeout(this._panelUr);
+      this._panelUr = setTimeout(() => this._panelerAendret(), 500);
+    }, "lovelace_updated");
+  }
+
+  async _panelerAendret() {
+    if (!this._aktiv) {
+      const fund = await this._findKort();
+      this._kortfund = fund;
+      if (!this._aktiv) this._tegnOversigt();
+    } else if (this._kladde) {
+      await this._hentKort();
+      this._genTegn("kort");
+    }
   }
 
   async _hentListe() {
@@ -437,7 +464,10 @@ class RumlysPanel extends HTMLElement {
       fuld = false;
     }
     const fundne = [];
-    for (const panel of [{ url_path: null, title: null }].concat(ekstra)) {
+    // Standardpanelet står på listen som «lovelace», og uden navn giver Home Assistant det samme panel.
+    // Kun hvis det ikke står der, spørges der uden navn — ellers står hvert kort der to gange.
+    const paneler = ekstra.some((p) => p.url_path === "lovelace") ? ekstra : [{ url_path: null, title: null }].concat(ekstra);
+    for (const panel of paneler) {
       let config;
       try {
         config = await hass.callWS({ type: "lovelace/config", url_path: panel.url_path });
@@ -497,6 +527,8 @@ class RumlysPanel extends HTMLElement {
       if (this._aktiv !== rumId || !this._kladde) return;
       const original = JSON.parse(this._original);
       Object.keys(nye).forEach((id) => {
+        // Er kortet kommet med imens, fx ved en scanning mere, er det valg, der står i kladden, det rigtige.
+        if (id in this._kladde.kort) return;
         this._nyeKort.add(id);
         this._kladde.kort[id] = kopi(svar.kort[id] || []);
         original.kort[id] = kopi(svar.kort[id] || []);
@@ -660,24 +692,9 @@ class RumlysPanel extends HTMLElement {
       return h("div", { class: "kortboks" }, dele);
     };
 
+    // Et kort, der er fjernet fra betjeningspanelet, står ikke her. Dets valg bliver i Rumlys, så et kort, der
+    // kommer igen — fortrudt, eller klippet og sat ind et andet sted — stadig viser sine lamper.
     const liste = h("div", { class: "kortliste" }, kort.map(boks));
-    // Kort, rummet kender, men som ikke står på et betjeningspanel længere. Kun når alle kunne læses.
-    if (fund.fuld) {
-      Object.keys(d.kort)
-        .filter((id) => !kort.some((k) => k.id === id))
-        .forEach((id) => {
-          const viste = d.kort[id].length ? d.kort[id].map((l) => (this._hass.states[l] && this._hass.states[l].attributes.friendly_name) || l).join(", ") : this.t("hele_rummet");
-          liste.appendChild(
-            h(
-              "div",
-              { class: "kortboks" },
-              h("div", { class: "korthoved" }, h("b", {}, this.t("tidligere_kort")), h("small", {}, viste)),
-              h("p", { class: "hint" }, this.t("kort_findes_ikke")),
-              h("button", { class: "knap", type: "button", onclick: () => { delete d.kort[id]; this._genTegn("kort"); } }, this.t("glem_kort"))
-            )
-          );
-        });
-    }
     if (!liste.children.length) liste.appendChild(h("p", { class: "hint" }, this.t("ingen_kort")));
     return this._sektion(...titel, fund.fuld ? null : h("p", { class: "hint" }, this.t("kort_ufuldstaendig")), liste);
   }
@@ -771,8 +788,7 @@ class RumlysPanel extends HTMLElement {
     if (!this._hass) return;
     this._levende = [];
     const indhold = h("div", {});
-    const nyKnap = h("button", { class: "knap p", onclick: () => this._nytRum() }, ikon("mdi:plus"), this.t("nyt_rum"));
-    indhold.appendChild(h("div", { class: "overskrift" }, h("h1", {}, this.t("titel")), this._fejl ? null : nyKnap));
+    indhold.appendChild(h("div", { class: "overskrift" }, h("h1", {}, this.t("titel"))));
     if (this._fejl) {
       indhold.appendChild(h("div", { class: "besked" }, this._fejl));
       this._tegnRamme(this.t("titel"), indhold);
@@ -780,6 +796,7 @@ class RumlysPanel extends HTMLElement {
     }
     const gitter = h("div", { class: "rumgitter" });
     (this._liste || []).forEach((rum) => gitter.appendChild(this._rumfelt(rum)));
+    gitter.appendChild(h("button", { class: "rumfelt nyt", onclick: () => this._nytRum() }, ikon("mdi:plus"), this.t("nyt_rum")));
     indhold.appendChild(gitter);
     if (this._liste && !this._liste.length) indhold.appendChild(h("p", { class: "hint" }, this.t("ingen_rum")));
     this._tegnRamme(this.t("titel"), indhold);

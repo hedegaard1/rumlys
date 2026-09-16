@@ -59,8 +59,9 @@ vælges.
 - **Kort** — rummets kort på alle betjeningspaneler, i den rækkefølge de står, og hvor de står. Et nyt kort
   dukker op af sig selv som «Nyt» og viser hele rummet, til der vælges lamper til det. En lampe kan kun
   vælges på ét kort pr. fane: på de andre kort står den som «På kort N» med «Flyt hertil». Står samme kort
-  flere steder — fx efter «Duplikér» — giver «Adskil» det sidste sit eget valg. Et kort, der er fjernet fra
-  betjeningspanelet, står som «Tidligere kort», til det glemmes.
+  flere steder — fx efter «Duplikér» — giver «Adskil» det sidste sit eget valg. Listen følger selv med, når et
+  betjeningspanel gemmes. Et kort, der fjernes, forsvinder fra listen, men Rumlys husker dets valg, så et kort,
+  der kommer igen — fx med Fortryd — stadig viser sine lamper.
 - **Seneste hændelser** — fx «Slukket: ingen i rummet, valgt lys».
 
 ### Kortet

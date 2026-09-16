@@ -4,7 +4,7 @@
   ha-martin: hvidt lys tegnes som i Hue-appen, og en hvid scene genkendes på pærerne.
 */
 
-export const VERSION = "0.4.11";
+export const VERSION = "0.4.12";
 // Mappen, filen selv ligger i — i Home Assistant med versionen i stien, på testsiden repoets egen.
 export const FILER = new URL("./", import.meta.url).href;
 // Scenerne ligger i Rumlys selv. I Home Assistant har de en fast adresse uden version, så et kort,
@@ -87,9 +87,6 @@ const TEKSTER = {
     kort_uden_id: "Kortet har ikke sit eget id endnu. Giv det et, så kan du vælge lamper til det her.",
     kort_uden_id_yaml: "Kortet står på et betjeningspanel i YAML, som Rumlys ikke kan skrive i. Tilføj linjen «{linje}» til kortet, så kan du vælge lamper til det her.",
     giv_id: "Giv kortet et id",
-    tidligere_kort: "Tidligere kort",
-    kort_findes_ikke: "Står ikke længere på et betjeningspanel.",
-    glem_kort: "Glem kortet",
     ingen_kort: "Rummet står ikke på et betjeningspanel endnu. Sæt kortet «Rumlys» ind på en fane, så dukker det op her.",
     kort_ufuldstaendig: "Nogle betjeningspaneler kunne ikke læses, så der kan mangle kort.",
     kort_skrevet: "Kortet har fået sit eget id",
@@ -313,9 +310,6 @@ const TEKSTER = {
     kort_uden_id: "The card has no id of its own yet. Give it one to choose its lights here.",
     kort_uden_id_yaml: "The card is on a YAML dashboard, which Rumlys cannot write to. Add the line «{linje}» to the card to choose its lights here.",
     giv_id: "Give the card an id",
-    tidligere_kort: "Former card",
-    kort_findes_ikke: "Is no longer on a dashboard.",
-    glem_kort: "Forget card",
     ingen_kort: "The room is not on a dashboard yet. Add the «Rumlys» card to a tab and it shows up here.",
     kort_ufuldstaendig: "Some dashboards could not be read, so cards may be missing.",
     kort_skrevet: "The card now has its own id",

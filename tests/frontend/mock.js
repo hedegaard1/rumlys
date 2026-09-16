@@ -71,9 +71,18 @@ export const hass = {
   },
   // Betjeningspanelerne, som frontenden ser dem: navn og om de er i YAML.
   panels: {
-    lovelace: { title: null, config: { mode: "storage" } },
+    lovelace: { title: "Overblik", config: { mode: "storage" } },
+    map: { title: "Kort", config: { mode: "storage" } },
     "dashboard-hjem": { title: "Hjem", config: { mode: "storage" } },
     "dashboard-yaml": { title: "Væg", config: { mode: "yaml" } },
+  },
+  // Hændelser fra Home Assistant: kun «lovelace_updated», som sendes, når et betjeningspanel gemmes.
+  connection: {
+    subscribeEvents: async (fn, type) => {
+      const lytter = { fn, type };
+      haendelsesLyttere.push(lytter);
+      return () => { haendelsesLyttere = haendelsesLyttere.filter((l) => l !== lytter); };
+    },
   },
   // Entitetsregistret, som frontenden ser det: kun lamper med et id kan få et andet ikon.
   entities: {
@@ -145,11 +154,14 @@ const kortetsLamper = (lamper) => {
   const valgte = kontorLamper().filter((l) => lamper.indexOf(l) >= 0);
   return valgte.length === kontorLamper().length ? [] : valgte;
 };
-// Betjeningspanelerne. Kontor-fanen har et kort for hele rummet, et nyt lille kort, det samme kort kopieret
-// ind i en stak, og et kort fra før 0.4.11 uden id med lamper i sin egen opsætning. «Hjem» har kortet med
-// lysbåndet inde i et betinget kort; «Væg» er i YAML; «Energi» bygger Home Assistant selv.
+// Betjeningspanelerne, som i Home Assistant 2026.9: standardpanelet hedder «lovelace» og står på listen, og
+// et opslag uden navn giver det samme panel. Kontor-fanen har et kort for hele rummet, et nyt lille kort, det
+// samme kort kopieret ind i en stak, og et kort fra før 0.4.11 uden id med lamper i sin egen opsætning. «Hjem»
+// har kortet med lysbåndet inde i et betinget kort; «Væg» er i YAML; «Kort» og «Energi» bygger Home Assistant
+// selv.
 const paneler = {
-  "": {
+  map: { strategy: { type: "map" } },
+  lovelace: {
     views: [
       { title: "Kontor", path: "kontor", sections: [{ type: "grid", cards: [
         { type: "custom:rumlys-card", omraade: "office", kort: "k111111111111" },
@@ -228,18 +240,20 @@ const WS = {
   "rumlys/rum/opret": () => ({ id: "kontor" }),
   "rumlys/rum/slet": (msg) => ({ id: msg.rum_id }),
   "lovelace/dashboards/list": [
+    { url_path: "lovelace", title: "Overblik", mode: "storage" },
+    { url_path: "map", title: "Kort", mode: "storage" },
     { url_path: "dashboard-hjem", title: "Hjem", mode: "storage" },
     { url_path: "dashboard-yaml", title: "Væg", mode: "yaml" },
     { url_path: "dashboard-energi", title: "Energi", mode: "storage" },
   ],
   "lovelace/config": (msg) => {
-    const config = paneler[msg.url_path || ""];
+    const config = paneler[msg.url_path || "lovelace"];
     if (!config) throw { code: "config_not_found", message: "No config found." };
     return JSON.parse(JSON.stringify(config));
   },
   "lovelace/config/save": (msg) => {
     if (msg.url_path === "dashboard-yaml") throw { code: "error", message: "Not supported" };
-    paneler[msg.url_path || ""] = JSON.parse(JSON.stringify(msg.config));
+    gemPanel(msg.url_path || "lovelace", msg.config);
     return null;
   },
   "config/entity_registry/update": (msg) => {
@@ -255,3 +269,15 @@ const WS = {
 let lyttere = [];
 export function vedOpdatering(fn) { lyttere.push(fn); }
 function opdater() { lyttere.forEach((fn) => fn()); }
+
+let haendelsesLyttere = [];
+function gemPanel(urlPath, config) {
+  paneler[urlPath] = JSON.parse(JSON.stringify(config));
+  setTimeout(() => haendelsesLyttere.filter((l) => l.type === "lovelace_updated").forEach((l) => l.fn({ event_type: "lovelace_updated", data: { url_path: urlPath } })), 10);
+}
+// Som når et kort slettes på et betjeningspanel i en anden fane: fx fjernKort("lovelace", 0, 0, 1).
+export function fjernKort(urlPath, fane, sektion, kort) {
+  const config = JSON.parse(JSON.stringify(paneler[urlPath]));
+  config.views[fane].sections[sektion].cards.splice(kort, 1);
+  gemPanel(urlPath, config);
+}
