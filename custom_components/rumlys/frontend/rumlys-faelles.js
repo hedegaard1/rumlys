@@ -4,7 +4,7 @@
   ha-martin: hvidt lys tegnes som i Hue-appen, og en hvid scene genkendes på pærerne.
 */
 
-export const VERSION = "0.4.1";
+export const VERSION = "0.4.2";
 // Mappen, filen selv ligger i — i Home Assistant med versionen i stien, på testsiden repoets egen.
 export const FILER = new URL("./", import.meta.url).href;
 // Scenerne ligger i Rumlys selv; findes de ikke, bruges en installeret Scene Presets.
@@ -116,10 +116,8 @@ const TEKSTER = {
     valgt_lys: "Lys, som nogen selv har valgt",
     valgt_sub: "På kortet, med en scene, i appen eller på væggen. «Aldrig» betyder, at det ikke slukker af sig selv",
     hold: "Hold lys tændt",
-    hold_hint: "Sensoren og nedtællingen sættes ud af spil. Lyset slukkes i hånden eller, når tiden er gået.",
+    hold_hint: "Slås til med «Hold lys» øverst på siden eller på kortet. Sensoren og nedtællingen er så ude af spil, til lyset slukkes i hånden, eller tiden er gået.",
     hold_i: "Holder lyset tændt i",
-    hold_fra_nu: "Slået fra lige nu",
-    hold_til: "Holdes tændt til {kl}",
     hold_lys: "Hold lys",
     slaa_fra: "Slå fra",
     sluk: "Sluk",
@@ -287,10 +285,8 @@ const TEKSTER = {
     valgt_lys: "Light someone has chosen",
     valgt_sub: "On the card, with a scene, in the app or on the wall. «Never» means it does not turn off by itself",
     hold: "Keep light on",
-    hold_hint: "The sensor and the countdown are put out of play. The light is turned off by hand or when the time is up.",
+    hold_hint: "Turned on with «Keep on» at the top of the page or on the card. The sensor and the countdown are then out of play until the light is turned off by hand or the time is up.",
     hold_i: "Keeps the light on for",
-    hold_fra_nu: "Off right now",
-    hold_til: "Kept on until {kl}",
     hold_lys: "Keep on",
     slaa_fra: "Turn off",
     sluk: "Turn off",

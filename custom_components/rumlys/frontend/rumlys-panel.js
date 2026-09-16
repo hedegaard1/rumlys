@@ -1077,26 +1077,12 @@ class RumlysPanel extends HTMLElement {
 
   _sekHold() {
     const ind = this._kladde.indstillinger;
-    const e = this._detalje.entiteter;
-    const status = h("small", {});
-    const knap = h("button", { class: "knap" });
-    knap.addEventListener("click", () => {
-      const st = this._hass.states[e.hold];
-      this._hass.callService("switch", st && st.state === "on" ? "turn_off" : "turn_on", { entity_id: e.hold });
-    });
-    this._levende.push((hass) => {
-      const st = hass.states[e.hold];
-      const til = st && st.state === "on";
-      status.textContent = til && st.attributes.slutter ? this.t("hold_til", { kl: klokken(hass, st.attributes.slutter) }) : this.t("hold_fra_nu");
-      knap.textContent = this.t(til ? "slaa_fra" : "hold_lys");
-    });
     const tid = trinvalg([0.5, 1, 1.5, 2, 3, 4, 5, 6, 8, 10, 12, 24], ind.hold_tid, (v) => this.t("timer", { n: String(v).replace(".", ",") }), (v) => { ind.hold_tid = v; this._aendret(); });
     return this._sektion(
       "mdi:lock-clock",
       this.t("hold"),
       this.t("hold_hint"),
-      h("div", { class: "naar" }, h("div", { class: "tx" }, h("b", {}, this.t("hold_i")), status), tid),
-      knap
+      h("div", { class: "naar" }, h("div", { class: "tx" }, h("b", {}, this.t("hold_i"))), tid)
     );
   }
 
