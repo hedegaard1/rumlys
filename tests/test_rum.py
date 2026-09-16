@@ -570,6 +570,28 @@ async def test_lampe_der_dukker_op_efter_start(hus: Hus) -> None:
     assert len(hus.sluk) == 1
 
 
+async def test_bevaegelse_ved_genstart_stopper_den_gemte_nedtaelling(hus: Hus) -> None:
+    # Kontor 16-09: sensoren mistede Martin, genstarten kom midt i nedtællingen, og da
+    # HA var oppe igen, så sensoren ham — men lyset slukkede alligevel til den gemte tid.
+    await hus.bevaegelse("on")
+    hus.hass.states.async_set(SPOTS, "unavailable")
+    await hus.saet_op(
+        gemt={
+            "indstillinger": {},
+            "kilde": "haand",
+            "slukker": "2026-09-14T12:01:00+00:00",
+            "hold_slutter": None,
+        }
+    )
+    await hus.lys("on", brightness=255)
+    assert hus.slukker() is None
+    await hus.vent(3600)
+    assert not hus.sluk
+    await hus.bevaegelse("off")
+    await hus.vent(301)  # uden bevægelse slukker lyset som ellers efter «sluk efter tryk»
+    assert len(hus.sluk) == 1
+
+
 async def test_lys_der_er_taendt_ved_start_slukker_efter_tryk(hus: Hus) -> None:
     await hus.lys("on", brightness=255)
     await hus.saet_op()

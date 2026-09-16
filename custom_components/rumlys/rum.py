@@ -261,7 +261,10 @@ class Rum:
         if self.kilde is None:
             self.kilde = HAAND
             self.slukker = None if self.bevaegelse else self._frist(HAAND)
-        elif self.hold_slutter is None and self.slukker is None and not self.bevaegelse:
+        elif self.bevaegelse:
+            # Bevægelse stopper nedtællingen — også en, der er gemt fra før en genstart.
+            self.slukker = None
+        elif self.hold_slutter is None and self.slukker is None:
             self.slukker = self._frist(self.kilde)
         self._opdater()
 
