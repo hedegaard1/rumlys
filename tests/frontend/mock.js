@@ -150,15 +150,19 @@ const kontorData = {
 // (k999…), og et med et lysbånd.
 const kortLager = { kontor: { k111111111111: [], k333333333333: ["light.kontor_bord_lysband"], k999999999999: ["light.kontor_loftspots"] } };
 const kontorLamper = () => kontorData.lamper.map((l) => l.entity_id);
+// Som Rumlys selv: en tom liste er hele rummet, null ingen lamper, og lamper uden for rummet tæller ikke.
 const kortetsLamper = (lamper) => {
+  if (lamper === null) return null;
+  if (!lamper.length) return [];
   const valgte = kontorLamper().filter((l) => lamper.indexOf(l) >= 0);
+  if (!valgte.length) return null;
   return valgte.length === kontorLamper().length ? [] : valgte;
 };
 // Betjeningspanelerne, som i Home Assistant 2026.9: standardpanelet hedder «lovelace» og står på listen, og
 // et opslag uden navn giver det samme panel. Kontor-fanen har et kort for hele rummet, et nyt lille kort, det
-// samme kort kopieret ind i en stak, og et kort fra før 0.4.11 uden id med lamper i sin egen opsætning. «Hjem»
-// har kortet med lysbåndet inde i et betinget kort; «Væg» er i YAML; «Kort» og «Energi» bygger Home Assistant
-// selv.
+// samme kort kopieret ind i en stak, og et kort fra før 0.4.11 uden id med lamper i sin egen opsætning — de sidste
+// kan ikke bruges, fordi det første viser hele rummet. «Arbejde» har et nyt kort alene. «Hjem» har kortet med
+// lysbåndet inde i et betinget kort; «Væg» er i YAML; «Kort» og «Energi» bygger Home Assistant selv.
 const paneler = {
   map: { strategy: { type: "map" } },
   lovelace: {
@@ -170,6 +174,7 @@ const paneler = {
         { type: "custom:rumlys-card", omraade: "office", lamper: ["light.kontor_bord_lysband"] },
       ] }] },
       { title: "Træning", path: "traening", cards: [{ type: "custom:rumlys-card", omraade: "training_room" }] },
+      { title: "Arbejde", path: "arbejde", sections: [{ type: "grid", cards: [{ type: "custom:rumlys-card", omraade: "office", kort: "k444444444444" }] }] },
     ],
   },
   "dashboard-hjem": {

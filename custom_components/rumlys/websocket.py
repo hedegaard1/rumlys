@@ -154,8 +154,9 @@ def ws_hent(
         vol.Required("rum_id"): str,
         vol.Required("data"): dict,
         vol.Optional("indstillinger"): dict,
-        # Kortenes lamper efter kortets id. Gemmes i Rumlys' egen tilstand, så de ikke genindlæser Rumlys.
-        vol.Optional("kort"): vol.Schema({cv.string: [cv.entity_id]}),
+        # Kortenes lamper efter kortets id: en tom liste er hele rummet, null ingen lamper. Gemmes i Rumlys'
+        # egen tilstand, så de ikke genindlæser Rumlys.
+        vol.Optional("kort"): vol.Schema({cv.string: vol.Any(None, [cv.entity_id])}),
     }
 )
 @callback
@@ -198,7 +199,7 @@ def ws_gem(
     {
         vol.Required("type"): "rumlys/kort/nye",
         vol.Required("rum_id"): str,
-        vol.Required("kort"): vol.Schema({cv.string: [cv.entity_id]}),
+        vol.Required("kort"): vol.Schema({cv.string: vol.Any(None, [cv.entity_id])}),
     }
 )
 @callback

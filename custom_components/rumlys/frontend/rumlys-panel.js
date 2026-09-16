@@ -10,6 +10,8 @@ import {
   STANDARDSCENER,
   VERSION,
   beskrivLys,
+  erRummetsKort,
+  fordelLamper,
   h,
   haendelseTekst,
   hentScener,
@@ -320,11 +322,9 @@ class RumlysPanel extends HTMLElement {
     this._katalog = { scener: [], efterId: {}, kategorier: [] };
     this._levende = [];
     this._visAlle = false;
-    // Rumlys-kortene på betjeningspanelerne, kortene der var nye, da rummet blev åbnet, og kortene, hvor
-    // lampevalget er slået op, før der er valgt en lampe.
+    // Rumlys-kortene på betjeningspanelerne, og kortene der var nye, da rummet blev åbnet.
     this._kortfund = null;
     this._nyeKort = new Set();
-    this._visLampevalg = new Set();
     // Id'er foreslået til kort, Rumlys ikke kan skrive i, efter kortets plads: de samme, også efter en ny scanning.
     this._forslag = {};
     this._vedOpdatering = () => this._hentListe();
@@ -434,7 +434,6 @@ class RumlysPanel extends HTMLElement {
     }
     this._levende = [];
     this._nyeKort = new Set();
-    this._visLampevalg = new Set();
     this._tegnRamme(this._navnPaaAktivt(), h("div", { class: "besked" }, "…"), true);
     try {
       await Promise.all([this._hentRum(this._aktiv), this._hentOmraader()]);
@@ -497,12 +496,23 @@ class RumlysPanel extends HTMLElement {
   }
 
   _erRummets(config, rum) {
-    return config.omraade ? config.omraade === rum.omraade : !!config.rum && config.rum === rum.id;
+    return erRummetsKort(config, rum);
+  }
+
+  // Rummets kort pr. fane, i den rækkefølge de står.
+  _fanerne(fundne) {
+    const faner = {};
+    fundne.forEach((f) => {
+      const n = (f.panel || "") + "/" + f.fane;
+      (faner[n] = faner[n] || []).push(f);
+    });
+    return faner;
   }
 
   // Rummets kort. Et kort, rummet ikke kender, er nyt: Rumlys får det at vide med det samme, uden at rummet
-  // står som ændret, og det står som «Nyt», så længe siden er åben. Et kort fra 0.4.9–0.4.10 med `lamper` i
-  // sin egen opsætning beholder dem.
+  // står som ændret, og det står som «Nyt», så længe siden er åben. Det viser hele rummet, hvis det er rummets
+  // eneste kort på fanen — ellers ingen lamper, til de vælges her. Det er samme regel, som kortet selv bruger på
+  // betjeningspanelet. Et kort fra 0.4.9–0.4.10 med `lamper` i sin egen opsætning beholder dem.
   async _hentKort() {
     const rumId = this._aktiv;
     const fund = await this._findKort();
@@ -511,14 +521,18 @@ class RumlysPanel extends HTMLElement {
     this._kortfund = fund;
     const rummets = this._detalje.lamper.map((l) => l.entity_id);
     const nye = {};
-    fund.fundne
-      .filter((f) => this._erRummets(f.config, this._detalje))
-      .forEach((f) => {
-        const id = f.config.kort;
-        if (id && !(id in this._kladde.kort) && !(id in nye)) {
-          nye[id] = (Array.isArray(f.config.lamper) ? f.config.lamper : []).filter((l) => rummets.indexOf(l) >= 0);
-        }
+    const faner = this._fanerne(fund.fundne.filter((f) => this._erRummets(f.config, this._detalje)));
+    Object.values(faner).forEach((liste) => {
+      fordelLamper(liste.map((f) => f.config), rummets, this._kladde.kort).forEach((r, i) => {
+        const config = liste[i].config;
+        const id = config.kort;
+        if (!id || id in this._kladde.kort) return;
+        const egne = (Array.isArray(config.lamper) ? config.lamper : []).filter((l) => rummets.indexOf(l) >= 0);
+        const vaerdi = r.spaerretAf !== null ? null : egne;
+        // Står kortet på flere faner, viser det ingen lamper, hvis det er optaget på bare én af dem.
+        if (!(id in nye) || vaerdi === null) nye[id] = vaerdi;
       });
+    });
     if (!Object.keys(nye).length) return;
     try {
       const svar = await this._hass.callWS({ type: "rumlys/kort/nye", rum_id: rumId, kort: nye });
@@ -529,9 +543,10 @@ class RumlysPanel extends HTMLElement {
       Object.keys(nye).forEach((id) => {
         // Er kortet kommet med imens, fx ved en scanning mere, er det valg, der står i kladden, det rigtige.
         if (id in this._kladde.kort) return;
+        const vaerdi = id in svar.kort ? svar.kort[id] : nye[id];
         this._nyeKort.add(id);
-        this._kladde.kort[id] = kopi(svar.kort[id] || []);
-        original.kort[id] = kopi(svar.kort[id] || []);
+        this._kladde.kort[id] = kopi(vaerdi);
+        original.kort[id] = kopi(vaerdi);
       });
       this._original = JSON.stringify(original);
     } catch (e) {
@@ -567,24 +582,38 @@ class RumlysPanel extends HTMLElement {
     const d = this._kladde;
     const lamper = d.data.lamper.map((l) => l.entity_id);
     const fund = this._kortfund;
+    const mine = fund.fundne.filter((f) => this._erRummets(f.config, this._detalje));
     // Kortene i den rækkefølge, de står; samme id flere steder er ét kort.
     const kort = [];
-    fund.fundne.filter((f) => this._erRummets(f.config, this._detalje)).forEach((f) => {
+    mine.forEach((f) => {
       const samme = f.config.kort && kort.find((k) => k.id === f.config.kort);
       if (samme) samme.steder.push(f);
       else kort.push({ id: f.config.kort || null, steder: [f] });
     });
     const nr = (k) => kort.indexOf(k) + 1;
     const fane = (f) => (f.panel || "") + "/" + f.fane;
-    // Kun lamper, rummet har i kladden: en lampe, der lige er fjernet fra rummet, er heller ikke på kortet.
-    const valgte = (k) => (k.id ? (d.kort[k.id] || []).filter((l) => lamper.indexOf(l) >= 0) : []);
-    // Et andet kort på samme fane, hvor lampen er valgt. Et kort for hele rummet optager ingen lamper.
-    const optagetAf = (k, lampe) =>
-      kort.find((a) => a !== k && valgte(a).indexOf(lampe) >= 0 && a.steder.some((s) => k.steder.some((t) => fane(s) === fane(t))));
+    const kortVed = (f) => kort.find((k) => k.steder.indexOf(f) >= 0);
+    // Fanernes regel med kladdens valg — den samme, kortene selv bruger på betjeningspanelet.
+    const faner = this._fanerne(mine);
+    const fordeling = new Map();
+    Object.values(faner).forEach((liste) => {
+      fordelLamper(liste.map((f) => f.config), lamper, d.kort).forEach((r, i) => fordeling.set(liste[i], r));
+    });
+    // Det første andet kort på en af kortets faner, der har lampen, og om det har hele rummet.
+    const andenHar = (k, lampe) => {
+      for (const s of k.steder) {
+        for (const f of faner[fane(s)]) {
+          const r = fordeling.get(f);
+          if (k.steder.indexOf(f) < 0 && r.optager.indexOf(lampe) >= 0) return { kort: kortVed(f), hele: r.hele };
+        }
+      }
+      return null;
+    };
     const forslag = (f) => {
       const plads = [f.panel, ...f.sti].join("/");
       return (this._forslag[plads] = this._forslag[plads] || nytKortId());
     };
+    const hint = (tekst) => h("p", { class: "hint" }, tekst);
 
     const boks = (k) => {
       const f = k.steder[0];
@@ -599,53 +628,69 @@ class RumlysPanel extends HTMLElement {
           h("small", {}, steder + " · " + stoerrelse)
         ),
       ];
+      // Har et andet kort på en af kortets faner allerede kortets lamper, kan kortet ikke bruges der.
+      const spaerretSted = k.steder.find((s) => fordeling.get(s).spaerretAf !== null);
+      const spaerring = spaerretSted
+        ? hint(this.t("kort_spaerret_boks", { n: nr(kortVed(faner[fane(spaerretSted)][fordeling.get(spaerretSted).spaerretAf])) }))
+        : null;
       if (!k.id) {
-        if (f.skrivbar) dele.push(h("p", { class: "hint" }, this.t("kort_uden_id")), h("button", { class: "knap", type: "button", onclick: () => this._nytIdTilKort(f, false) }, this.t("giv_id")));
-        else dele.push(h("p", { class: "hint" }, this.t("kort_uden_id_yaml", { linje: "kort: " + forslag(f) })));
+        if (f.skrivbar) dele.push(hint(this.t("kort_uden_id")), h("button", { class: "knap", type: "button", onclick: () => this._nytIdTilKort(f, false) }, this.t("giv_id")));
+        else dele.push(hint(this.t("kort_uden_id_yaml", { linje: "kort: " + forslag(f) })));
+        if (spaerring) dele.push(spaerring);
         return h("div", { class: "kortboks" }, dele);
       }
-      // Kopieret med «Duplikér» eller sat ind to steder: alle steder viser det samme, til det ene adskilles.
+      // Kopieret med «Duplikér» eller sat ind to steder. På samme fane virker ingen af gangene, til kortene er skilt
+      // ad; på forskellige faner viser de det samme.
       if (k.steder.length > 1) {
+        const dublet = k.steder.some((s) => fordeling.get(s).dublet);
         const sidste = k.steder[k.steder.length - 1];
         if (sidste.skrivbar) {
           dele.push(
-            h("p", { class: "hint" }, this.t("flere_steder", { n: k.steder.length })),
+            hint(this.t(dublet ? "dublet_fane" : "flere_steder", { n: k.steder.length })),
             h("button", { class: "knap", type: "button", onclick: () => this._nytIdTilKort(sidste, true) }, this.t("adskil"))
           );
         } else {
-          dele.push(h("p", { class: "hint" }, this.t("flere_steder_yaml", { n: k.steder.length, linje: "kort: " + forslag(sidste) })));
+          dele.push(hint(this.t(dublet ? "dublet_fane_yaml" : "flere_steder_yaml", { n: k.steder.length, linje: "kort: " + forslag(sidste) })));
         }
       }
-      const mine = valgte(k);
-      const visLamper = mine.length > 0 || this._visLampevalg.has(k.id);
+      if (spaerring) dele.push(spaerring);
+      // Kladdens valg: en tom liste er hele rummet, null er ingen lamper. Et kort, der ikke er nået at blive
+      // registreret, viser hele rummet.
+      const valg = k.id in d.kort ? d.kort[k.id] : [];
+      const hele = valg !== null && valg.length === 0;
+      const valgte = valg === null ? [] : valg.filter((l) => lamper.indexOf(l) >= 0);
+      // Har et andet kort på fanen lamper, kan dette kort ikke vise hele rummet. Har andre kort dem alle, kan det
+      // slet ikke bruges, og så siges kun det.
+      const andres = lamper.map((l) => andenHar(k, l)).filter(Boolean);
+      const heleLukket = !hele && andres.length > 0;
+      const alleHosAndre = !hele && lamper.length > 0 && lamper.every((l) => valgte.indexOf(l) < 0 && andenHar(k, l));
       dele.push(
         h(
           "div",
           { class: "seg", role: "group" },
-          [[false, "hele_rummet"], [true, "valgte_lamper"]].map(([vis, noegle]) =>
+          [[true, "hele_rummet"], [false, "valgte_lamper"]].map(([heleKnap, noegle]) =>
             h("button", {
               type: "button",
-              class: vis === visLamper ? "til" : "",
-              "aria-pressed": String(vis === visLamper),
+              class: heleKnap === hele ? "til" : "",
+              "aria-pressed": String(heleKnap === hele),
+              disabled: heleKnap && heleLukket,
               onclick: () => {
-                if (vis === visLamper) return;
-                if (vis) this._visLampevalg.add(k.id);
-                else {
-                  this._visLampevalg.delete(k.id);
-                  d.kort[k.id] = [];
-                }
+                if (heleKnap === hele) return;
+                // «Valgte lamper» begynder uden lamper: kortet viser først noget, når der er sat flueben.
+                d.kort[k.id] = heleKnap ? [] : null;
                 this._genTegn("kort");
               },
             }, this.t(noegle))
           )
         )
       );
-      if (!visLamper) return h("div", { class: "kortboks" }, dele);
+      if (heleLukket && !alleHosAndre) dele.push(hint(this.t("hele_optaget", { n: nr(andres[0].kort) })));
+      if (hele) return h("div", { class: "kortboks" }, dele);
       lamper.forEach((lampe) => {
-        const valgt = mine.indexOf(lampe) >= 0;
-        // Valgt både her og på et andet kort på fanen — et kort fra før 0.4.11, eller et kort flyttet hertil fra
-        // en anden fane — vises på begge, så det ene kan fravælges.
-        const andet = optagetAf(k, lampe);
+        const valgt = valgte.indexOf(lampe) >= 0;
+        // Valgt både her og på et andet kort på fanen — et kort fra før, eller et kort flyttet hertil fra en anden
+        // fane — vises på begge, så det ene kan fravælges.
+        const andet = andenHar(k, lampe);
         const st = this._hass.states[lampe];
         const navn = (st && st.attributes.friendly_name) || lampe;
         const flueben = h(
@@ -654,41 +699,33 @@ class RumlysPanel extends HTMLElement {
           valgt ? ikon("mdi:check") : null
         );
         flueben.addEventListener("click", () => {
-          // Listen bliver stående, også når den sidste lampe fravælges.
-          this._visLampevalg.add(k.id);
-          d.kort[k.id] = lamper.filter((l) => (l === lampe ? !valgt : mine.indexOf(l) >= 0));
+          const nye = lamper.filter((l) => (l === lampe ? !valgt : valgte.indexOf(l) >= 0));
+          d.kort[k.id] = nye.length ? nye : null;
           this._genTegn("kort");
         });
-        const flyt = !valgt && andet
+        // En lampe kan flyttes fra et kort for nogle af lamperne. Et kort for hele rummet skal ændres med vilje først.
+        const flyt = !valgt && andet && andet.kort.id && !andet.hele
           ? h("button", {
               class: "knap t",
               type: "button",
               onclick: () => {
-                d.kort[andet.id] = valgte(andet).filter((l) => l !== lampe);
-                d.kort[k.id] = lamper.filter((l) => l === lampe || mine.indexOf(l) >= 0);
-                // Et kort uden lamper viser hele rummet — sig det, så det ikke kommer bag på nogen.
-                if (!d.kort[andet.id].length) {
-                  this._visLampevalg.delete(andet.id);
-                  this._toast(this.t("kort_nu_hele_rummet", { n: nr(andet) }));
-                }
+                const rest = (d.kort[andet.kort.id] || []).filter((l) => l !== lampe && lamper.indexOf(l) >= 0);
+                d.kort[andet.kort.id] = rest.length ? rest : null;
+                d.kort[k.id] = lamper.filter((l) => l === lampe || valgte.indexOf(l) >= 0);
+                if (!rest.length) this._toast(this.t("kort_nu_ingen", { n: nr(andet.kort) }));
                 this._genTegn("kort");
               },
             }, this.t("flyt_hertil"))
           : null;
-        dele.push(
-          h(
-            "div",
-            { class: "raekke" },
-            flueben,
-            h("div", { class: "tx" }, h("b", {}, navn), andet ? h("small", {}, this.t(valgt ? "ogsaa_paa_kort" : "paa_kort", { n: nr(andet) })) : null),
-            flyt
-          )
-        );
+        let under = null;
+        if (andet) under = andet.hele ? this.t("paa_hele_kort", { n: nr(andet.kort) }) : this.t(valgt ? "ogsaa_paa_kort" : "paa_kort", { n: nr(andet.kort) });
+        dele.push(h("div", { class: "raekke" }, flueben, h("div", { class: "tx" }, h("b", {}, navn), under ? h("small", {}, under) : null), flyt));
       });
-      const med = lamper.filter((l) => mine.indexOf(l) >= 0).length;
-      if (lamper.length && !med && lamper.every((l) => optagetAf(k, l))) dele.push(h("p", { class: "hint" }, this.t("alle_taget")));
-      else if (!med) dele.push(h("p", { class: "hint" }, this.t("vaelg_lamper_hint")));
-      else if (med === lamper.length) dele.push(h("p", { class: "hint" }, this.t("alle_valgt")));
+      if (alleHosAndre) {
+        const heleKort = andres.find((a) => a.hele);
+        dele.push(hint(heleKort ? this.t("alle_taget_hele", { n: nr(heleKort.kort) }) : this.t("alle_taget")));
+      } else if (!valgte.length) dele.push(hint(this.t("ingen_lamper_valgt")));
+      else if (valgte.length === lamper.length) dele.push(hint(this.t("alle_valgt")));
       return h("div", { class: "kortboks" }, dele);
     };
 
@@ -938,7 +975,7 @@ class RumlysPanel extends HTMLElement {
 
   _fod() {
     this._fodBesked = h("span", { class: "besked2" });
-    this._fortrydKnap = h("button", { class: "knap", onclick: () => { this._kladde = JSON.parse(this._original); this._visLampevalg = new Set(); this._tegnRum(); } }, this.t("fortryd"));
+    this._fortrydKnap = h("button", { class: "knap", onclick: () => { this._kladde = JSON.parse(this._original); this._tegnRum(); } }, this.t("fortryd"));
     this._gemKnap = h("button", { class: "knap p", onclick: () => this._gem() }, this.t("gem_rum"));
     const fod = h("div", { class: "fod" }, this._fodBesked, this._fortrydKnap, this._gemKnap);
     setTimeout(() => this._aendret());
@@ -962,8 +999,6 @@ class RumlysPanel extends HTMLElement {
     }
     this._toast(this.t("gemt"));
     meldOpdateret(this._aktiv);
-    // Et kort med alle lamper valgt er gemt som hele rummet og skal også vises sådan.
-    this._visLampevalg = new Set();
     // Rumlys genindlæses efter en ændring; hent rummet igen, når det er oppe.
     await new Promise((r) => setTimeout(r, 600));
     try {

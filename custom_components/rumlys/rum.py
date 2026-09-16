@@ -140,9 +140,10 @@ class Rum:
             gemt.get("haendelser", []), maxlen=HAENDELSER
         )
         # Kortene på betjeningspanelerne efter id, og de lamper hvert kort viser. En tom liste er hele
-        # rummet. Et kort, rummet ikke kender endnu, er nyt i sidepanelet.
-        self.kort: dict[str, list[str]] = {
-            kort_id: list(lamper) for kort_id, lamper in gemt.get("kort", {}).items()
+        # rummet, None ingen lamper. Et kort, rummet ikke kender endnu, er nyt i sidepanelet.
+        self.kort: dict[str, list[str] | None] = {
+            kort_id: None if lamper is None else list(lamper)
+            for kort_id, lamper in gemt.get("kort", {}).items()
         }
         # Hvornår kortene sidst er ændret. Står på tilstandssensoren, så et kort på en anden skærm henter rummet igen.
         self.kort_opdateret: str | None = gemt.get("kort_opdateret")
@@ -227,7 +228,7 @@ class Rum:
         }
 
     @callback
-    def saet_kort(self, kort: dict[str, list[str]], lys: list[str]) -> None:
+    def saet_kort(self, kort: dict[str, list[str] | None], lys: list[str]) -> None:
         """Kortenes lamper, som sidepanelet gemmer dem — målt mod rummets lamper, som de gemmes samtidig."""
         nye = {kort_id: _kortets_lamper(lamper, lys) for kort_id, lamper in kort.items()}
         if nye != self.kort:
@@ -236,7 +237,7 @@ class Rum:
             self._opdater()
 
     @callback
-    def nye_kort(self, kort: dict[str, list[str]]) -> None:
+    def nye_kort(self, kort: dict[str, list[str] | None]) -> None:
         """Kort, sidepanelet har fundet for første gang. Et kort, rummet kender, røres ikke."""
         nye = {
             kort_id: _kortets_lamper(lamper, self.lys)
@@ -628,9 +629,17 @@ class Rum:
         return kontekst
 
 
-def _kortets_lamper(lamper: list[str], lys: list[str]) -> list[str]:
-    """Rummets lamper blandt de valgte, i rummets rækkefølge. Ingen eller alle er hele rummet."""
+def _kortets_lamper(lamper: list[str] | None, lys: list[str]) -> list[str] | None:
+    """Rummets lamper blandt de valgte, i rummets rækkefølge. En tom liste er hele rummet — ligesom alle lamperne —
+    og None er ingen lamper: et kort, der deler fanen med et andet kort for rummet og ikke har fået lamper endnu.
+    Er ingen af de valgte lamper i rummet længere, viser kortet ingen, ikke hele rummet."""
+    if lamper is None:
+        return None
+    if not lamper:
+        return []
     valgte = [entity_id for entity_id in lys if entity_id in lamper]
+    if not valgte:
+        return None
     return [] if len(valgte) == len(lys) else valgte
 
 

@@ -12,6 +12,9 @@ import {
   RUMLYS_IKON,
   VERSION,
   css,
+  erRummetsKort,
+  fanensKort,
+  fordelLamper,
   h,
   hentScener,
   hueFarve,
@@ -65,6 +68,46 @@ function tjekKortTid(hass, rum) {
   if (tid === undefined) return;
   if (rum.id in kortTider && kortTider[rum.id] !== tid) meldOpdateret(rum.id);
   kortTider[rum.id] = tid;
+}
+
+/* ---------- fanen, kortet står på ---------- */
+
+// Kortet ser selv efter, om rummet har andre kort på fanen, så et kort, der er sat ind direkte på
+// betjeningspanelet, aldrig styrer de samme lamper som et andet — også før nogen har åbnet Rumlys.
+const PANEL_GEMT = "rumlys-panel-gemt";
+let panelLoefter = {};
+let lytterPaaPaneler = false;
+
+// Betjeningspanelets opsætning: én gang pr. side for alle kort, og igen når et panel gemmes.
+function hentPanel(hass, urlPath) {
+  if (!lytterPaaPaneler && hass.connection) {
+    lytterPaaPaneler = true;
+    hass.connection.subscribeEvents(() => {
+      panelLoefter = {};
+      window.dispatchEvent(new CustomEvent(PANEL_GEMT));
+    }, "lovelace_updated").catch(() => { lytterPaaPaneler = false; });
+  }
+  const noegle = urlPath || "";
+  if (!panelLoefter[noegle]) {
+    panelLoefter[noegle] = hass.callWS({ type: "lovelace/config", url_path: urlPath }).catch((e) => {
+      delete panelLoefter[noegle];
+      throw e;
+    });
+  }
+  return panelLoefter[noegle];
+}
+
+// Betjeningspanelet og fanen, siden står på. Standardpanelet hedder «lovelace», og uden navn giver Home Assistant
+// det samme panel — også i ældre udgaver, hvor det ikke står på listen.
+function sidensFane() {
+  const dele = window.location.pathname.split("/").filter(Boolean).map(decodeURIComponent);
+  return { urlPath: !dele[0] || dele[0] === "lovelace" ? null : dele[0], fane: dele[1] };
+}
+
+function findFane(config, fane) {
+  const views = (config && config.views) || [];
+  if (fane === undefined) return views[0] || null;
+  return views.find((v) => v.path === fane) || (/^\d+$/.test(fane) ? views[Number(fane)] : null) || null;
 }
 
 function pct(st) {
@@ -254,7 +297,13 @@ class RumlysCard extends HTMLElement {
     this._navne = [];
     this._rummene = null;
     this._katalog = null;
+    // Kortets lamper efter fanens regel, og om fanen er tjekket. Uden fane (fx uden for et betjeningspanel)
+    // gælder Rumlys' valg for kortet alene.
+    this._fordeling = null;
+    this._faneTjekket = false;
+    this._faneTjek = 0;
     this._vedOpdatering = () => this._hentRum();
+    this._vedPanel = () => this._tjekFane();
   }
 
   static getConfigElement() {
@@ -274,9 +323,17 @@ class RumlysCard extends HTMLElement {
   }
 
   setConfig(config) {
+    const foer = this._config;
     this._config = Object.assign({}, config);
+    // Et andet rum eller et andet kort: fanens fordeling for det gamle gælder ikke, til fanen er tjekket igen.
+    const hvem = (x) => JSON.stringify(x ? [x.omraade, x.rum, x.kort, x.lamper] : null);
+    if (hvem(foer) !== hvem(this._config)) {
+      this._fordeling = null;
+      this._faneTjekket = false;
+    }
     if (!this._el) this._byg();
     this._tegnScener();
+    this._tjekFane();
     this._opdater();
     if (this._menu) this._menu.opdater();
   }
@@ -300,6 +357,7 @@ class RumlysCard extends HTMLElement {
 
   connectedCallback() {
     window.addEventListener(OPDATERET, this._vedOpdatering);
+    window.addEventListener(PANEL_GEMT, this._vedPanel);
     if (window.ResizeObserver && !this._ro) {
       this._ro = new ResizeObserver(() => {
         this._placerSkyder();
@@ -312,6 +370,7 @@ class RumlysCard extends HTMLElement {
 
   disconnectedCallback() {
     window.removeEventListener(OPDATERET, this._vedOpdatering);
+    window.removeEventListener(PANEL_GEMT, this._vedPanel);
     this._stopUr();
     if (this._ro) {
       this._ro.disconnect();
@@ -340,6 +399,7 @@ class RumlysCard extends HTMLElement {
         (rummene) => {
           this._rummene = rummene;
           this._tegnScener();
+          this._tjekFane();
           this._opdater();
         },
         () => {
@@ -353,34 +413,66 @@ class RumlysCard extends HTMLElement {
   // Kortet peger på rummets område, så det kan stå, før rummet er sat op. Ældre kort har rummets id i `rum`.
   _rum() {
     const c = this._config || {};
-    return (this._rummene || []).find((r) => (c.omraade ? r.omraade === c.omraade : r.id === c.rum)) || null;
+    return (this._rummene || []).find((r) => erRummetsKort(c, r)) || null;
   }
 
-  // Et kort kan vise nogle af rummets lamper (`lamper`). Er alle eller ingen af dem valgt, er det hele rummet.
-  _delvis() {
+  // Rummets kort på fanen, siden står på, og hvilke lamper dette kort får efter fanens regel. Kortet selv findes
+  // på sit id; står det der ikke — et nyt kort i forhåndsvisningen, før det er gemt — regnes det sidst på fanen.
+  async _tjekFane() {
+    const hass = this._hass;
+    const c = this._config;
     const rum = this._rum();
-    const valgte = this._valgteLamper();
-    if (!rum || !valgte.length) return false;
-    const med = rum.lamper.filter((l) => valgte.indexOf(l.entity_id) >= 0).length;
-    return med > 0 && med < rum.lamper.length;
+    const tjek = ++this._faneTjek;
+    if (!hass || !c || !rum) return;
+    let fordeling = null;
+    try {
+      const { urlPath, fane } = sidensFane();
+      const view = findFane(await hentPanel(hass, urlPath), fane);
+      if (view) {
+        const kortListe = fanensKort(view).filter((x) => erRummetsKort(x, rum));
+        let nr = c.kort ? kortListe.findIndex((x) => x.kort === c.kort) : kortListe.findIndex((x) => JSON.stringify(x) === JSON.stringify(c));
+        if (nr < 0) {
+          kortListe.push(c);
+          nr = kortListe.length - 1;
+        }
+        fordeling = fordelLamper(kortListe, rum.lamper.map((l) => l.entity_id), rum.kort || {})[nr];
+      }
+    } catch (e) {
+      // Ikke på et betjeningspanel, eller panelet kunne ikke læses: Rumlys' valg for kortet gælder alene.
+    }
+    if (tjek !== this._faneTjek) return;
+    this._fordeling = fordeling;
+    this._faneTjekket = true;
+    this._opdater();
+    if (this._menu) this._menu.opdater();
   }
 
-  // Kortets lamper vælges i Rumlys under rummet, efter kortets id. Et kort fra 0.4.9–0.4.10 kan have
-  // `lamper` i sin egen opsætning; det gælder, til Rumlys kender kortet.
-  _valgteLamper() {
+  // Kortets lamper: {lamper, hele, ingen, spaerretAf, dublet}, eller {venter} for et nyt kort, til fanen er tjekket.
+  _kortStatus() {
     const rum = this._rum();
+    if (!rum) return null;
+    if (this._fordeling) return this._fordeling;
     const c = this._config || {};
-    if (rum && rum.kort && c.kort && rum.kort[c.kort] !== undefined) return rum.kort[c.kort];
-    return Array.isArray(c.lamper) ? c.lamper : [];
+    const kendt = !c.kort || (rum.kort && Object.prototype.hasOwnProperty.call(rum.kort, c.kort));
+    if (!kendt && !this._faneTjekket) return { venter: true, lamper: [], hele: false };
+    return fordelLamper([c], rum.lamper.map((l) => l.entity_id), rum.kort || {})[0];
+  }
+
+  // Kortet kan ikke bruges lige nu: ingen lamper, lamperne står på et andet kort, eller kortet står to gange.
+  _spaerret() {
+    const k = this._kortStatus();
+    return !!k && (!!k.venter || k.ingen || k.spaerretAf !== null || k.dublet);
+  }
+
+  // Et kort for nogle af rummets lamper. Rumlys' tjenester styrer så kun dem, og «Hold lys» står ikke på kortet.
+  _delvis() {
+    const k = this._kortStatus();
+    return !!k && !k.hele;
   }
 
   _lamper() {
-    const rum = this._rum();
-    if (!rum) return [];
-    const alle = rum.lamper.map((l) => l.entity_id);
-    if (!this._delvis()) return alle;
-    const valgte = this._valgteLamper();
-    return alle.filter((id) => valgte.indexOf(id) >= 0);
+    const k = this._kortStatus();
+    return k ? k.lamper : [];
   }
 
   // Rumlys' tjenester styrer kun kortets lamper, når kortet ikke viser hele rummet.
@@ -584,19 +676,29 @@ class RumlysCard extends HTMLElement {
     e.kort.classList.toggle("lille", c.size === "small");
     e.kort.classList.toggle("stor", c.size === "large");
     const rum = this._rum();
-    e.kort.classList.toggle("uden-rum", !rum);
-    if (!rum) {
+    const k = this._kortStatus();
+    const spaerret = this._spaerret();
+    e.kort.classList.toggle("uden-rum", !rum || spaerret);
+    if (!rum || spaerret) {
       this._stopUr();
+      // Er kortet blevet spærret, mens menuen stod åben, lukkes den: den ville styre lamper, kortet ikke har.
+      if (this._menu) this._menu.luk();
       this._visIkoner([RUMLYS_IKON]);
       const omraade = c.omraade ? (hass.areas || {})[c.omraade] : null;
-      e.navn.textContent = c.name || (omraade ? omraade.name : this.t("kort_navn"));
       let status = "…";
-      if (!c.omraade && !c.rum) status = this.t("vaelg_rum_hint");
-      else if (this._rummene) status = omraade ? this.t("kort_ikke_sat_op") : this.t("rum_findes_ikke");
+      if (rum) {
+        e.navn.textContent = c.name || rum.navn;
+        if (!k.venter) status = this.t(k.dublet ? "kort_dublet" : k.ingen ? "kort_ingen_lamper" : "kort_spaerret");
+      } else {
+        e.navn.textContent = c.name || (omraade ? omraade.name : this.t("kort_navn"));
+        if (!c.omraade && !c.rum) status = this.t("vaelg_rum_hint");
+        else if (this._rummene) status = omraade ? this.t("kort_ikke_sat_op") : this.t("rum_findes_ikke");
+      }
       e.status.textContent = status;
       // Sidepanelet er kun for administratorer. I forhåndsvisningen ville knappen forlade kortets opsætning.
-      e.saetOp.hidden = !(omraade && this._rummene && hass.user && hass.user.is_admin && !this.preview);
-      e.saetOp.textContent = this.t("saet_op");
+      const admin = !!(hass.user && hass.user.is_admin) && !this.preview;
+      e.saetOp.hidden = !(admin && (rum ? !k.venter : omraade && this._rummene));
+      e.saetOp.textContent = this.t(!rum ? "saet_op" : k.dublet ? "adskil_i_rumlys" : "vaelg_i_rumlys");
       e.top.classList.add("uden-skyder");
       e.kort.classList.remove("taendt");
       this._placerSkyder();
@@ -665,14 +767,21 @@ class RumlysCard extends HTMLElement {
   }
 
   _aabnMenu() {
-    if (!this._hass || !this._rum()) return;
+    if (!this._hass || !this._rum() || this._spaerret()) return;
     if (!this._menu) this._menu = document.createElement(NAVN + "-menu");
     this._menu.aabn(this);
   }
 
-  // Opretter rummet med områdets lamper og sensorer valgt, som «Nyt rum» i sidepanelet, og åbner det dér.
+  // Et kort uden rum: opretter rummet med områdets lamper og sensorer valgt, som «Nyt rum» i sidepanelet, og åbner
+  // det dér. Et kort, der ikke kan bruges: åbner rummet i Rumlys, hvor kortets lamper vælges.
   _saetOp() {
     const c = this._config;
+    const rum = this._rum();
+    if (rum) {
+      history.pushState(null, "", "/rumlys/" + rum.id);
+      window.dispatchEvent(new CustomEvent("location-changed", { detail: { replace: false } }));
+      return;
+    }
     if (!this._hass || !c || !c.omraade) return;
     this._el.saetOp.disabled = true;
     this._hass.callWS({ type: "rumlys/rum/opret", omraade: c.omraade }).then(

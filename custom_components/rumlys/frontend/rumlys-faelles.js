@@ -69,20 +69,26 @@ const TEKSTER = {
     ikon_gemt: "Ikonet er gemt",
     ikon_ikke_gemt: "Ikonet kunne ikke gemmes: {fejl}",
     kort_sektion: "Kort",
-    kort_sektion_hint: "Rummets kort på dine betjeningspaneler, i den rækkefølge de står. Et kort viser hele rummet eller de lamper, du vælger — og en lampe kan kun vælges på ét kort pr. fane.",
+    kort_sektion_hint: "Rummets kort på dine betjeningspaneler, i den rækkefølge de står. Et kort viser hele rummet eller de lamper, du vælger. På en fane kan en lampe kun stå på ét kort, og et kort for hele rummet optager dem alle.",
     kort_nr: "Kort {n}",
     nyt: "Nyt",
     hele_rummet: "Hele rummet",
     valgte_lamper: "Valgte lamper",
     paa_kort: "På kort {n}",
     ogsaa_paa_kort: "Også valgt på kort {n}",
+    paa_hele_kort: "Kort {n} viser hele rummet",
     flyt_hertil: "Flyt hertil",
-    kort_nu_hele_rummet: "Kort {n} har ikke flere lamper og viser nu hele rummet",
-    vaelg_lamper_hint: "Vælg en eller flere lamper. Uden valg viser kortet hele rummet.",
+    kort_nu_ingen: "Kort {n} har ikke flere lamper",
+    ingen_lamper_valgt: "Kortet viser ingen lamper. Vælg lamper, eller fjern kortet fra betjeningspanelet.",
+    hele_optaget: "Kort {n} har lamper på fanen, så dette kort kan ikke vise hele rummet.",
     alle_valgt: "Alle lamper er valgt, så kortet viser hele rummet.",
-    alle_taget: "Alle rummets lamper står på andre kort på fanen. Kortet viser hele rummet — eller flyt en lampe hertil.",
+    alle_taget: "Alle rummets lamper står på andre kort på fanen, så kortet viser ingen. Flyt en lampe hertil, eller fjern kortet.",
+    alle_taget_hele: "Kort {n} viser hele rummet på fanen, så dette kort kan ikke bruges. Vælg lamper på kort {n} først, eller fjern dette kort.",
+    kort_spaerret_boks: "Kortet kan ikke bruges på fanen: lamperne står allerede på kort {n}. Vælg andre lamper, eller fjern kortet.",
     flere_steder: "Kortet står {n} gange, og alle viser de samme lamper. «Adskil» giver det sidste sit eget valg.",
     flere_steder_yaml: "Kortet står {n} gange, og alle viser de samme lamper. Skal det sidste have sit eget valg, så ret dets linje med «kort:» til «{linje}».",
+    dublet_fane: "Kortet står {n} gange på samme fane, så ingen af dem virker. «Adskil» giver det sidste sit eget id.",
+    dublet_fane_yaml: "Kortet står {n} gange på samme fane, så ingen af dem virker. Ret det sidstes linje med «kort:» til «{linje}».",
     adskil: "Adskil",
     kort_uden_id: "Kortet har ikke sit eget id endnu. Giv det et, så kan du vælge lamper til det her.",
     kort_uden_id_yaml: "Kortet står på et betjeningspanel i YAML, som Rumlys ikke kan skrive i. Tilføj linjen «{linje}» til kortet, så kan du vælge lamper til det her.",
@@ -232,10 +238,15 @@ const TEKSTER = {
     scenefelter: "Scenefelter",
     smaa: "Små",
     store: "Store med navn",
-    kort_hint: "Lamper, hold lys og scener hentes fra rummet. Hvilke lamper kortet viser, vælger du i Rumlys under rummet, når kortet er gemt.",
+    kort_hint: "Lamper, hold lys og scener hentes fra rummet. Hvilke lamper kortet viser, vælger du i Rumlys under rummet, når kortet er gemt. Har rummet allerede et kort på fanen, viser et nyt kort ingen lamper, til de er valgt.",
     vaelg_rum_hint: "Vælg rummet i kortets opsætning",
     kort_ikke_sat_op: "Ikke sat op i Rumlys",
     saet_op: "Sæt op i Rumlys",
+    kort_ingen_lamper: "Ingen lamper på kortet",
+    kort_spaerret: "Lamperne står på et andet kort på fanen",
+    kort_dublet: "Kortet står to gange på fanen",
+    vaelg_i_rumlys: "Vælg lamper i Rumlys",
+    adskil_i_rumlys: "Skil dem ad i Rumlys",
     gruppe_sat_op: "Sat op i Rumlys",
     gruppe_ikke_sat_op: "Ikke sat op",
     ikke_sat_op_hint: "Rummet er ikke sat op i Rumlys endnu. Gem kortet, og tryk «Sæt op i Rumlys» på det.",
@@ -292,20 +303,26 @@ const TEKSTER = {
     ikon_gemt: "The icon is saved",
     ikon_ikke_gemt: "The icon could not be saved: {fejl}",
     kort_sektion: "Cards",
-    kort_sektion_hint: "The room's cards on your dashboards, in the order they appear. A card shows the whole room or the lights you choose — and a light can only be chosen on one card per tab.",
+    kort_sektion_hint: "The room's cards on your dashboards, in the order they appear. A card shows the whole room or the lights you choose. On a tab a light can only be on one card, and a card for the whole room takes them all.",
     kort_nr: "Card {n}",
     nyt: "New",
     hele_rummet: "Whole room",
     valgte_lamper: "Chosen lights",
     paa_kort: "On card {n}",
     ogsaa_paa_kort: "Also chosen on card {n}",
+    paa_hele_kort: "Card {n} shows the whole room",
     flyt_hertil: "Move here",
-    kort_nu_hele_rummet: "Card {n} has no lights left and now shows the whole room",
-    vaelg_lamper_hint: "Choose one or more lights. Without a choice the card shows the whole room.",
+    kort_nu_ingen: "Card {n} has no lights left",
+    ingen_lamper_valgt: "The card shows no lights. Choose lights, or remove the card from the dashboard.",
+    hele_optaget: "Card {n} has lights on this tab, so this card cannot show the whole room.",
     alle_valgt: "All lights are chosen, so the card shows the whole room.",
-    alle_taget: "All the room's lights are on other cards on the tab. The card shows the whole room — or move a light here.",
+    alle_taget: "All the room's lights are on other cards on the tab, so this card shows none. Move a light here, or remove the card.",
+    alle_taget_hele: "Card {n} shows the whole room on this tab, so this card cannot be used. Choose lights on card {n} first, or remove this card.",
+    kort_spaerret_boks: "The card cannot be used on this tab: its lights are already on card {n}. Choose other lights, or remove the card.",
     flere_steder: "The card appears {n} times, and all of them show the same lights. «Separate» gives the last one its own choice.",
     flere_steder_yaml: "The card appears {n} times, and all of them show the same lights. To give the last one its own choice, change its «kort:» line to «{linje}».",
+    dublet_fane: "The card is on the same tab {n} times, so none of them works. «Separate» gives the last one its own id.",
+    dublet_fane_yaml: "The card is on the same tab {n} times, so none of them works. Change the last one's «kort:» line to «{linje}».",
     adskil: "Separate",
     kort_uden_id: "The card has no id of its own yet. Give it one to choose its lights here.",
     kort_uden_id_yaml: "The card is on a YAML dashboard, which Rumlys cannot write to. Add the line «{linje}» to the card to choose its lights here.",
@@ -455,10 +472,15 @@ const TEKSTER = {
     scenefelter: "Scene tiles",
     smaa: "Small",
     store: "Large with name",
-    kort_hint: "Lights, keep light on and scenes come from the room. Which lights the card shows is chosen in Rumlys under the room once the card is saved.",
+    kort_hint: "Lights, keep light on and scenes come from the room. Which lights the card shows is chosen in Rumlys under the room once the card is saved. If the room already has a card on this tab, a new card shows no lights until they are chosen.",
     vaelg_rum_hint: "Choose the room in the card's settings",
     kort_ikke_sat_op: "Not set up in Rumlys",
     saet_op: "Set up in Rumlys",
+    kort_ingen_lamper: "No lights on this card",
+    kort_spaerret: "The lights are on another card on this tab",
+    kort_dublet: "The card is on this tab twice",
+    vaelg_i_rumlys: "Choose lights in Rumlys",
+    adskil_i_rumlys: "Separate them in Rumlys",
     gruppe_sat_op: "Set up in Rumlys",
     gruppe_ikke_sat_op: "Not set up",
     ikke_sat_op_hint: "The room is not set up in Rumlys yet. Save the card and press «Set up in Rumlys» on it.",
@@ -793,6 +815,76 @@ export function nytKortId() {
   const tal = new Uint8Array(6);
   crypto.getRandomValues(tal);
   return "k" + Array.from(tal, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/* ---------- kortene på en fane ---------- */
+
+// Er kortets opsætning for rummet? Kortet peger på området; kort fra før 0.4.8 har rummets id i `rum`.
+export function erRummetsKort(config, rum) {
+  return config.omraade ? config.omraade === rum.omraade : !!config.rum && config.rum === rum.id;
+}
+
+// Rumlys-kortene i en fanes opsætning, i den rækkefølge de står — også inde i stakke, betingede kort og pop-ups.
+export function fanensKort(fane) {
+  const kort = [];
+  const gaa = (x) => {
+    if (Array.isArray(x)) x.forEach(gaa);
+    else if (x && typeof x === "object") {
+      if (x.type === "custom:rumlys-card") kort.push(x);
+      else Object.keys(x).forEach((k) => gaa(x[k]));
+    }
+  };
+  gaa(fane);
+  return kort;
+}
+
+// Hvilke lamper hvert af rummets kort på én fane viser. Sidepanelet og kortene bruger samme regel:
+// - En lampe kan kun stå på ét kort på fanen, og et kort for hele rummet optager dem alle.
+// - Rumlys' valg for kortet (`valg` efter kortets id) er en liste af lamper; en tom liste er hele rummet, og null er
+//   ingen lamper. Et kort, Rumlys ikke kender endnu, gælder som hele rummet, og et kort uden id viser hele rummet
+//   eller sine egne `lamper` fra 0.4.9–0.4.10.
+// - Kort, Rumlys kender, går forud for nye kort — ellers går det øverste forud. Et kort, hvis lamper allerede står
+//   på et andet kort, viser ingen og peger på det kort.
+// - Står samme kort flere gange på fanen, optager det sine lamper, men ingen af gangene viser dem, før kortene er
+//   skilt ad — ellers styrer to kort de samme lamper.
+// `kortListe` er fanens kort for rummet i rækkefølge, `rumLamper` rummets lamper. For hvert kort gives
+// {lamper, optager, hele, ingen, spaerretAf, dublet}: `lamper` er dem, kortet viser, `optager` dem, ingen andre kort
+// på fanen kan få, og `spaerretAf` indekset på det kort, der allerede har kortets lamper.
+export function fordelLamper(kortListe, rumLamper, valg) {
+  const antal = {};
+  kortListe.forEach((c) => { if (c.kort) antal[c.kort] = (antal[c.kort] || 0) + 1; });
+  const oensket = kortListe.map((c) => {
+    const kendt = !c.kort || Object.prototype.hasOwnProperty.call(valg, c.kort);
+    let lamper = [];
+    if (!c.kort) lamper = Array.isArray(c.lamper) ? c.lamper : [];
+    else if (kendt) lamper = valg[c.kort];
+    if (lamper === null) return { kendt, ingen: true, lamper: [] };
+    const egne = rumLamper.filter((l) => lamper.indexOf(l) >= 0);
+    // En liste, hvor ingen af lamperne er i rummet længere, er ingen lamper — ikke hele rummet.
+    if (lamper.length && !egne.length) return { kendt, ingen: true, lamper: [] };
+    return { kendt, ingen: false, lamper: lamper.length ? egne : rumLamper.slice() };
+  });
+  const orden = kortListe.map((c, i) => i).sort((a, b) => Number(oensket[b].kendt) - Number(oensket[a].kendt) || a - b);
+  const ejer = {};
+  const svar = [];
+  orden.forEach((i) => {
+    const c = kortListe[i];
+    const o = oensket[i];
+    const dublet = !!c.kort && antal[c.kort] > 1;
+    const res = { lamper: [], optager: [], hele: false, ingen: o.ingen, spaerretAf: null, dublet };
+    if (!o.ingen) {
+      const optaget = o.lamper.find((l) => l in ejer && !(dublet && kortListe[ejer[l]].kort === c.kort));
+      if (optaget !== undefined) res.spaerretAf = ejer[optaget];
+      else {
+        o.lamper.forEach((l) => { if (!(l in ejer)) ejer[l] = i; });
+        res.optager = o.lamper;
+        res.hele = o.lamper.length === rumLamper.length;
+        if (!dublet) res.lamper = o.lamper;
+      }
+    }
+    svar[i] = res;
+  });
+  return svar;
 }
 const IKONER = {
   lampe:

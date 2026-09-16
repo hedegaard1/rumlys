@@ -162,18 +162,21 @@ async def test_kortenes_lamper(hass: HomeAssistant, hass_ws_client: WebSocketGen
         type="rumlys/rum/gem",
         rum_id="gang",
         data=data,
-        kort={"k1": [bord, "light.fremmed"], "k2": [bord, SPOTS], "k3": []},
+        kort={"k1": [bord, "light.fremmed"], "k2": [bord, SPOTS], "k3": [], "k5": None, "k6": ["light.fremmed"]},
     )
     assert svar["success"], svar
     await hass.async_block_till_done()
     liste = (await kommando(klient, type="rumlys/rum/liste"))["result"]
-    # Lamper uden for rummet tæller ikke, og alle rummets lamper er hele rummet.
-    assert liste[0]["kort"] == {"k1": [bord], "k2": [], "k3": []}
+    # Lamper uden for rummet tæller ikke, og alle rummets lamper er hele rummet. None er ingen lamper, og et kort,
+    # hvis lamper alle er uden for rummet, viser heller ingen — ikke hele rummet.
+    assert liste[0]["kort"] == {"k1": [bord], "k2": [], "k3": [], "k5": None, "k6": None}
 
     # Nye kort fra sidepanelet: et kort, rummet kender, røres ikke.
     foer = hass.states.get("sensor.gang_tilstand").attributes["kort_opdateret"]
-    svar = await kommando(klient, type="rumlys/kort/nye", rum_id="gang", kort={"k1": [SPOTS], "k4": [SPOTS]})
-    assert svar["result"]["kort"] == {"k1": [bord], "k2": [], "k3": [], "k4": [SPOTS]}
+    svar = await kommando(
+        klient, type="rumlys/kort/nye", rum_id="gang", kort={"k1": [SPOTS], "k4": [SPOTS], "k7": None}
+    )
+    assert svar["result"]["kort"] == {"k1": [bord], "k2": [], "k3": [], "k5": None, "k6": None, "k4": [SPOTS], "k7": None}
     # Tilstandssensoren viser, at kortene er ændret, så kort på andre skærme henter rummet igen.
     await hass.async_block_till_done()
     assert hass.states.get("sensor.gang_tilstand").attributes["kort_opdateret"] not in (None, foer)
@@ -182,7 +185,7 @@ async def test_kortenes_lamper(hass: HomeAssistant, hass_ws_client: WebSocketGen
     await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
     liste = (await kommando(klient, type="rumlys/rum/liste"))["result"]
-    assert liste[0]["kort"] == {"k1": [bord], "k2": [], "k3": [], "k4": [SPOTS]}
+    assert liste[0]["kort"] == {"k1": [bord], "k2": [], "k3": [], "k5": None, "k6": None, "k4": [SPOTS], "k7": None}
 
     # Et gem, hvor kun kortene er ændret, gemmer dem også — og et glemt kort er væk.
     data = (await kommando(klient, type="rumlys/rum/hent", rum_id="gang"))["result"]["data"]
