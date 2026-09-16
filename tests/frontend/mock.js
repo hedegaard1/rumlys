@@ -23,12 +23,13 @@ const KATALOG = {
   ]),
 };
 
-// Scenerne hentes fra repoets egne filer ved siden af rumlys-faelles.js. Uden dem bruges det
-// lille katalog herover.
+// Scenerne hentes fra repoets egne filer ved siden af rumlys-faelles.js; Home Assistants faste
+// adresse findes ikke her. Uden repoets filer bruges det lille katalog herover i stedet for den
+// sidste kilde, Scene Presets.
 const aegteFetch = window.fetch.bind(window);
 window.fetch = async (url, ...rest) => {
   const svar = await aegteFetch(url, ...rest);
-  if (!svar.ok && String(url).indexOf("scener.json") >= 0) return new Response(JSON.stringify(KATALOG), { status: 200 });
+  if (!svar.ok && String(url).indexOf("scene_presets.json") >= 0) return new Response(JSON.stringify(KATALOG), { status: 200 });
   return svar;
 };
 

@@ -4,14 +4,20 @@
   ha-martin: hvidt lys tegnes som i Hue-appen, og en hvid scene genkendes på pærerne.
 */
 
-export const VERSION = "0.4.5";
+export const VERSION = "0.4.6";
 // Mappen, filen selv ligger i — i Home Assistant med versionen i stien, på testsiden repoets egen.
 export const FILER = new URL("./", import.meta.url).href;
-// Scenerne ligger i Rumlys selv; findes de ikke, bruges en installeret Scene Presets.
+// Scenerne ligger i Rumlys selv. I Home Assistant har de en fast adresse uden version, så et kort,
+// der har stået åbent under en opdatering, stadig finder dem; på testsiden ligger de ved siden af
+// denne fil. Findes ingen af dem, bruges en installeret Scene Presets.
 const SCENE_KILDER = [
+  ["/rumlys_scener/scener.json", "/rumlys_scener/"],
   [FILER + "scener/scener.json", FILER + "scener/"],
   ["/assets/scene_presets/scene_presets.json", "/assets/scene_presets/"],
 ];
+// Lige efter en genstart kan kortet vises, før Rumlys har lagt filerne frem: prøv igen i to minutter.
+const SCENE_FORSOEG = 12;
+const SCENE_PAUSE_MS = 10000;
 export const OPDATERET = "rumlys-opdateret";
 
 /* ---------- tekster ---------- */
@@ -711,32 +717,42 @@ let katalogLoefte = null;
 export function hentScener() {
   if (!katalogLoefte) {
     katalogLoefte = (async () => {
-      for (const [url, billeder] of SCENE_KILDER) {
-        try {
-          const svar = await fetch(url);
-          if (!svar.ok) continue;
-          const d = await svar.json();
-          const kategorier = {};
-          (d.categories || []).forEach((c) => { kategorier[c.id] = c.name; });
-          const scener = (d.presets || []).map((p) => ({
-            id: p.id,
-            navn: p.name,
-            kategori: kategorier[p.categoryId] || "",
-            billede: p.img ? billeder + p.img : null,
-            bri: Number(p.bri) > 0 ? Number(p.bri) : 255,
-            punkter: (p.lights || []).map((l) => [l.x, l.y]),
-          }));
-          const efterId = {};
-          scener.forEach((s) => { efterId[s.id] = s; });
-          return { scener, efterId, kategorier: Object.values(kategorier) };
-        } catch (e) {
-          // næste kilde
-        }
+      for (let forsoeg = 0; forsoeg < SCENE_FORSOEG; forsoeg++) {
+        if (forsoeg) await new Promise((r) => setTimeout(r, SCENE_PAUSE_MS));
+        const katalog = await hentKatalog();
+        if (katalog) return katalog;
       }
       return { scener: [], efterId: {}, kategorier: [] };
     })();
   }
   return katalogLoefte;
+}
+
+// Scenerne fra den første kilde, der svarer. null, hvis ingen gør.
+async function hentKatalog() {
+  for (const [url, billeder] of SCENE_KILDER) {
+    try {
+      const svar = await fetch(url);
+      if (!svar.ok) continue;
+      const d = await svar.json();
+      const kategorier = {};
+      (d.categories || []).forEach((c) => { kategorier[c.id] = c.name; });
+      const scener = (d.presets || []).map((p) => ({
+        id: p.id,
+        navn: p.name,
+        kategori: kategorier[p.categoryId] || "",
+        billede: p.img ? billeder + p.img : null,
+        bri: Number(p.bri) > 0 ? Number(p.bri) : 255,
+        punkter: (p.lights || []).map((l) => [l.x, l.y]),
+      }));
+      const efterId = {};
+      scener.forEach((s) => { efterId[s.id] = s; });
+      return { scener, efterId, kategorier: Object.values(kategorier) };
+    } catch (e) {
+      // næste kilde
+    }
+  }
+  return null;
 }
 
 // En scenes farver som overgang — til felter uden billede og til tidslinjen.
