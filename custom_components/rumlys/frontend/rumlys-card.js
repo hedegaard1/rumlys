@@ -30,6 +30,8 @@ import {
 } from "./rumlys-faelles.js";
 
 const NAVN = "rumlys-card";
+// Så bred skal skyderen mindst kunne være mellem ikonerne og knapperne; ellers kommer den under.
+const SKYDER_MIN = 100;
 const FARVE_TILSTANDE = ["xy", "hs", "rgb", "rgbw"];
 
 /* ---------- rummene ---------- */
@@ -206,12 +208,10 @@ const STYLE = KONTROL_STYLE + `
   }
   .hold.aktiv { opacity:1; background:var(--rl-fyld); border-color:var(--rl-fyld); color:var(--rl-paa-fyld); }
   .top .skyder { flex:1 1 0; min-width:60px; }
-  /* Skyderen står mellem ikonerne og knapperne; kun på meget smalle kort får den sin egen linje. */
-  @container (max-width: 300px) {
-    .top { flex-wrap:wrap; row-gap:0; }
-    .tekst { flex:1 1 0; max-width:none; }
-    .top .skyder { order:1; flex:1 1 100%; }
-  }
+  /* Skyderen står mellem ikonerne og knapperne, når den får plads nok dér; ellers på sin egen linje. */
+  .top.skyder-under { flex-wrap:wrap; row-gap:0; }
+  .top.skyder-under .tekst { flex:1 1 0; max-width:none; }
+  .top.skyder-under .skyder { order:1; flex:1 1 100%; }
   .scener { display:grid; grid-template-columns:repeat(auto-fill, minmax(var(--rl-scene), 1fr)); justify-content:start; gap:var(--rl-scene-gap); margin-top:var(--rl-scene-top); cursor:default; }
   .scener.skjult { display:none; }
   .scener:not(.med-navne) .scene .n { display:none; }
@@ -272,7 +272,10 @@ class RumlysCard extends HTMLElement {
   connectedCallback() {
     window.addEventListener(OPDATERET, this._vedOpdatering);
     if (window.ResizeObserver && !this._ro) {
-      this._ro = new ResizeObserver(() => this._tilpasScener());
+      this._ro = new ResizeObserver(() => {
+        this._placerSkyder();
+        this._tilpasScener();
+      });
       this._ro.observe(this);
     }
     this._opdater();
@@ -346,7 +349,8 @@ class RumlysCard extends HTMLElement {
     e.skyder = h("input", { class: "skyder", type: "range", min: "0", max: "100", step: "1" });
     e.hold = h("button", { class: "hold", type: "button" }, h("ha-icon", { icon: "mdi:lock-clock" }));
     e.kontakt = h("button", { class: "kontakt", type: "button", role: "switch" }, h("span", { class: "knop" }));
-    e.top = h("div", { class: "top" }, e.ikoner, h("div", { class: "tekst" }, e.navn, e.status), e.skyder, e.hold, e.kontakt);
+    e.tekst = h("div", { class: "tekst" }, e.navn, e.status);
+    e.top = h("div", { class: "top" }, e.ikoner, e.tekst, e.skyder, e.hold, e.kontakt);
     e.scener = h("div", { class: "scener skjult" });
     e.kort = h("ha-card", {}, h("div", { class: "inhold" }, e.top, e.scener));
     r.append(h("style", {}, STYLE), e.kort);
@@ -385,6 +389,33 @@ class RumlysCard extends HTMLElement {
     scener.forEach((s) => e.scener.appendChild(sceneKnap(this._hass, s, (knap) => this._anvendScene(s.id, knap))));
     e.scener.classList.toggle("skjult", !scener.length);
     this._tilpasScener();
+  }
+
+  // Skyderen står mellem ikonerne og knapperne, hvis den dér kan blive mindst SKYDER_MIN bred, når navn og
+  // status vises helt; ellers får den sin egen linje. Det afhænger af kortets bredde, antallet af ikoner og
+  // teksternes længde, så det måles i stedet for at bruge en fast bredde.
+  _placerSkyder() {
+    const e = this._el;
+    if (!e || !e.top.isConnected) return;
+    const bredde = e.top.clientWidth;
+    if (!bredde || e.skyder.classList.contains("skjult")) {
+      e.top.classList.remove("skyder-under");
+      return;
+    }
+    if (!this._canvas) this._canvas = document.createElement("canvas");
+    const ctx = this._canvas.getContext("2d");
+    const maal = (tekst, el) => {
+      const cs = getComputedStyle(el);
+      ctx.font = cs.fontWeight + " " + cs.fontSize + " " + cs.fontFamily;
+      return ctx.measureText(tekst).width;
+    };
+    // Status måles med de længste faste tekster, så skyderen ikke flytter sig, når lyset tændes, dæmpes
+    // eller tæller ned — en nedtælling må godt blive afkortet.
+    const status = this._rum() ? [this.t("taendt") + " · 100 %", this.t("slukket"), this.t("utilgaengelig")] : [e.status.textContent];
+    const tekst = Math.ceil(Math.max(maal(e.navn.textContent, e.navn), ...status.map((s) => maal(s, e.status))));
+    const gap = parseFloat(getComputedStyle(e.top).columnGap) || 0;
+    const plads = bredde - (e.ikoner.offsetWidth + tekst + e.hold.offsetWidth + e.kontakt.offsetWidth + 4 * gap);
+    e.top.classList.toggle("skyder-under", plads < SKYDER_MIN);
   }
 
   // Scenerne skal gøre kortet så lidt højere som muligt: kan alle stå på én række i felter på mindst
@@ -473,6 +504,7 @@ class RumlysCard extends HTMLElement {
       e.status.textContent = !c.rum ? this.t("vaelg_rum_hint") : this._rummene ? this.t("rum_findes_ikke") : "…";
       e.kort.classList.remove("taendt");
       e.kontakt.disabled = e.skyder.disabled = e.hold.disabled = true;
+      this._placerSkyder();
       return;
     }
     const lamper = this._lamper();
@@ -491,6 +523,7 @@ class RumlysCard extends HTMLElement {
     e.hold.disabled = !hold;
     e.skyder.classList.toggle("skjult", !kanDaempe);
     e.top.classList.toggle("uden-skyder", !kanDaempe);
+    this._placerSkyder();
 
     const farver = rummetsFarver(hass, lamper, this._katalog, () => this._opdater());
     if (farver.length) {
