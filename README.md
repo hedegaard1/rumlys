@@ -60,7 +60,7 @@ vælges.
 
 ### Kortet
 
-Ét kort pr. rum. Baggrunden viser lampernes farver; skyderen dæmper alle rummets lamper i samme
+Et kort for et rum eller for nogle af dets lamper. Baggrunden viser lampernes farver; skyderen dæmper alle rummets lamper i samme
 forhold; knappen holder lyset tændt og tæller ned. Tryk på kortet åbner menuen med lysstyrke, hvidt
 lys, farve, scener og hver lampe for sig. Ikonet kommer fra rummet. Kortets opsætning er kun rummet og
 udseendet:
@@ -75,7 +75,9 @@ scene_size: small                  # small eller large (med navn)
 ```
 
 Med `lamper` viser kortet kun de lamper: tænd og sluk, skyder, scener og menuen gælder dem, og et kort for én
-lampe hedder som lampen. «Hold lys» hører til hele rummet og står kun på et kort for hele rummet. Tændes en
+lampe hedder som lampen. På samme fane kan en lampe kun stå på ét kort for nogle af lamperne — opsætningen viser
+de andre som «På et andet kort» — men gerne også på et kort for hele rummet. «Hold lys» hører til hele rummet og
+står kun på et kort for hele rummet. Tændes en
 lampe fra kortet, tæller det som valgt lys i rummet, så rummets nedtælling stadig slukker den.
 
 Kortets opsætning viser alle husets rum. Et kort kan stå på et betjeningspanel, før rummet er sat op i

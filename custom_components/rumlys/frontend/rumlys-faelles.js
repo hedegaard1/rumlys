@@ -4,7 +4,7 @@
   ha-martin: hvidt lys tegnes som i Hue-appen, og en hvid scene genkendes på pærerne.
 */
 
-export const VERSION = "0.4.9";
+export const VERSION = "0.4.10";
 // Mappen, filen selv ligger i — i Home Assistant med versionen i stien, på testsiden repoets egen.
 export const FILER = new URL("./", import.meta.url).href;
 // Scenerne ligger i Rumlys selv. I Home Assistant har de en fast adresse uden version, så et kort,
@@ -211,7 +211,8 @@ const TEKSTER = {
     gruppe_ikke_sat_op: "Ikke sat op",
     ikke_sat_op_hint: "Rummet er ikke sat op i Rumlys endnu. Gem kortet, og tryk «Sæt op i Rumlys» på det.",
     lamper_paa_kortet: "Lamper på kortet",
-    lamper_kort_hint: "Uden valg viser kortet hele rummet. «Hold lys» står kun på et kort for hele rummet.",
+    lamper_kort_hint: "Uden valg viser kortet hele rummet. En lampe kan kun stå på ét lampekort på fanen, men gerne også på et kort for hele rummet. «Hold lys» står kun på et kort for hele rummet.",
+    paa_andet_kort: "På et andet kort",
     taend_sluk: "Tænd eller sluk",
     luk: "Luk",
     detaljer: "Historik og indstillinger i Home Assistant",
@@ -407,7 +408,8 @@ const TEKSTER = {
     gruppe_ikke_sat_op: "Not set up",
     ikke_sat_op_hint: "The room is not set up in Rumlys yet. Save the card and press «Set up in Rumlys» on it.",
     lamper_paa_kortet: "Lights on the card",
-    lamper_kort_hint: "Without a choice the card shows the whole room. «Keep light on» is only on a card for the whole room.",
+    lamper_kort_hint: "Without a choice the card shows the whole room. A light can only be on one light card on the tab, but also on a card for the whole room. «Keep light on» is only on a card for the whole room.",
+    paa_andet_kort: "On another card",
     taend_sluk: "Turn on or off",
     luk: "Close",
     detaljer: "History and settings in Home Assistant",

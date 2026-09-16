@@ -185,6 +185,15 @@ const WS = {
   "rumlys/rum/gem": (msg) => ({ id: msg.rum_id }),
   "rumlys/rum/opret": () => ({ id: "kontor" }),
   "rumlys/rum/slet": (msg) => ({ id: msg.rum_id }),
+  // Betjeningspanelet med Kontor-fanen: et kort for hele rummet og et for lysbåndet.
+  "lovelace/config": {
+    views: [
+      { path: "kontor", sections: [{ type: "grid", cards: [
+        { type: "custom:rumlys-card", omraade: "office" },
+        { type: "custom:rumlys-card", omraade: "office", lamper: ["light.kontor_bord_lysband"] },
+      ] }] },
+    ],
+  },
   "config/entity_registry/update": (msg) => {
     const st = hass.states[msg.entity_id];
     hass.entities = Object.assign({}, hass.entities, { [msg.entity_id]: Object.assign({}, hass.entities[msg.entity_id], { icon: msg.icon || undefined }) });

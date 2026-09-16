@@ -1217,6 +1217,8 @@ const EDITOR_STYLE = `
   .lamper { display:grid; gap:2px; }
   .lampe { display:flex; align-items:center; gap:10px; font-size:14px; font-weight:400; color:var(--primary-text-color); padding:4px 0; cursor:pointer; }
   .lampe input { width:18px; height:18px; margin:0; accent-color:var(--primary-color); }
+  .lampe.optaget { color:var(--secondary-text-color); cursor:default; }
+  .lampe small { margin-left:auto; font-size:12px; color:var(--secondary-text-color); }
 `;
 
 class RumlysCardEditor extends HTMLElement {
@@ -1227,6 +1229,8 @@ class RumlysCardEditor extends HTMLElement {
   }
 
   setConfig(config) {
+    // Kortet, som det stod, da opsætningen blev åbnet — til at kende det igen blandt fanens kort.
+    if (this._aabnet === undefined) this._aabnet = JSON.stringify(config);
     this._config = Object.assign({}, config);
     this._tegn();
   }
@@ -1236,6 +1240,36 @@ class RumlysCardEditor extends HTMLElement {
     this._hass = hass;
     if (foerste) {
       hentRum(hass).then((r) => { this._rummene = r; this._tegn(); }, () => { this._rummene = []; this._tegn(); });
+      this._hentFanensKort();
+    }
+  }
+
+  // De andre Rumlys-kort på fanen. En lampe kan kun stå på ét kort for nogle af rummets lamper pr. fane,
+  // så opsætningen kan vise, hvilke der er taget. Fanen findes i adressen, fx /lovelace/kontor.
+  async _hentFanensKort() {
+    const dele = location.pathname.split("/").filter(Boolean);
+    if (dele.length < 2) return;
+    try {
+      const panel = await this._hass.callWS({ type: "lovelace/config", url_path: dele[0] === "lovelace" ? null : dele[0] });
+      const faner = panel.views || [];
+      const fane = faner.find((v) => v.path === dele[1]) || faner[Number(dele[1])];
+      if (!fane) return;
+      const kort = [];
+      const find = (x) => {
+        if (Array.isArray(x)) x.forEach(find);
+        else if (x && typeof x === "object") {
+          if (x.type === "custom:" + NAVN) kort.push(x);
+          else ["sections", "cards", "card"].forEach((k) => find(x[k]));
+        }
+      };
+      find(fane.sections || fane.cards || []);
+      // Er kortet gemt før, står det selv på fanen: det tæller ikke med.
+      const selv = kort.findIndex((k) => JSON.stringify(k) === this._aabnet);
+      if (selv >= 0) kort.splice(selv, 1);
+      this._andreKort = kort;
+      this._tegn();
+    } catch (e) {
+      this._andreKort = [];
     }
   }
 
@@ -1279,15 +1313,26 @@ class RumlysCardEditor extends HTMLElement {
     let lampeFelt = null;
     if (rum && rum.lamper.length > 1) {
       const valgte = Array.isArray(this._config.lamper) ? this._config.lamper : [];
+      // Lamper på et andet kort for nogle af rummets lamper på fanen. Et kort for hele rummet tager ingen.
+      const optaget = new Set();
+      (this._andreKort || []).forEach((k) => {
+        const kortetsRum = k.omraade || (rummene.find((x) => x.id === k.rum) || {}).omraade;
+        if (kortetsRum !== rum.omraade || !Array.isArray(k.lamper)) return;
+        const med = rum.lamper.filter((l) => k.lamper.indexOf(l.entity_id) >= 0);
+        if (med.length < rum.lamper.length) med.forEach((l) => optaget.add(l.entity_id));
+      });
       const liste = h("div", { class: "lamper" }, rum.lamper.map((l) => {
         const st = this._hass.states[l.entity_id];
         const boks = h("input", { type: "checkbox" });
         boks.checked = valgte.indexOf(l.entity_id) >= 0;
+        const taget = optaget.has(l.entity_id) && !boks.checked;
+        boks.disabled = taget;
         boks.addEventListener("change", () => {
           const nye = rum.lamper.map((x) => x.entity_id).filter((id) => (id === l.entity_id ? boks.checked : valgte.indexOf(id) >= 0));
           this._skift("lamper", nye.length ? nye : undefined);
         });
-        return h("label", { class: "lampe" }, boks, kortNavn((st && st.attributes.friendly_name) || l.entity_id, rum.navn));
+        const navn = kortNavn((st && st.attributes.friendly_name) || l.entity_id, rum.navn);
+        return h("label", { class: "lampe" + (taget ? " optaget" : "") }, boks, navn, taget ? h("small", {}, t("paa_andet_kort")) : null);
       }));
       lampeFelt = h("div", { class: "felt" }, h("span", { class: "etiket" }, t("lamper_paa_kortet")), liste, h("p", {}, t("lamper_kort_hint")));
     }
