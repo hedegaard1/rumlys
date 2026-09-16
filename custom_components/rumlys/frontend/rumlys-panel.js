@@ -1,7 +1,7 @@
 /*
   Rumlys i sidepanelet: al opsætning af et rum samlet ét sted, kun for administratorer.
   Oversigten viser alle rum og det, de gør lige nu; et rums side har lamper, sensorer,
-  rummets lys, døgnet, tiderne, «hold lys», scenerne på kortet og de seneste hændelser.
+  tidsplanen, tiderne, «hold lys», scenerne på kortet og de seneste hændelser.
 */
 
 import {
@@ -120,13 +120,21 @@ select, input[type=text], input[type=time], input[type=search] {
 .naar .tx { flex: 1; min-width: 180px; }
 .naar .tx b { display: block; font-size: 14px; font-weight: 500; }
 .naar .tx small { color: var(--rl-daempet); font-size: 12px; }
-.tidslinje { position: relative; height: 46px; border-radius: 12px; overflow: hidden; border: 1px solid var(--rl-linje);
-  background: repeating-linear-gradient(135deg, var(--rl-flade2) 0 8px, var(--rl-linje) 8px 9px); }
-.tidslinje .blok { position: absolute; top: 0; bottom: 0; display: flex; align-items: center; padding: 0 10px; font-size: 12px; font-weight: 700; color: #2a241e; border: 0; cursor: pointer; white-space: nowrap; overflow: hidden; }
-.tidslinje .nu { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--primary-text-color); pointer-events: none; }
+.uge { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 4px 8px; align-items: center; }
+.uge .dag { font-size: 12px; color: var(--rl-daempet); }
+.uge .dag.idag { color: var(--primary-text-color); font-weight: 700; }
+.spor { position: relative; height: 26px; border-radius: 8px; overflow: hidden; cursor: pointer; box-shadow: inset 0 0 0 1px var(--rl-linje); }
+.spor .blok { position: absolute; top: 0; bottom: 0; display: flex; align-items: center; padding: 0 8px; font-size: 11px; font-weight: 700; color: #2a241e; border: 0; cursor: pointer; white-space: nowrap; overflow: hidden; }
+.spor .nu { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--primary-text-color); pointer-events: none; }
 .timer { display: flex; justify-content: space-between; font-size: 11px; color: var(--rl-daempet); margin: 4px 2px 8px; }
+.dagvalg { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.dagknap { min-height: 36px; padding: 0; border: 1px solid var(--rl-linje); border-radius: 10px; background: var(--rl-flade2); color: var(--rl-daempet); font-size: 13px; cursor: pointer; }
+.dagknap.til { background: var(--rl-p); border-color: var(--rl-p); color: var(--rl-paa-p); font-weight: 600; }
+.genveje { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0 10px; }
+.genveje .knap { padding: 6px 12px; font-size: 13px; }
 .tidsraekke { display: flex; align-items: center; gap: 10px; padding: 10px 2px; border-top: 1px solid var(--rl-linje); cursor: pointer; background: var(--rl-flade); }
 .greb { color: var(--rl-daempet); cursor: grab; touch-action: none; display: grid; place-items: center; width: 28px; }
+.greb.laast { cursor: inherit; }
 .tidsraekke .farve { width: 30px; height: 30px; border-radius: 9px; flex: none; }
 .tidsraekke .tx { flex: 1; min-width: 0; }
 .tidsraekke b { font-size: 14px; font-weight: 500; }
@@ -174,6 +182,24 @@ select, input[type=text], input[type=time], input[type=search] {
 
 function kopi(v) {
   return JSON.parse(JSON.stringify(v));
+}
+
+// Ugedagene, mandag = 0, som Rumlys gemmer dem.
+const ALLE_DAGE = [0, 1, 2, 3, 4, 5, 6];
+
+function minut(klokkeslaet) {
+  const [t, m] = String(klokkeslaet).split(":");
+  return Number(t) * 60 + Number(m);
+}
+
+// Om et tidsrum gælder en ugedag og et minut — samme regel som Rumlys selv: over midnat hører
+// til dagen, det begynder, og samme klokkeslæt i start og slut er et helt døgn.
+function gaelder(tr, dag, m) {
+  const start = minut(tr.start);
+  const slut = minut(tr.slut);
+  const dage = tr.dage || ALLE_DAGE;
+  if (start < slut) return dage.includes(dag) && start <= m && m < slut;
+  return (dage.includes(dag) && m >= start) || (dage.includes((dag + 6) % 7) && m < slut);
 }
 
 function naviger(sti) {
@@ -528,8 +554,7 @@ class RumlysPanel extends HTMLElement {
       ["rummet", () => this._sekRummet()],
       ["lamper", () => this._sekLamper()],
       ["sensorer", () => this._sekSensorer()],
-      ["lys", () => this._sekLys()],
-      ["doegnet", () => this._sekDoegnet()],
+      ["tidsplan", () => this._sekTidsplan()],
       ["ingen", () => this._sekIngen()],
       ["hold", () => this._sekHold()],
       ["scener", () => this._sekScener()],
@@ -727,7 +752,21 @@ class RumlysPanel extends HTMLElement {
     });
     if (!liste.children.length) liste.appendChild(h("p", { class: "hint" }, this.t("ingen_lamper")));
     const andre = h("button", { class: "knap t", onclick: () => this._andreLamper() }, ikon("mdi:plus"), this.t("vis_andre"));
-    return this._sektion("mdi:lightbulb-group-outline", this.t("lamper"), this.t("lamper_hint"), liste, andre);
+    const vaerdi = h("output", {}, this.t("sek", { n: String(d.overgang || 0).replace(".", ",") }));
+    const skyder = h("input", { type: "range", min: "0", max: "10", step: "0.5", value: String(d.overgang || 0), "aria-label": this.t("blod") });
+    skyder.addEventListener("input", () => {
+      d.overgang = Number(skyder.value);
+      vaerdi.textContent = this.t("sek", { n: String(d.overgang).replace(".", ",") });
+      this._aendret();
+    });
+    return this._sektion(
+      "mdi:lightbulb-group-outline",
+      this.t("lamper"),
+      this.t("lamper_hint"),
+      liste,
+      andre,
+      h("div", { class: "felt", style: { marginTop: "14px" } }, h("label", {}, this.t("blod")), h("div", { class: "skyder" }, skyder, vaerdi))
+    );
   }
 
   async _andreLamper() {
@@ -804,39 +843,42 @@ class RumlysPanel extends HTMLElement {
     return knap;
   }
 
-  _sekLys() {
+  _sekTidsplan() {
     const d = this._kladde.data;
-    const vaerdi = h("output", {}, this.t("sek", { n: String(d.overgang || 0).replace(".", ",") }));
-    const skyder = h("input", { type: "range", min: "0", max: "10", step: "0.5", value: String(d.overgang || 0), "aria-label": this.t("blod") });
-    skyder.addEventListener("input", () => {
-      d.overgang = Number(skyder.value);
-      vaerdi.textContent = this.t("sek", { n: String(d.overgang).replace(".", ",") });
-      this._aendret();
-    });
-    return this._sektion(
-      "mdi:lightbulb-auto-outline",
-      this.t("rummets_lys"),
-      this.t("rummets_lys_hint"),
-      this._lysknap(d.lys, (lys) => { d.lys = lys; this._genTegn("lys", "doegnet"); }),
-      h("div", { class: "felt", style: { marginTop: "14px" } }, h("label", {}, this.t("blod")), h("div", { class: "skyder" }, skyder, vaerdi))
-    );
-  }
-
-  _sekDoegnet() {
-    const d = this._kladde.data;
-    const tidslinje = h("div", { class: "tidslinje" });
-    const minut = (t) => { const [a, b] = String(t).split(":"); return Number(a) * 60 + Number(b); };
-    d.tidsrum.forEach((tr, plads) => {
-      const a = minut(tr.start);
-      const b = minut(tr.slut);
-      (b > a ? [[a, b]] : [[a, 1440], [0, b]]).forEach(([fra, til]) => {
-        const blok = h("button", { class: "blok", type: "button", style: { left: fra / 14.4 + "%", width: (til - fra) / 14.4 + "%", background: lysvalgBaggrund(tr.lys, this._katalog) } }, tr.navn);
-        blok.addEventListener("click", () => this._retTidsrum(plads));
-        tidslinje.appendChild(blok);
+    const vaelgHeleDoegnet = () => this._vaelgLys(d.lys, (lys) => { d.lys = lys; this._genTegn("tidsplan"); });
+    const heleDoegnet = lysvalgBaggrund(d.lys, this._katalog);
+    // Grænserne, hvor et andet tidsrum kan tage over. Imellem dem gælder det samme hele vejen.
+    const graenser = [...new Set([0, 1440, ...d.tidsrum.flatMap((tr) => [minut(tr.start), minut(tr.slut)])])].sort((a, b) => a - b);
+    const idag = (new Date().getDay() + 6) % 7;
+    const uge = h("div", { class: "uge" });
+    let nu = null;
+    ALLE_DAGE.forEach((dag) => {
+      const spor = h("div", { class: "spor", style: { background: heleDoegnet } });
+      spor.addEventListener("click", (ev) => { if (ev.target === spor) vaelgHeleDoegnet(); });
+      let plads = -1;
+      let fra = 0;
+      const blok = (til) => {
+        if (plads < 0) return;
+        const p = plads;
+        const tr = d.tidsrum[p];
+        const knap = h("button", { class: "blok", type: "button", style: { left: fra / 14.4 + "%", width: (til - fra) / 14.4 + "%", background: lysvalgBaggrund(tr.lys, this._katalog) } }, tr.navn);
+        knap.addEventListener("click", () => this._retTidsrum(p));
+        spor.appendChild(knap);
+      };
+      graenser.slice(0, -1).forEach((m) => {
+        const hvem = d.tidsrum.findIndex((tr) => gaelder(tr, dag, m));
+        if (hvem === plads) return;
+        blok(m);
+        plads = hvem;
+        fra = m;
       });
+      blok(1440);
+      if (dag === idag) {
+        nu = h("span", { class: "nu" });
+        spor.appendChild(nu);
+      }
+      uge.append(h("span", { class: "dag" + (dag === idag ? " idag" : "") }, this.t("dag_" + dag)), spor);
     });
-    const nu = h("span", { class: "nu" });
-    tidslinje.appendChild(nu);
     this._levende.push(() => {
       const n = new Date();
       nu.style.left = (n.getHours() * 60 + n.getMinutes()) / 14.4 + "%";
@@ -848,7 +890,7 @@ class RumlysPanel extends HTMLElement {
         { class: "tidsraekke", "data-plads": String(plads) },
         h("span", { class: "greb", "aria-label": "⋮⋮" }, ikon("mdi:drag")),
         h("span", { class: "farve", style: { background: lysvalgBaggrund(tr.lys, this._katalog) } }),
-        h("div", { class: "tx" }, h("b", {}, tr.navn), h("small", {}, tr.start.slice(0, 5) + "–" + tr.slut.slice(0, 5) + " · " + beskrivLys(this._hass, tr.lys, this._katalog))),
+        h("div", { class: "tx" }, h("b", {}, tr.navn), h("small", {}, [this._tider(tr), this._dageTekst(tr.dage), beskrivLys(this._hass, tr.lys, this._katalog)].join(" · "))),
         ikon("mdi:chevron-right")
       );
       raekke.addEventListener("click", (ev) => { if (!ev.target.closest(".greb")) this._retTidsrum(plads); });
@@ -856,18 +898,52 @@ class RumlysPanel extends HTMLElement {
     });
     sorterbar(liste, ".greb", (orden) => {
       d.tidsrum = orden.map((i) => d.tidsrum[i]);
-      this._genTegn("doegnet");
+      this._genTegn("tidsplan");
     });
+    // Hele døgnet ligger altid nederst: det kan hverken slettes eller flyttes.
+    const under = beskrivLys(this._hass, d.lys, this._katalog);
+    const fast = h(
+      "div",
+      { class: "tidsraekke" },
+      h("span", { class: "greb laast" }, ikon("mdi:lock-outline")),
+      h("span", { class: "farve", style: { background: heleDoegnet } }),
+      h("div", { class: "tx" }, h("b", {}, this.t("hele_doegnet")), h("small", {}, d.tidsrum.length ? this.t("naar_intet") + " · " + under : under)),
+      ikon("mdi:chevron-right")
+    );
+    fast.addEventListener("click", vaelgHeleDoegnet);
     return this._sektion(
-      "mdi:clock-outline",
-      this.t("doegnet"),
-      this.t("doegnet_hint"),
-      tidslinje,
-      h("div", { class: "timer" }, ...["00", "06", "12", "18", "24"].map((t) => h("span", {}, t))),
+      "mdi:calendar-clock",
+      this.t("tidsplan"),
+      this.t("tidsplan_hint"),
+      uge,
+      h("div", { class: "uge" }, h("span", {}), h("div", { class: "timer" }, ...["00", "06", "12", "18", "24"].map((t) => h("span", {}, t)))),
       liste,
-      h("p", { class: "hint" }, this.t(d.tidsrum.length ? "uden_for" : "ingen_tidsrum")),
+      fast,
       h("button", { class: "knap t", onclick: () => this._retTidsrum(null) }, ikon("mdi:plus"), this.t("tilfoej_tidsrum"))
     );
+  }
+
+  _tider(tr) {
+    if (tr.start !== tr.slut) return tr.start.slice(0, 5) + "–" + tr.slut.slice(0, 5);
+    return minut(tr.start) === 0 ? "00:00–24:00" : this.t("et_doegn_fra", { kl: tr.start.slice(0, 5) });
+  }
+
+  _dageTekst(dage) {
+    const valgt = [...new Set(dage || ALLE_DAGE)].sort((a, b) => a - b);
+    const noegle = valgt.join("");
+    if (noegle === "0123456") return this.t("alle_dage");
+    if (noegle === "01234") return this.t("hverdage");
+    if (noegle === "56") return this.t("weekend");
+    // Tre dage eller flere i træk skrives som et spænd, fx Man–Ons.
+    const dele = [];
+    for (let i = 0; i < valgt.length; ) {
+      let j = i;
+      while (j + 1 < valgt.length && valgt[j + 1] === valgt[j] + 1) j++;
+      if (j - i >= 2) dele.push(this.t("dag_" + valgt[i]) + "–" + this.t("dag_" + valgt[j]));
+      else valgt.slice(i, j + 1).forEach((dag) => dele.push(this.t("dag_" + dag)));
+      i = j + 1;
+    }
+    return dele.join(", ");
   }
 
   _retTidsrum(plads) {
@@ -881,10 +957,36 @@ class RumlysPanel extends HTMLElement {
     const til = h("input", { type: "time", value: tr.slut.slice(0, 5) });
     const midnat = h("p", { class: "hint" });
     const fejl = h("p", { class: "fejl" });
-    const visMidnat = () => { midnat.textContent = fra.value && til.value && til.value <= fra.value && til.value !== fra.value ? this.t("over_midnat") : ""; };
+    const visMidnat = () => {
+      if (!fra.value || !til.value) midnat.textContent = "";
+      else if (til.value === fra.value) midnat.textContent = this.t("et_doegn");
+      else midnat.textContent = til.value < fra.value ? this.t("over_midnat") : "";
+    };
     fra.addEventListener("input", visMidnat);
     til.addEventListener("input", visMidnat);
     visMidnat();
+    let dage = (tr.dage || ALLE_DAGE).slice();
+    const dagvalg = h("div", { class: "dagvalg" });
+    const tegnDage = () => {
+      dagvalg.textContent = "";
+      ALLE_DAGE.forEach((dag) => {
+        const valgt = dage.includes(dag);
+        const knap = h("button", { class: "dagknap" + (valgt ? " til" : ""), type: "button", "aria-pressed": String(valgt) }, this.t("dag_" + dag));
+        knap.addEventListener("click", () => {
+          dage = valgt ? dage.filter((v) => v !== dag) : dage.concat([dag]);
+          tegnDage();
+        });
+        dagvalg.appendChild(knap);
+      });
+    };
+    tegnDage();
+    const genveje = h(
+      "div",
+      { class: "genveje" },
+      [["alle_dage", ALLE_DAGE], ["hverdage", [0, 1, 2, 3, 4]], ["weekend", [5, 6]]].map(([noegle, valg]) =>
+        h("button", { class: "knap", type: "button", onclick: () => { dage = valg.slice(); tegnDage(); } }, this.t(noegle))
+      )
+    );
     const lysPlads = h("div", {});
     const tegnLys = () => {
       lysPlads.textContent = "";
@@ -908,6 +1010,8 @@ class RumlysPanel extends HTMLElement {
         h("div", { class: "felt" }, h("label", {}, this.t("fra")), fra),
         h("div", { class: "felt" }, h("label", {}, this.t("til")), til)),
       midnat,
+      h("div", { class: "felt", style: { marginBottom: "0" } }, h("label", {}, this.t("dage")), dagvalg),
+      genveje,
       h("div", { class: "felt" }, h("label", {}, this.t("lys")), lysPlads),
       h("div", { class: "naar", style: { borderTop: "0" } },
         h("div", { class: "tx" }, h("b", {}, this.t("egen_slukketid")), h("small", {}, this.t("egen_slukketid_hint"))),
@@ -918,7 +1022,7 @@ class RumlysPanel extends HTMLElement {
       class: "knap farlig",
       onclick: () => {
         d.tidsrum.splice(plads, 1);
-        this._genTegn("doegnet");
+        this._genTegn("tidsplan");
         luk();
       },
     }, this.t("slet"));
@@ -933,12 +1037,13 @@ class RumlysPanel extends HTMLElement {
           primaer: true,
           handling: () => {
             if (!navn.value.trim()) { fejl.textContent = this.t("mangler_navn"); return false; }
-            if (fra.value === til.value) { fejl.textContent = this.t("samme_tid"); return false; }
-            const nyt = { navn: navn.value.trim(), start: fra.value + ":00", slut: til.value + ":00", lys: tr.lys };
+            if (!fra.value || !til.value) { fejl.textContent = this.t("mangler_tid"); return false; }
+            if (!dage.length) { fejl.textContent = this.t("mangler_dage"); return false; }
+            const nyt = { navn: navn.value.trim(), start: fra.value + ":00", slut: til.value + ":00", dage: dage.sort((a, b) => a - b), lys: tr.lys };
             if (egen) nyt.sluk_efter = slukEfter;
             if (ny) d.tidsrum.push(nyt);
             else d.tidsrum[plads] = nyt;
-            this._genTegn("doegnet");
+            this._genTegn("tidsplan");
             return true;
           },
         },

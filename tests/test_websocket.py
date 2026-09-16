@@ -115,7 +115,8 @@ async def test_hent_og_gem(hass: HomeAssistant, hass_ws_client: WebSocketGenerat
         "overgang": 2.0,
         "lamper": [{"entity_id": SPOTS, "bevaegelse": False}],
         "tidsrum": [
-            {"navn": "Nat", "start": "22:00", "slut": "06:30", "lys": {"type": "scene", "scene": "x", "lysstyrke": 10.0}}
+            {"navn": "Nat", "start": "22:00", "slut": "06:30", "lys": {"type": "scene", "scene": "x", "lysstyrke": 10.0}},
+            {"navn": "Weekend", "start": "00:00", "slut": "00:00", "dage": [6, 5, 6], "lys": STANDARD_LYS},
         ],
     }
     svar = await kommando(
@@ -128,7 +129,14 @@ async def test_hent_og_gem(hass: HomeAssistant, hass_ws_client: WebSocketGenerat
     assert gemt["overgang"] == 2
     assert gemt["lamper"] == [{"entity_id": SPOTS, "bevaegelse": False}]
     assert gemt["tidsrum"] == [
-        {"navn": "Nat", "start": "22:00:00", "slut": "06:30:00", "lys": {"type": "scene", "scene": "x", "lysstyrke": 10}}
+        {
+            "navn": "Nat",
+            "start": "22:00:00",
+            "slut": "06:30:00",
+            "dage": [0, 1, 2, 3, 4, 5, 6],
+            "lys": {"type": "scene", "scene": "x", "lysstyrke": 10},
+        },
+        {"navn": "Weekend", "start": "00:00:00", "slut": "00:00:00", "dage": [5, 6], "lys": STANDARD_LYS},
     ]
     assert hass.states.get("number.gang_sluk_efter_tryk").state == "10"
 
@@ -146,7 +154,7 @@ async def test_gem_afviser_det_ugyldige(hass: HomeAssistant, hass_ws_client: Web
         klient,
         type="rumlys/rum/gem",
         rum_id="gang",
-        data=data | {"tidsrum": [{"navn": "Nat", "start": "22:00", "slut": "22:00", "lys": STANDARD_LYS}]},
+        data=data | {"tidsrum": [{"navn": "Nat", "start": "22:00", "slut": "06:30", "dage": [], "lys": STANDARD_LYS}]},
     )
     assert svar["error"]["code"] == "ugyldig"
     svar = await kommando(klient, type="rumlys/rum/gem", rum_id="gang", data=data | {"omraade": "kontor"})

@@ -36,8 +36,10 @@ STANDARD_LYS = {CONF_TYPE: LYS_HVID, CONF_LYSSTYRKE: 100, CONF_KELVIN: 3000}
 # Et tidsrum
 CONF_NAVN = "navn"
 CONF_START = "start"
-CONF_SLUT = "slut"
+CONF_SLUT = "slut"  # samme klokkeslæt som start: et helt døgn
+CONF_DAGE = "dage"  # ugedagene, mandag = 0; over midnat hører til dagen, det begynder
 CONF_SLUK_EFTER = "sluk_efter"
+ALLE_DAGE = (0, 1, 2, 3, 4, 5, 6)
 
 # Indstillinger på rummets enhed
 SLUK_EFTER_BEVAEGELSE = "sluk_efter_bevaegelse"  # sekunder

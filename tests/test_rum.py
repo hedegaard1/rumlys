@@ -46,6 +46,20 @@ NAT = {
     "lys": {"type": "hvid", "lysstyrke": 10, "kelvin": 2700},
     "sluk_efter": 60,
 }
+ARBEJDE = {
+    "navn": "Arbejde",
+    "start": "08:00:00",
+    "slut": "16:00:00",
+    "dage": [0, 1, 2, 3, 4],
+    "lys": {"type": "hvid", "lysstyrke": 80, "kelvin": 4000},
+}
+WEEKEND = {
+    "navn": "Weekend",
+    "start": "00:00:00",
+    "slut": "00:00:00",
+    "dage": [5, 6],
+    "lys": {"type": "hvid", "lysstyrke": 60, "kelvin": 2700},
+}
 
 
 class Hus:
@@ -414,6 +428,60 @@ async def test_tidsrummet_skifter_ikke_lys_valgt_i_haanden(hus: Hus) -> None:
     await hus.lys("on", Context(user_id="martin"), brightness=200, hs_color=(0, 100))
     await hus.vent(10)
     assert len(hus.taend) == 1
+
+
+async def test_tidsrummet_gaelder_kun_paa_sine_dage(hus: Hus) -> None:
+    hus.freezer.move_to(lokal("2026-09-19 10:00:00"))  # lørdag
+    entry = await hus.saet_op(RUMMET | {"tidsrum": [ARBEJDE]})
+    await hus.bevaegelse("on")
+    assert hus.taend[-1].data["color_temp_kelvin"] == 3500  # lyset for hele døgnet
+    rum = entry.runtime_data.rum["traeningsrum"]
+    assert rum.tidsrum_ved(lokal("2026-09-16 10:00:00"))["navn"] == "Arbejde"  # onsdag
+
+
+async def test_over_midnat_hoerer_til_dagen_det_begynder(hus: Hus) -> None:
+    entry = await hus.saet_op(RUMMET | {"tidsrum": [NAT | {"dage": [4]}]})  # fredag
+    rum = entry.runtime_data.rum["traeningsrum"]
+    assert rum.tidsrum_ved(lokal("2026-09-18 23:00:00"))["navn"] == "Nat"  # fredag aften
+    assert rum.tidsrum_ved(lokal("2026-09-19 03:00:00"))["navn"] == "Nat"  # natten til lørdag
+    assert rum.tidsrum_ved(lokal("2026-09-17 23:00:00")) is None  # torsdag aften
+    assert rum.tidsrum_ved(lokal("2026-09-18 03:00:00")) is None  # natten til fredag
+
+
+async def test_samme_klokkeslaet_er_et_helt_doegn(hus: Hus) -> None:
+    entry = await hus.saet_op(RUMMET | {"tidsrum": [WEEKEND]})
+    rum = entry.runtime_data.rum["traeningsrum"]
+    assert rum.tidsrum_ved(lokal("2026-09-19 00:00:00"))["navn"] == "Weekend"
+    assert rum.tidsrum_ved(lokal("2026-09-20 23:59:59"))["navn"] == "Weekend"
+    assert rum.tidsrum_ved(lokal("2026-09-18 23:59:59")) is None
+    assert rum.tidsrum_ved(lokal("2026-09-21 00:00:00")) is None
+
+
+async def test_skift_paa_en_dag_uden_tidsrummet_roerer_ikke_lyset(hus: Hus) -> None:
+    hus.freezer.move_to(lokal("2026-09-19 07:59:50"))  # lørdag
+    entry = await hus.saet_op(RUMMET | {"tidsrum": [ARBEJDE]})
+    await hus.bevaegelse("on")
+    await hus.lampen_svarer()
+    await hus.vent(10)
+    assert len(hus.taend) == 1
+    rum = entry.runtime_data.rum["traeningsrum"]
+    assert [h["hvad"] for h in rum.haendelser] == ["taendt"]
+
+
+async def test_valgt_lys_huskes_over_midnat_i_samme_tidsrum(hus: Hus) -> None:
+    hus.freezer.move_to(lokal("2026-09-19 20:00:00"))  # lørdag
+    entry = await hus.saet_op(RUMMET | {"tidsrum": [WEEKEND]})
+    await hus.lys("on", Context(user_id="martin"), brightness=200, color_mode="hs", hs_color=(0, 100))
+    await hus.vent(4)
+    rum = entry.runtime_data.rum["traeningsrum"]
+    # Søndag er stadig weekend; først mandag tager hele døgnets lys over.
+    assert dt_util.parse_datetime(rum.husket["til"]) == lokal("2026-09-21 00:00:00")
+    await hus.lys("off", Context(user_id="martin"))
+
+    hus.freezer.move_to(lokal("2026-09-20 10:00:00"))
+    await hus.vent(0)
+    await hus.bevaegelse("on")
+    assert hus.taend[-1].data["hs_color"] == [0, 100]
 
 
 async def test_kun_lysstyrke_roerer_ikke_farven(hus: Hus) -> None:

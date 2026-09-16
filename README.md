@@ -37,11 +37,12 @@ vælges.
 ### Rummets side i sidepanelet
 
 - **Lamper** — hver lampe kan sættes til ikke at tænde ved bevægelse; den hører stadig til rummet og
-  slukker med det.
+  slukker med det. Her sættes også blød tænd og sluk.
 - **Sensorer** — med «ser nogen nu».
-- **Rummets lys** — scene, farve, hvidt lys eller kun lysstyrke, og blød tænd og sluk.
-- **Døgnet** — tidsrum som tidslinje, fx *Nat* 22:00–06:30 med scenen Natlys. Hvert tidsrum har sit
-  eget lys og kan have sin egen sluk-tid; uden for tidsrummene gælder rummets lys.
+- **Tidsplan** — ugen med én række pr. dag. Nederst ligger **Hele døgnet**, rummets eget lys, som gælder,
+  når intet tidsrum gør; det kan ikke slettes. Tidsrummene ligger oven på det, fx *Nat* 22:00–06:30 med
+  scenen Natlys, og hvert har sit eget lys, sine dage (Alle dage, Hverdage, Weekend eller enkelte dage) og
+  eventuelt sin egen sluk-tid. Et lys kan være en scene, en farve, hvidt lys eller kun lysstyrke.
 - **Når ingen er i rummet** — hvornår lys tændt af sensoren, og lys nogen selv har valgt, slukker.
 - **Hold lys tændt** — hvor længe.
 - **Scener på kortet** — de samme på alle kort for rummet.
@@ -86,8 +87,11 @@ Rummet angives med `rum` (id'et) eller `omraade`. Begge tæller som lys valgt i 
 
 | Situation | Hvad sker der |
 |---|---|
-| Bevægelse, og lyset er slukket | Tænder med det lys, der sidst blev valgt i tidsrummet; ellers tidsrummets eller rummets eget lys |
-| Et nyt tidsrum begynder | Tidsrummets eget lys gælder, indtil nogen vælger andet; lys tændt af bevægelse skifter med |
+| Bevægelse, og lyset er slukket | Tænder med det lys, der sidst blev valgt i tidsrummet; ellers tidsrummets eller hele døgnets lys |
+| Et andet tidsrum tager over | Tidsrummets eget lys gælder, indtil nogen vælger andet; lys tændt af bevægelse skifter med |
+| Et tidsrum går over midnat | Det hører til den dag, det begynder: *Nat* om fredagen slutter lørdag morgen |
+| Start og slut er samme klokkeslæt | Tidsrummet varer et helt døgn; 00:00–00:00 er hele dagen |
+| Overlapper to tidsrum | Det øverste på listen gælder |
 | Bevægelsen holder op | Slukker efter «automatisk lys slukker efter»; ny bevægelse stopper nedtællingen |
 | Lyset tændes eller ændres i hånden (kort, scene, app, væg) | Rummet husker lyset og slukker efter «valgt lys slukker efter», når ingen er der |
 | Bevægelse, mens lyset er valgt i hånden | Lyset bliver, som det er; bevægelsen forlænger kun tiden |

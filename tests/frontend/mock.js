@@ -110,8 +110,10 @@ const kontorData = {
   lys: { type: "hvid", lysstyrke: 100, kelvin: 3500 },
   overgang: 3,
   tidsrum: [
-    { navn: "Arbejde", start: "08:00:00", slut: "16:00:00", lys: { type: "scene", scene: "0cbec4e8-d064-4457-986a-fe6078a63f39", lysstyrke: 100 } },
+    { navn: "Arbejde", start: "08:00:00", slut: "16:00:00", dage: [0, 1, 2, 3, 4], lys: { type: "scene", scene: "0cbec4e8-d064-4457-986a-fe6078a63f39", lysstyrke: 100 } },
+    { navn: "Fredagsbar", start: "22:00:00", slut: "02:00:00", dage: [4], lys: { type: "farve", farve: [300, 70], lysstyrke: 70 } },
     { navn: "Aften", start: "19:00:00", slut: "23:30:00", lys: { type: "scene", scene: "e71b2ef3-1b15-4c4b-b036-4b3d6efe58f8", lysstyrke: 60 } },
+    { navn: "Weekend", start: "00:00:00", slut: "00:00:00", dage: [5, 6], lys: { type: "hvid", lysstyrke: 80, kelvin: 2700 } },
   ],
   scener: STANDARD.map((s) => s[0]),
 };

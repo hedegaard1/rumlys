@@ -10,7 +10,9 @@ import voluptuous as vol
 from homeassistant.helpers import config_validation as cv
 
 from .const import (
+    ALLE_DAGE,
     CONF_BEVAEGELSE,
+    CONF_DAGE,
     CONF_ENTITY_ID,
     CONF_FARVE,
     CONF_KELVIN,
@@ -74,23 +76,21 @@ LYSVALG = vol.All(
 )
 
 
-def _tidsrum_komplet(tidsrum: dict[str, Any]) -> dict[str, Any]:
-    if tidsrum[CONF_START] == tidsrum[CONF_SLUT]:
-        raise vol.Invalid("start og slut kan ikke være samme klokkeslæt")
-    return tidsrum
+DAGE = vol.All(
+    [vol.All(vol.Coerce(int), vol.Range(min=0, max=6))],
+    vol.Length(min=1, msg="vælg mindst én dag"),
+    lambda dage: sorted(set(dage)),
+)
 
-
-TIDSRUM = vol.All(
-    vol.Schema(
-        {
-            vol.Required(CONF_NAVN): vol.All(cv.string, vol.Length(min=1)),
-            vol.Required(CONF_START): _klokkeslaet,
-            vol.Required(CONF_SLUT): _klokkeslaet,
-            vol.Required(CONF_LYS): LYSVALG,
-            vol.Optional(CONF_SLUK_EFTER): vol.All(vol.Coerce(int), vol.Range(min=0, max=3600)),
-        }
-    ),
-    _tidsrum_komplet,
+TIDSRUM = vol.Schema(
+    {
+        vol.Required(CONF_NAVN): vol.All(cv.string, vol.Length(min=1)),
+        vol.Required(CONF_START): _klokkeslaet,
+        vol.Required(CONF_SLUT): _klokkeslaet,
+        vol.Optional(CONF_DAGE, default=lambda: list(ALLE_DAGE)): DAGE,
+        vol.Required(CONF_LYS): LYSVALG,
+        vol.Optional(CONF_SLUK_EFTER): vol.All(vol.Coerce(int), vol.Range(min=0, max=3600)),
+    }
 )
 
 RUM_DATA = vol.Schema(

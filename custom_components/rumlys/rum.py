@@ -2,7 +2,10 @@
 
 Rummet har én kilde ad gangen: tændt af bevægelse, valgt i hånden, eller slukket. «Hold lys»
 ligger ovenpå og sætter sensoren og nedtællingen ud af spil. Vælger nogen selv lyset, husker
-rummet det, til et nyt tidsrum begynder, og bevægelse tænder så med det.
+rummet det, til et andet tidsrum tager over, og bevægelse tænder så med det.
+
+Et tidsrum gælder på sine ugedage. Går det over midnat, hører det til den dag, det begynder, og
+samme klokkeslæt i start og slut er et helt døgn. Uden for tidsrummene gælder rummets eget lys.
 """
 
 from __future__ import annotations
@@ -37,8 +40,10 @@ from homeassistant.helpers.event import (
 from homeassistant.util import dt as dt_util
 
 from .const import (
+    ALLE_DAGE,
     BEVAEGELSE,
     CONF_BEVAEGELSE,
+    CONF_DAGE,
     CONF_ENTITY_ID,
     CONF_FARVE,
     CONF_KELVIN,
@@ -118,9 +123,12 @@ class Rum:
             | {
                 CONF_START: time.fromisoformat(t[CONF_START]),
                 CONF_SLUT: time.fromisoformat(t[CONF_SLUT]),
+                CONF_DAGE: frozenset(t.get(CONF_DAGE, ALLE_DAGE)),
             }
             for t in data.get(CONF_TIDSRUM, [])
         ]
+        # Tidsrummet, der gjaldt ved sidste skift — et klokkeslæt er ikke et skift alle dage.
+        self._aktivt: dict[str, Any] | None = None
         self.scener: list[str] = list(data.get(CONF_SCENER, []))
         self.indstillinger = STANDARD_INDSTILLINGER | gemt.get("indstillinger", {})
         self.kilde: str | None = gemt.get("kilde")
@@ -153,9 +161,12 @@ class Rum:
 
     def aktivt_tidsrum(self) -> dict[str, Any] | None:
         """Det første tidsrum, klokken er inde i lige nu."""
-        nu = dt_util.now().time()
+        return self.tidsrum_ved(dt_util.now())
+
+    def tidsrum_ved(self, tidspunkt: datetime) -> dict[str, Any] | None:
+        """Det første tidsrum, et lokalt tidspunkt er inde i."""
         for tidsrum in self.tidsrum:
-            if _inden_for(nu, tidsrum[CONF_START], tidsrum[CONF_SLUT]):
+            if _inden_for(tidspunkt, tidsrum):
                 return tidsrum
         return None
 
@@ -177,6 +188,7 @@ class Rum:
                     self.hass, self._tidsrum_skifter, tid.hour, tid.minute, tid.second
                 )
             )
+        self._aktivt = self.aktivt_tidsrum()
         self.bevaegelse = self._sensor_taendt()
         self._synk()
 
@@ -401,29 +413,35 @@ class Rum:
         return self.husket["lamper"]
 
     def _naeste_skift(self) -> datetime | None:
-        """Næste gang et tidsrum begynder eller slutter. None, når rummet ingen tidsrum har."""
+        """Næste gang et andet tidsrum tager over. None, når det aldrig sker."""
         if not self.tidsrum:
             return None
         nu = dt_util.now()
-        kandidater = []
-        for tidsrum in self.tidsrum:
-            for tid in (tidsrum[CONF_START], tidsrum[CONF_SLUT]):
-                skift = nu.replace(
-                    hour=tid.hour, minute=tid.minute, second=tid.second, microsecond=0
-                )
-                if skift <= nu:
-                    skift += timedelta(days=1)
-                kandidater.append(skift)
-        return dt_util.as_utc(min(kandidater))
+        tider = {t[k] for t in self.tidsrum for k in (CONF_START, CONF_SLUT)}
+        # Tidsrummene gentager sig hver uge, så otte dage frem er nok.
+        kandidater = sorted(
+            skift
+            for dag in range(8)
+            for tid in tider
+            if (skift := datetime.combine(nu.date() + timedelta(days=dag), tid, nu.tzinfo)) > nu
+        )
+        for skift in kandidater:
+            if self.tidsrum_ved(skift) is not self.tidsrum_ved(skift - timedelta(seconds=1)):
+                return dt_util.as_utc(skift)
+        return None
 
     @callback
-    def _tidsrum_skifter(self, _nu: datetime) -> None:
+    def _tidsrum_skifter(self, nu: datetime) -> None:
         """Et nyt tidsrum begynder med sit eget lys. Lys tændt af bevægelse skifter med det."""
+        tidsrum = self.tidsrum_ved(dt_util.as_local(nu))
+        if tidsrum is self._aktivt:
+            # Klokkeslættet skifter kun på andre dage, eller tidsrummet fortsætter over midnat.
+            return
+        self._aktivt = tidsrum
         self.husket = None
-        tidsrum = self.aktivt_tidsrum()
         self._log("tidsrum", navn=tidsrum[CONF_NAVN] if tidsrum else None)
         if self.kilde == BEVAEGELSE and self.hold_slutter is None:
-            self._anvend(self._scenarie(), self.foelger)
+            self._anvend(tidsrum[CONF_LYS] if tidsrum else self.standard, self.foelger)
         self._opdater()
 
     @callback
@@ -584,10 +602,15 @@ def _gengivelse(tilstand: State) -> dict[str, Any]:
     return lampe
 
 
-def _inden_for(nu: time, start: time, slut: time) -> bool:
+def _inden_for(tidspunkt: datetime, tidsrum: dict[str, Any]) -> bool:
+    start, slut, dage = tidsrum[CONF_START], tidsrum[CONF_SLUT], tidsrum[CONF_DAGE]
+    klokken = tidspunkt.time()
     if start < slut:
-        return start <= nu < slut
-    return nu >= start or nu < slut  # hen over midnat
+        return tidspunkt.weekday() in dage and start <= klokken < slut
+    # Hen over midnat, eller et helt døgn: efter midnat hører til dagen før.
+    return (tidspunkt.weekday() in dage and klokken >= start) or (
+        (tidspunkt.weekday() - 1) % 7 in dage and klokken < slut
+    )
 
 
 def _aftryk(tilstand: State) -> tuple[Any, ...]:
