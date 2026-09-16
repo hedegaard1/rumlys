@@ -130,6 +130,7 @@ const KONTROL_STYLE = `
     background-color:rgba(127, 127, 127, 0.2); box-shadow:0 1px 2px rgba(0, 0, 0, 0.18);
     -webkit-appearance:none; appearance:none; transition:transform .12s ease;
   }
+  .scener.fyldt .scene { aspect-ratio:auto; height:var(--rl-scene-hoejde); }
   .scene:active { transform:scale(.94); }
   .scene.blink { animation:rl-blink .6s ease; }
   @keyframes rl-blink { 0% { filter:brightness(1.35); } 100% { filter:brightness(1); } }
@@ -205,7 +206,8 @@ const STYLE = KONTROL_STYLE + `
   }
   .hold.aktiv { opacity:1; background:var(--rl-fyld); border-color:var(--rl-fyld); color:var(--rl-paa-fyld); }
   .top .skyder { flex:1 1 0; min-width:60px; }
-  @container (max-width: 400px) {
+  /* Skyderen står mellem ikonerne og knapperne; kun på meget smalle kort får den sin egen linje. */
+  @container (max-width: 300px) {
     .top { flex-wrap:wrap; row-gap:0; }
     .tekst { flex:1 1 0; max-width:none; }
     .top .skyder { order:1; flex:1 1 100%; }
@@ -233,8 +235,15 @@ class RumlysCard extends HTMLElement {
     return document.createElement(NAVN + "-editor");
   }
 
-  static getStubConfig() {
-    return { rum: "" };
+  // Forhåndsvisningen i «Føj til betjeningspanel» viser et rigtigt rum — helst et med scener.
+  static async getStubConfig(hass) {
+    try {
+      const rummene = await hass.callWS({ type: "rumlys/rum/liste" });
+      const rum = rummene.find((r) => r.scener.length) || rummene[0];
+      return { rum: rum ? rum.id : "" };
+    } catch (e) {
+      return { rum: "" };
+    }
   }
 
   setConfig(config) {
@@ -379,7 +388,8 @@ class RumlysCard extends HTMLElement {
   }
 
   // Scenerne skal gøre kortet så lidt højere som muligt: kan alle stå på én række i felter på mindst
-  // --rl-scene-min, gør de det; ellers deles de på så få, lige lange rækker som muligt.
+  // --rl-scene-min, gør de det; ellers deles de på så få, lige lange rækker som muligt. Felterne fylder
+  // hele bredden, men bliver ikke højere end --rl-scene-maks — på et bredt kort bliver de aflange.
   _tilpasScener() {
     const e = this._el;
     const n = this._navne.length;
@@ -398,8 +408,9 @@ class RumlysCard extends HTMLElement {
       kol = Math.ceil(n / Math.ceil(n / plads));
       felt = (w - (kol - 1) * gap) / kol;
     }
-    felt = Math.min(felt, maal("--rl-scene-maks") * x);
-    e.scener.style.gridTemplateColumns = "repeat(" + kol + ", " + felt.toFixed(2) + "px)";
+    e.scener.style.gridTemplateColumns = "repeat(" + kol + ", minmax(0, 1fr))";
+    e.scener.style.setProperty("--rl-scene-hoejde", Math.min(felt, maal("--rl-scene-maks") * x).toFixed(2) + "px");
+    e.scener.classList.add("fyldt");
     e.scener.classList.toggle("med-navne", stor);
     e.scener.style.setProperty("--rl-scene-radius", stor ? maal("--rl-scene-radius") * 1.5 + "px" : "");
     if (!stor) return;
