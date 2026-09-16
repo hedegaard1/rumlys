@@ -68,7 +68,7 @@ const TEKSTER = {
     ingen_sensorer: "Området har ingen bevægelsessensorer.",
     blod: "Blød tænd og sluk",
     blod_ingen: "Lamperne i rummet kan ikke tænde og slukke blødt.",
-    blod_ikke: "Virker ikke på {lamper}.",
+    virker_ikke: "Virker ikke på {lamper}.",
     sek: "{n} sek.",
     min: "{n} min",
     timer: "{n} t",
@@ -125,6 +125,7 @@ const TEKSTER = {
     sluk: "Sluk",
     scener_paa_kortet: "Scener på kortet",
     scener_hint: "De samme scener vises på alle kort for rummet. Træk for at ændre rækkefølgen.",
+    scener_ingen: "Rummet har ingen lamper, der kan vise scener. Det kræver lamper med farve eller hvidt lys.",
     tilfoej_scener: "Tilføj scener",
     soeg: "Søg efter scene eller kategori",
     faerdig: "Færdig",
@@ -239,7 +240,7 @@ const TEKSTER = {
     ingen_sensorer: "The area has no motion sensors.",
     blod: "Soft on and off",
     blod_ingen: "The lights in the room can't turn on and off softly.",
-    blod_ikke: "Doesn't work on {lamper}.",
+    virker_ikke: "Doesn't work on {lamper}.",
     sek: "{n} s",
     min: "{n} min",
     timer: "{n} h",
@@ -296,6 +297,7 @@ const TEKSTER = {
     sluk: "Turn off",
     scener_paa_kortet: "Scenes on the card",
     scener_hint: "The same scenes are shown on every card for the room. Drag to change the order.",
+    scener_ingen: "The room has no lights that can show scenes. That takes lights with colour or white light.",
     tilfoej_scener: "Add scenes",
     soeg: "Search for a scene or category",
     faerdig: "Done",
@@ -670,6 +672,14 @@ export function kanFarve(hass, lamper) {
     const modes = (st && st.attributes && st.attributes.supported_color_modes) || [];
     return modes.some((m) => FARVE_TILSTANDE.indexOf(m) >= 0);
   });
+}
+
+// Hvidt lys eller farve på mindst én pære — det, en scene kræver. Samme regel som kortet.
+export function kanHvid(hass, lamper) {
+  return (
+    paerer(hass, lamper).some((id) => ((hass.states[id] && hass.states[id].attributes.supported_color_modes) || []).indexOf("color_temp") >= 0) ||
+    kanFarve(hass, lamper)
+  );
 }
 
 export function kelvinGraenser(hass, lamper) {

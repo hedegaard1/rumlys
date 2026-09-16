@@ -15,6 +15,8 @@ import {
   hsRgb,
   hueFarve,
   ikon,
+  kanFarve,
+  kanHvid,
   kategoriNavn,
   kelvinGraenser,
   klokken,
@@ -794,7 +796,7 @@ class RumlysPanel extends HTMLElement {
       { class: "felt", style: { marginTop: "14px" } },
       h("label", {}, this.t("blod")),
       h("div", { class: "skyder" }, skyder, vaerdi),
-      navne.length ? h("p", { class: "hint", style: { margin: "0" } }, this.t("blod_ikke", { lamper: navne.join(", ") })) : null
+      navne.length ? h("p", { class: "hint", style: { margin: "0" } }, this.t("virker_ikke", { lamper: navne.join(", ") })) : null
     );
   }
 
@@ -1126,6 +1128,13 @@ class RumlysPanel extends HTMLElement {
 
   _sekScener() {
     const d = this._kladde.data;
+    // En scene kræver farve eller hvidt lys. Kan ingen af rummets lamper det, kan der ikke vælges scener.
+    const ikkeScener = d.lamper.filter((l) => !kanHvid(this._hass, [l.entity_id]));
+    const ingen = ikkeScener.length === d.lamper.length;
+    const navne = ikkeScener.map((l) => {
+      const st = this._hass.states[l.entity_id];
+      return (st && st.attributes.friendly_name) || l.entity_id;
+    });
     const gitter = h("div", { class: "scenegitter" });
     d.scener.forEach((id, plads) => {
       const scene = this._katalog.efterId[id] || { id, navn: id, billede: null, punkter: [] };
@@ -1140,11 +1149,16 @@ class RumlysPanel extends HTMLElement {
       d.scener = orden.map((i) => d.scener[i]);
       this._genTegn("scener");
     });
+    if (ingen) {
+      // Scener, der er valgt før, kan stadig fjernes.
+      return this._sektion("mdi:palette-outline", this.t("scener_paa_kortet"), this.t("scener_ingen"), d.scener.length ? gitter : null);
+    }
     return this._sektion(
       "mdi:palette-outline",
       this.t("scener_paa_kortet"),
       this.t("scener_hint"),
       d.scener.length ? gitter : h("p", { class: "hint" }, this.t("ingen_scener")),
+      navne.length ? h("p", { class: "hint" }, this.t("virker_ikke", { lamper: navne.join(", ") })) : null,
       h("button", { class: "knap t", onclick: () => this._tilfoejScener() }, ikon("mdi:plus"), this.t("tilfoej_scener"))
     );
   }
@@ -1361,12 +1375,17 @@ class RumlysPanel extends HTMLElement {
       }
       opdater();
     };
+    // Kun det, rummets lamper kan — samme regel som kortet. Lysstyrke er der altid.
+    const hvid = kanHvid(this._hass, lamper);
+    const kan = { scene: hvid, farve: kanFarve(this._hass, lamper), hvid, lysstyrke: true };
     [["scene", "scene"], ["farve", "farve"], ["hvid", "hvidt"], ["lysstyrke", "kun"]].forEach(([id, navn]) => {
+      if (!kan[id]) return;
       const knap = h("button", { type: "button", role: "tab" }, this.t(navn));
       knap.dataset.fane = id;
       knap.addEventListener("click", () => { fane = id; tegnFlade(); });
       faner.appendChild(knap);
     });
+    if (!kan[fane]) fane = "lysstyrke";
     tegnFlade();
     this._dialog({
       titel: this.t("vaelg_lys"),
