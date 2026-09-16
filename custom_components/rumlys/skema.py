@@ -29,6 +29,7 @@ from .const import (
     CONF_SLUT,
     CONF_START,
     CONF_TIDSRUM,
+    CONF_TILSTEDE,
     CONF_TYPE,
     HOLD_TID,
     LYS_FARVE,
@@ -93,25 +94,34 @@ TIDSRUM = vol.Schema(
     }
 )
 
-RUM_DATA = vol.Schema(
-    {
-        vol.Required(CONF_OMRAADE): cv.string,
-        vol.Required(CONF_LAMPER): [
-            vol.Schema(
-                {
-                    vol.Required(CONF_ENTITY_ID): cv.entity_domain("light"),
-                    vol.Optional(CONF_BEVAEGELSE, default=True): cv.boolean,
-                }
-            )
-        ],
-        vol.Optional(CONF_SENSORER, default=[]): [cv.entity_domain("binary_sensor")],
-        vol.Required(CONF_LYS): LYSVALG,
-        vol.Optional(CONF_OVERGANG, default=0): vol.All(
-            vol.Coerce(float), vol.Range(min=0, max=10)
-        ),
-        vol.Optional(CONF_TIDSRUM, default=[]): [TIDSRUM],
-        vol.Optional(CONF_SCENER, default=[]): [cv.string],
-    }
+def _kun_rummets_sensorer(rum: dict[str, Any]) -> dict[str, Any]:
+    """En tilstedeværelsessensor skal være valgt i rummet."""
+    return rum | {CONF_TILSTEDE: [s for s in rum[CONF_TILSTEDE] if s in rum[CONF_SENSORER]]}
+
+
+RUM_DATA = vol.All(
+    vol.Schema(
+        {
+            vol.Required(CONF_OMRAADE): cv.string,
+            vol.Required(CONF_LAMPER): [
+                vol.Schema(
+                    {
+                        vol.Required(CONF_ENTITY_ID): cv.entity_domain("light"),
+                        vol.Optional(CONF_BEVAEGELSE, default=True): cv.boolean,
+                    }
+                )
+            ],
+            vol.Optional(CONF_SENSORER, default=[]): [cv.entity_domain("binary_sensor")],
+            vol.Optional(CONF_TILSTEDE, default=[]): [cv.entity_domain("binary_sensor")],
+            vol.Required(CONF_LYS): LYSVALG,
+            vol.Optional(CONF_OVERGANG, default=0): vol.All(
+                vol.Coerce(float), vol.Range(min=0, max=10)
+            ),
+            vol.Optional(CONF_TIDSRUM, default=[]): [TIDSRUM],
+            vol.Optional(CONF_SCENER, default=[]): [cv.string],
+        }
+    ),
+    _kun_rummets_sensorer,
 )
 
 INDSTILLINGER = vol.Schema(

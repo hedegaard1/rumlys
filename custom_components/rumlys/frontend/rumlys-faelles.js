@@ -4,7 +4,7 @@
   ha-martin: hvidt lys tegnes som i Hue-appen, og en hvid scene genkendes på pærerne.
 */
 
-export const VERSION = "0.4.4";
+export const VERSION = "0.4.5";
 // Mappen, filen selv ligger i — i Home Assistant med versionen i stien, på testsiden repoets egen.
 export const FILER = new URL("./", import.meta.url).href;
 // Scenerne ligger i Rumlys selv; findes de ikke, bruges en installeret Scene Presets.
@@ -63,7 +63,12 @@ const TEKSTER = {
     lamper_andre: "Lamper fra andre områder",
     ingen_lamper: "Området har ingen lamper.",
     sensorer: "Sensorer",
-    sensorer_hint: "Lyset tænder, når en af dem ser nogen. Uden sensor slukker lyset kun efter tiden for valgt lys.",
+    sensorer_hint: "Lyset tænder, når en af dem ser nogen. En bevægelsessensor ser ikke en, der står stille; en tilstedeværelsessensor gør. Uden sensor slukker lyset kun efter tiden for valgt lys.",
+    sensortype: "Hvad sensoren ser",
+    bevaegelse_type: "Bevægelse",
+    tilstede_type: "Tilstedeværelse",
+    anb_bevaegelse: "Anbefalet med bevægelsessensorer: {tid}",
+    anb_tilstede: "Anbefalet med en tilstedeværelsessensor: {tid}",
     ser_nogen: "Ser nogen nu",
     ingen_sensorer: "Området har ingen bevægelsessensorer.",
     blod: "Blød tænd og sluk",
@@ -235,7 +240,12 @@ const TEKSTER = {
     lamper_andre: "Lights from other areas",
     ingen_lamper: "The area has no lights.",
     sensorer: "Sensors",
-    sensorer_hint: "The light turns on when one of them sees someone. Without a sensor, the light only turns off after the time for chosen light.",
+    sensorer_hint: "The light turns on when one of them sees someone. A motion sensor doesn't see someone standing still; a presence sensor does. Without a sensor, the light only turns off after the time for chosen light.",
+    sensortype: "What the sensor sees",
+    bevaegelse_type: "Motion",
+    tilstede_type: "Presence",
+    anb_bevaegelse: "Recommended with motion sensors: {tid}",
+    anb_tilstede: "Recommended with a presence sensor: {tid}",
     ser_nogen: "Sees someone now",
     ingen_sensorer: "The area has no motion sensors.",
     blod: "Soft on and off",

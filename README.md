@@ -39,7 +39,9 @@ vælges.
 
 - **Lamper** — hver lampe kan sættes til ikke at tænde ved bevægelse; den hører stadig til rummet og
   slukker med det. Her sættes også blød tænd og sluk.
-- **Sensorer** — med «ser nogen nu».
+- **Sensorer** — med «ser nogen nu» og valget Bevægelse eller Tilstedeværelse. En bevægelsessensor ser ikke
+  en, der står stille, så valget sætter den anbefalede tid for lys tændt af sensoren: 5 min med kun
+  bevægelsessensorer, 30 sek. med en tilstedeværelsessensor. Tiden kan stadig sættes frit.
 - **Tidsplan** — ugen med én række pr. dag. Nederst ligger **Hele døgnet**, rummets eget lys, som gælder,
   når intet tidsrum gør; det kan ikke slettes. Tidsrummene ligger oven på det, fx *Nat* 22:00–06:30 med
   scenen Natlys, og hvert har sit eget lys, sine dage (Alle dage, Hverdage, Weekend eller enkelte dage) og

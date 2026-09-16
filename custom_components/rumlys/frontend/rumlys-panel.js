@@ -132,6 +132,9 @@ select, input[type=text], input[type=time], input[type=search] {
 .dagvalg { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
 .dagknap { min-height: 36px; padding: 0; border: 1px solid var(--rl-linje); border-radius: 10px; background: var(--rl-flade2); color: var(--rl-daempet); font-size: 13px; cursor: pointer; }
 .dagknap.til { background: var(--rl-p); border-color: var(--rl-p); color: var(--rl-paa-p); font-weight: 600; }
+.seg { display: inline-flex; flex: none; border: 1px solid var(--rl-linje); border-radius: 999px; overflow: hidden; }
+.seg button { border: 0; background: transparent; padding: 6px 12px; font-size: 12px; color: var(--rl-daempet); cursor: pointer; }
+.seg button.til { background: var(--rl-p); color: var(--rl-paa-p); font-weight: 600; }
 .genveje { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0 10px; }
 .genveje .knap { padding: 6px 12px; font-size: 13px; }
 .tidsraekke { display: flex; align-items: center; gap: 10px; padding: 10px 2px; border-top: 1px solid var(--rl-linje); cursor: pointer; background: var(--rl-flade); }
@@ -191,6 +194,10 @@ const ALLE_DAGE = [0, 1, 2, 3, 4, 5, 6];
 
 // Home Assistants LightEntityFeature.TRANSITION: lampen kan tænde og slukke blødt.
 const LYS_OVERGANG = 32;
+
+// Anbefalet tid for lys tændt af sensoren, i sekunder.
+const ANBEFALET_BEVAEGELSE = 300;
+const ANBEFALET_TILSTEDE = 30;
 
 function minut(klokkeslaet) {
   const [t, m] = String(klokkeslaet).split(":");
@@ -843,14 +850,26 @@ class RumlysPanel extends HTMLElement {
       const flueben = h("button", { class: "flueben" + (valgt ? " til" : ""), type: "button", "aria-pressed": String(valgt) }, valgt ? ikon("mdi:check") : null);
       flueben.addEventListener("click", () => {
         d.sensorer = valgt ? d.sensorer.filter((s) => s !== entityId) : d.sensorer.concat([entityId]);
-        this._genTegn("sensorer");
+        if (valgt) d.tilstede = (d.tilstede || []).filter((s) => s !== entityId);
+        this._genTegn("sensorer", "ingen");
       });
       const pille = h("span", { class: "pille", style: { display: "none" } }, h("i", {}), this.t("ser_nogen"));
       this._levende.push((hass) => {
         const st = hass.states[entityId];
         pille.style.display = st && st.state === "on" ? "" : "none";
       });
-      return h("div", { class: "raekke" }, flueben, h("div", { class: "tx" }, h("b", {}, navn), under ? h("small", {}, under) : null), pille);
+      let type = null;
+      if (valgt) {
+        const tilstede = (d.tilstede || []).indexOf(entityId) >= 0;
+        type = h(
+          "div",
+          { class: "seg", role: "group", "aria-label": this.t("sensortype") },
+          [[false, "bevaegelse_type"], [true, "tilstede_type"]].map(([vaerdi, noegle]) =>
+            h("button", { type: "button", class: vaerdi === tilstede ? "til" : "", "aria-pressed": String(vaerdi === tilstede), onclick: () => this._saetSensortype(entityId, vaerdi) }, this.t(noegle))
+          )
+        );
+      }
+      return h("div", { class: "raekke", style: { flexWrap: "wrap" } }, flueben, h("div", { class: "tx", style: { minWidth: "140px" } }, h("b", {}, navn), under ? h("small", {}, under) : null), pille, type);
     };
     omraade.sensorer.forEach((s) => liste.appendChild(raekke(s.entity_id, s.navn)));
     d.sensorer.forEach((s) => {
@@ -860,6 +879,21 @@ class RumlysPanel extends HTMLElement {
     });
     if (!liste.children.length) liste.appendChild(h("p", { class: "hint" }, this.t("ingen_sensorer")));
     return this._sektion("mdi:motion-sensor", this.t("sensorer"), this.t("sensorer_hint"), liste);
+  }
+
+  // Sensorens type giver den anbefalede tid, og tiden springer dertil. Den kan stadig sættes frit bagefter.
+  _saetSensortype(entityId, tilstede) {
+    const d = this._kladde.data;
+    const andre = (d.tilstede || []).filter((s) => s !== entityId);
+    d.tilstede = tilstede ? andre.concat([entityId]) : andre;
+    this._kladde.indstillinger.sluk_efter_bevaegelse = this._anbefaletTid();
+    this._genTegn("sensorer", "ingen");
+  }
+
+  // En tilstedeværelsessensor ser også den, der står stille, så lyset kan slukke kort efter, at rummet er tomt.
+  _anbefaletTid() {
+    const d = this._kladde.data;
+    return d.sensorer.some((s) => (d.tilstede || []).indexOf(s) >= 0) ? ANBEFALET_TILSTEDE : ANBEFALET_BEVAEGELSE;
   }
 
   _lysknap(lys, vedValg) {
@@ -1094,13 +1128,17 @@ class RumlysPanel extends HTMLElement {
 
   _sekIngen() {
     const ind = this._kladde.indstillinger;
+    const anbefalet = this._anbefaletTid();
+    const anbefaling = this._kladde.data.sensorer.length
+      ? h("small", { style: { display: "block" } }, this.t(anbefalet === ANBEFALET_TILSTEDE ? "anb_tilstede" : "anb_bevaegelse", { tid: this._sekunder(anbefalet) }))
+      : null;
     const auto = trinvalg([0, 10, 20, 30, 45, 60, 90, 120, 180, 300, 600, 900, 1800], ind.sluk_efter_bevaegelse, (v) => this._sekunder(v), (v) => { ind.sluk_efter_bevaegelse = v; this._aendret(); });
     const valgt = trinvalg([0, 1, 2, 3, 5, 10, 15, 20, 30, 45, 60, 90, 120], ind.sluk_efter_tryk, (v) => (v === 0 ? this.t("aldrig") : v >= 60 && v % 60 === 0 ? this.t("timer", { n: v / 60 }) : this.t("min", { n: v })), (v) => { ind.sluk_efter_tryk = v; this._aendret(); });
     return this._sektion(
       "mdi:motion-sensor-off",
       this.t("ingen_i_rummet"),
       this.t("ingen_hint"),
-      h("div", { class: "naar" }, h("div", { class: "tx" }, h("b", {}, this.t("auto_lys")), h("small", {}, this.t("auto_sub"))), auto),
+      h("div", { class: "naar" }, h("div", { class: "tx" }, h("b", {}, this.t("auto_lys")), h("small", {}, this.t("auto_sub")), anbefaling), auto),
       h("div", { class: "naar" }, h("div", { class: "tx" }, h("b", {}, this.t("valgt_lys")), h("small", {}, this.t("valgt_sub"))), valgt)
     );
   }
