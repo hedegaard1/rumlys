@@ -77,15 +77,23 @@ function tjekKortTid(hass, rum) {
 const PANEL_GEMT = "rumlys-panel-gemt";
 let panelLoefter = {};
 let lytterPaaPaneler = false;
+let lytterPaaForbindelse = false;
+
+function glemPaneler() {
+  panelLoefter = {};
+  window.dispatchEvent(new CustomEvent(PANEL_GEMT));
+}
 
 // Betjeningspanelets opsætning: én gang pr. side for alle kort, og igen når et panel gemmes.
 function hentPanel(hass, urlPath) {
   if (!lytterPaaPaneler && hass.connection) {
     lytterPaaPaneler = true;
-    hass.connection.subscribeEvents(() => {
-      panelLoefter = {};
-      window.dispatchEvent(new CustomEvent(PANEL_GEMT));
-    }, "lovelace_updated").catch(() => { lytterPaaPaneler = false; });
+    hass.connection.subscribeEvents(glemPaneler, "lovelace_updated").catch(() => { lytterPaaPaneler = false; });
+  }
+  // Efter en afbrudt forbindelse — fx en genstart — kan et panel være gemt imens, eller et tjek være mislykket.
+  if (!lytterPaaForbindelse && hass.connection) {
+    lytterPaaForbindelse = true;
+    hass.connection.addEventListener("ready", glemPaneler);
   }
   const noegle = urlPath || "";
   if (!panelLoefter[noegle]) {
@@ -104,10 +112,12 @@ function sidensFane() {
   return { urlPath: !dele[0] || dele[0] === "lovelace" ? null : dele[0], fane: dele[1] };
 }
 
+// Fanen, som Home Assistant vælger den: den første med stien eller nummeret, og ellers den første fane.
 function findFane(config, fane) {
   const views = (config && config.views) || [];
-  if (fane === undefined) return views[0] || null;
-  return views.find((v) => v.path === fane) || (/^\d+$/.test(fane) ? views[Number(fane)] : null) || null;
+  const nr = Number(fane);
+  const i = fane === undefined ? 0 : views.findIndex((v, j) => v.path === fane || j === nr);
+  return views[Math.max(0, i)] || null;
 }
 
 function pct(st) {
@@ -297,12 +307,11 @@ class RumlysCard extends HTMLElement {
     this._navne = [];
     this._rummene = null;
     this._katalog = null;
-    // Kortets lamper efter fanens regel, og om fanen er tjekket. Uden fane (fx uden for et betjeningspanel)
-    // gælder Rumlys' valg for kortet alene.
+    // Kortets lamper efter fanens regel. Kan fanen ikke læses, gælder Rumlys' valg for et kort, Rumlys kender, og et
+    // nyt kort venter.
     this._fordeling = null;
-    this._faneTjekket = false;
     this._faneTjek = 0;
-    this._vedOpdatering = () => this._hentRum();
+    this._vedOpdatering = () => this._hentRum(800);
     this._vedPanel = () => this._tjekFane();
   }
 
@@ -327,10 +336,7 @@ class RumlysCard extends HTMLElement {
     this._config = Object.assign({}, config);
     // Et andet rum eller et andet kort: fanens fordeling for det gamle gælder ikke, til fanen er tjekket igen.
     const hvem = (x) => JSON.stringify(x ? [x.omraade, x.rum, x.kort, x.lamper] : null);
-    if (hvem(foer) !== hvem(this._config)) {
-      this._fordeling = null;
-      this._faneTjekket = false;
-    }
+    if (hvem(foer) !== hvem(this._config)) this._fordeling = null;
     if (!this._el) this._byg();
     this._tegnScener();
     this._tjekFane();
@@ -342,7 +348,7 @@ class RumlysCard extends HTMLElement {
     const foerste = !this._hass;
     this._hass = hass;
     if (foerste) {
-      this._hentRum();
+      this._hentRum(0);
       hentScener().then((k) => {
         this._katalog = k;
         this._tegnScener();
@@ -365,6 +371,10 @@ class RumlysCard extends HTMLElement {
       });
       this._ro.observe(this);
     }
+    // Kortet kan have været væk fra siden — på en anden fane eller et andet panel — mens rummene eller betjeningspanelet
+    // blev ændret, og fanen tjekkes kun, mens kortet står på siden.
+    if (this._rummene) this._hentRum(0);
+    this._tjekFane();
     this._opdater();
   }
 
@@ -391,9 +401,10 @@ class RumlysCard extends HTMLElement {
     return tekst(this._hass, noegle, vaerdier);
   }
 
-  _hentRum() {
+  // Sidepanelet genindlæser Rumlys efter et gem, så efter et gem ventes der et øjeblik (`vent` ms), før rummene hentes
+  // igen. Er Rumlys ikke klar, prøves der igen lidt efter; imens gælder de rum, kortet allerede har.
+  _hentRum(vent, forsoeg = 1) {
     if (!this._hass) return;
-    // Sidepanelet genindlæser Rumlys efter et gem; vent et øjeblik, før rummene hentes igen.
     setTimeout(() => {
       hentRum(this._hass).then(
         (rummene) => {
@@ -403,11 +414,14 @@ class RumlysCard extends HTMLElement {
           this._opdater();
         },
         () => {
-          this._rummene = [];
-          this._opdater();
+          if (forsoeg < 5) this._hentRum(1000, forsoeg + 1);
+          else if (!this._rummene) {
+            this._rummene = [];
+            this._opdater();
+          }
         }
       );
-    }, this._rummene ? 800 : 0);
+    }, vent);
   }
 
   // Kortet peger på rummets område, så det kan stå, før rummet er sat op. Ældre kort har rummets id i `rum`.
@@ -418,12 +432,13 @@ class RumlysCard extends HTMLElement {
 
   // Rummets kort på fanen, siden står på, og hvilke lamper dette kort får efter fanens regel. Kortet selv findes
   // på sit id; står det der ikke — et nyt kort i forhåndsvisningen, før det er gemt — regnes det sidst på fanen.
+  // Adressen viser kun kortets fane, mens kortet står på siden; et kort, der ikke gør, tjekkes, når det kommer igen.
   async _tjekFane() {
     const hass = this._hass;
     const c = this._config;
     const rum = this._rum();
     const tjek = ++this._faneTjek;
-    if (!hass || !c || !rum) return;
+    if (!hass || !c || !rum || !this.isConnected) return;
     let fordeling = null;
     try {
       const { urlPath, fane } = sidensFane();
@@ -438,24 +453,27 @@ class RumlysCard extends HTMLElement {
         fordeling = fordelLamper(kortListe, rum.lamper.map((l) => l.entity_id), rum.kort || {})[nr];
       }
     } catch (e) {
-      // Ikke på et betjeningspanel, eller panelet kunne ikke læses: Rumlys' valg for kortet gælder alene.
+      // Ikke på et betjeningspanel, eller panelet kunne ikke læses: se `_kortStatus`.
     }
     if (tjek !== this._faneTjek) return;
     this._fordeling = fordeling;
-    this._faneTjekket = true;
+    // Scenerne afhænger af kortets lamper, så de tegnes igen, når de kendes.
+    this._tegnScener();
     this._opdater();
     if (this._menu) this._menu.opdater();
   }
 
-  // Kortets lamper: {lamper, hele, ingen, spaerretAf, dublet}, eller {venter} for et nyt kort, til fanen er tjekket.
+  // Kortets lamper: {lamper, hele, ingen, spaerretAf, dublet}, eller {venter}. Før fanen er tjekket — og hvis den ikke
+  // kan læses — gælder Rumlys' valg for et kort, Rumlys kender. Et nyt kort venter, for kun fanen kan vise, om rummet
+  // har et andet kort dér.
   _kortStatus() {
     const rum = this._rum();
     if (!rum) return null;
     if (this._fordeling) return this._fordeling;
     const c = this._config || {};
-    const kendt = !c.kort || (rum.kort && Object.prototype.hasOwnProperty.call(rum.kort, c.kort));
-    if (!kendt && !this._faneTjekket) return { venter: true, lamper: [], hele: false };
-    return fordelLamper([c], rum.lamper.map((l) => l.entity_id), rum.kort || {})[0];
+    const valg = rum.kort || {};
+    if (!c.kort || !Object.prototype.hasOwnProperty.call(valg, c.kort)) return { venter: true, lamper: [], hele: false };
+    return fordelLamper([c], rum.lamper.map((l) => l.entity_id), valg)[0];
   }
 
   // Kortet kan ikke bruges lige nu: ingen lamper, lamperne står på et andet kort, eller kortet står to gange.
@@ -541,7 +559,7 @@ class RumlysCard extends HTMLElement {
 
   _rummetsScener() {
     const rum = this._rum();
-    if (!rum || !this._katalog) return [];
+    if (!rum || !this._katalog || this._spaerret()) return [];
     // En scene kræver hvidt lys eller farve — det kan kortets lamper ikke nødvendigvis, selvom rummets kan.
     if (this._delvis() && !kanHvid(this._hass, this._lamper())) return [];
     return rum.scener.map((id) => this._katalog.efterId[id]).filter(Boolean);
@@ -565,7 +583,8 @@ class RumlysCard extends HTMLElement {
     const e = this._el;
     if (!e || !e.top.isConnected) return;
     const bredde = e.top.clientWidth;
-    if (!bredde || e.skyder.classList.contains("skjult") || !this._rum()) {
+    // Et kort uden rum, eller som ikke kan bruges, har ingen skyder — kun navn, status og knappen.
+    if (!bredde || e.skyder.classList.contains("skjult") || !this._rum() || this._spaerret()) {
       e.top.classList.remove("skyder-under");
       e.tekst.style.flex = e.tekst.style.maxWidth = "";
       return;
@@ -698,6 +717,8 @@ class RumlysCard extends HTMLElement {
       // Sidepanelet er kun for administratorer. I forhåndsvisningen ville knappen forlade kortets opsætning.
       const admin = !!(hass.user && hass.user.is_admin) && !this.preview;
       e.saetOp.hidden = !(admin && (rum ? !k.venter : omraade && this._rummene));
+      // Knappen er slået fra, mens «Sæt op i Rumlys» opretter rummet; når rummet findes, åbner den det.
+      if (rum) e.saetOp.disabled = false;
       e.saetOp.textContent = this.t(!rum ? "saet_op" : k.dublet ? "adskil_i_rumlys" : "vaelg_i_rumlys");
       e.top.classList.add("uden-skyder");
       e.kort.classList.remove("taendt");
@@ -802,23 +823,24 @@ class RumlysCard extends HTMLElement {
     this.dispatchEvent(new CustomEvent("hass-more-info", { detail: { entityId: id }, bubbles: true, composed: true }));
   }
 
+  // Et kort, der ikke kan bruges, styrer ingenting — heller ikke hvis en knap alligevel nås.
   _skiftLys() {
     const lamper = this._lamper();
-    if (!this._hass || !lamper.length) return;
+    if (!this._hass || !lamper.length || this._spaerret()) return;
     const taendt = lamper.some((id) => this._hass.states[id] && this._hass.states[id].state === "on");
     this._hass.callService("light", taendt ? "turn_off" : "turn_on", { entity_id: lamper });
   }
 
   _skiftHold() {
     const rum = this._rum();
-    if (!this._hass || !rum) return;
+    if (!this._hass || !rum || this._spaerret() || this._delvis()) return;
     const hold = this._hass.states[rum.entiteter.hold];
     this._hass.callService("switch", hold && hold.state === "on" ? "turn_off" : "turn_on", { entity_id: rum.entiteter.hold });
   }
 
   _daemp(vaerdi) {
     const rum = this._rum();
-    if (!this._hass || !rum) return;
+    if (!this._hass || !rum || this._spaerret()) return;
     this._ventVaerdi = vaerdi;
     this._ventTil = Date.now() + 3000;
     this._hass.callService("rumlys", "daemp", Object.assign({ rum: rum.id, lysstyrke: vaerdi }, this._valg()));
@@ -826,7 +848,7 @@ class RumlysCard extends HTMLElement {
 
   _anvendScene(id, knap) {
     const rum = this._rum();
-    if (!this._hass || !rum) return;
+    if (!this._hass || !rum || this._spaerret()) return;
     this._hass.callService("rumlys", "anvend_scene", Object.assign({ rum: rum.id, scene: id }, this._valg()));
     if (knap) {
       knap.classList.remove("blink");

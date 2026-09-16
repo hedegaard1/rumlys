@@ -4,7 +4,7 @@
   ha-martin: hvidt lys tegnes som i Hue-appen, og en hvid scene genkendes på pærerne.
 */
 
-export const VERSION = "0.4.12";
+export const VERSION = "0.4.13";
 // Mappen, filen selv ligger i — i Home Assistant med versionen i stien, på testsiden repoets egen.
 export const FILER = new URL("./", import.meta.url).href;
 // Scenerne ligger i Rumlys selv. I Home Assistant har de en fast adresse uden version, så et kort,
@@ -841,23 +841,23 @@ export function fanensKort(fane) {
 // Hvilke lamper hvert af rummets kort på én fane viser. Sidepanelet og kortene bruger samme regel:
 // - En lampe kan kun stå på ét kort på fanen, og et kort for hele rummet optager dem alle.
 // - Rumlys' valg for kortet (`valg` efter kortets id) er en liste af lamper; en tom liste er hele rummet, og null er
-//   ingen lamper. Et kort, Rumlys ikke kender endnu, gælder som hele rummet, og et kort uden id viser hele rummet
-//   eller sine egne `lamper` fra 0.4.9–0.4.10.
-// - Kort, Rumlys kender, går forud for nye kort — ellers går det øverste forud. Et kort, hvis lamper allerede står
-//   på et andet kort, viser ingen og peger på det kort.
-// - Står samme kort flere gange på fanen, optager det sine lamper, men ingen af gangene viser dem, før kortene er
-//   skilt ad — ellers styrer to kort de samme lamper.
+//   ingen lamper. Et kort, Rumlys ikke kender endnu — også et kort uden id — viser sine egne `lamper` fra
+//   0.4.9–0.4.10 eller hele rummet.
+// - Kort, Rumlys kender, går forud for de andre — ellers går det øverste forud. Et kort uden id går ikke forud, for
+//   så ville det miste sin plads, når det får et id. Et kort, hvis lamper allerede står på et andet kort, viser
+//   ingen og peger på det kort.
+// - Står samme kort flere gange på fanen — samme id, eller samme opsætning uden id — optager det sine lamper, men
+//   ingen af gangene viser dem, før kortene er skilt ad; ellers styrer to kort de samme lamper.
 // `kortListe` er fanens kort for rummet i rækkefølge, `rumLamper` rummets lamper. For hvert kort gives
 // {lamper, optager, hele, ingen, spaerretAf, dublet}: `lamper` er dem, kortet viser, `optager` dem, ingen andre kort
 // på fanen kan få, og `spaerretAf` indekset på det kort, der allerede har kortets lamper.
 export function fordelLamper(kortListe, rumLamper, valg) {
+  const hvem = (c) => c.kort || JSON.stringify(c);
   const antal = {};
-  kortListe.forEach((c) => { if (c.kort) antal[c.kort] = (antal[c.kort] || 0) + 1; });
+  kortListe.forEach((c) => { antal[hvem(c)] = (antal[hvem(c)] || 0) + 1; });
   const oensket = kortListe.map((c) => {
-    const kendt = !c.kort || Object.prototype.hasOwnProperty.call(valg, c.kort);
-    let lamper = [];
-    if (!c.kort) lamper = Array.isArray(c.lamper) ? c.lamper : [];
-    else if (kendt) lamper = valg[c.kort];
+    const kendt = !!c.kort && Object.prototype.hasOwnProperty.call(valg, c.kort);
+    const lamper = kendt ? valg[c.kort] : Array.isArray(c.lamper) ? c.lamper : [];
     if (lamper === null) return { kendt, ingen: true, lamper: [] };
     const egne = rumLamper.filter((l) => lamper.indexOf(l) >= 0);
     // En liste, hvor ingen af lamperne er i rummet længere, er ingen lamper — ikke hele rummet.
@@ -870,10 +870,10 @@ export function fordelLamper(kortListe, rumLamper, valg) {
   orden.forEach((i) => {
     const c = kortListe[i];
     const o = oensket[i];
-    const dublet = !!c.kort && antal[c.kort] > 1;
+    const dublet = antal[hvem(c)] > 1;
     const res = { lamper: [], optager: [], hele: false, ingen: o.ingen, spaerretAf: null, dublet };
     if (!o.ingen) {
-      const optaget = o.lamper.find((l) => l in ejer && !(dublet && kortListe[ejer[l]].kort === c.kort));
+      const optaget = o.lamper.find((l) => l in ejer && !(dublet && hvem(kortListe[ejer[l]]) === hvem(c)));
       if (optaget !== undefined) res.spaerretAf = ejer[optaget];
       else {
         o.lamper.forEach((l) => { if (!(l in ejer)) ejer[l] = i; });

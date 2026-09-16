@@ -89,7 +89,8 @@ det som valgt lys i rummet, så rummets nedtælling stadig slukker den.
 Kortet ser selv efter på sin fane, så reglen også holder for et kort, der sættes direkte ind på et
 betjeningspanel, før nogen har åbnet Rumlys. Har rummet allerede et kort på fanen, viser det nye kort — også i
 forhåndsvisningen, mens det sættes ind — «Lamperne står på et andet kort på fanen» og styrer ingenting. Et kort,
-Rumlys kender, går altid forud for et nyt. En administrator får knappen «Vælg lamper i Rumlys».
+Rumlys kender, går altid forud for et nyt, og et nyt kort styrer først noget, når det har læst sin fane; indtil da
+står det med «…». En administrator får knappen «Vælg lamper i Rumlys».
 
 Id'et sættes, når kortet sættes ind, eller når dets opsætning åbnes. Et kort på et betjeningspanel i YAML får
 det ikke af sig selv; sidepanelet foreslår en linje `kort: …`. Kort fra 0.4.9–0.4.10 har intet id og kan have

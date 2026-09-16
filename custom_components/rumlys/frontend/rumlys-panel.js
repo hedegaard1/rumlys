@@ -510,25 +510,25 @@ class RumlysPanel extends HTMLElement {
   }
 
   // Rummets kort. Et kort, rummet ikke kender, er nyt: Rumlys får det at vide med det samme, uden at rummet
-  // står som ændret, og det står som «Nyt», så længe siden er åben. Det viser hele rummet, hvis det er rummets
-  // eneste kort på fanen — ellers ingen lamper, til de vælges her. Det er samme regel, som kortet selv bruger på
-  // betjeningspanelet. Et kort fra 0.4.9–0.4.10 med `lamper` i sin egen opsætning beholder dem.
+  // står som ændret, og det står som «Nyt», så længe siden er åben. Det får det, det viser på betjeningspanelet nu:
+  // hele rummet, hvis det er rummets eneste kort på fanen — ellers ingen lamper, til de vælges her. Det er samme
+  // regel, som kortet selv bruger. Et kort fra 0.4.9–0.4.10 med `lamper` i sin egen opsætning beholder dem.
+  // Kunne et betjeningspanel ikke læses, registreres intet: kortet kan stå dér med et andet kort for rummet.
   async _hentKort() {
     const rumId = this._aktiv;
     const fund = await this._findKort();
     // Er der skiftet rum imens, hører kortene ikke til det rum, der er åbent nu.
     if (this._aktiv !== rumId || !this._kladde) return;
     this._kortfund = fund;
+    if (!fund.fuld) return;
     const rummets = this._detalje.lamper.map((l) => l.entity_id);
     const nye = {};
     const faner = this._fanerne(fund.fundne.filter((f) => this._erRummets(f.config, this._detalje)));
     Object.values(faner).forEach((liste) => {
       fordelLamper(liste.map((f) => f.config), rummets, this._kladde.kort).forEach((r, i) => {
-        const config = liste[i].config;
-        const id = config.kort;
+        const id = liste[i].config.kort;
         if (!id || id in this._kladde.kort) return;
-        const egne = (Array.isArray(config.lamper) ? config.lamper : []).filter((l) => rummets.indexOf(l) >= 0);
-        const vaerdi = r.spaerretAf !== null ? null : egne;
+        const vaerdi = r.spaerretAf !== null || r.ingen ? null : r.hele ? [] : r.optager.slice();
         // Står kortet på flere faner, viser det ingen lamper, hvis det er optaget på bare én af dem.
         if (!(id in nye) || vaerdi === null) nye[id] = vaerdi;
       });
@@ -636,21 +636,25 @@ class RumlysPanel extends HTMLElement {
       if (!k.id) {
         if (f.skrivbar) dele.push(hint(this.t("kort_uden_id")), h("button", { class: "knap", type: "button", onclick: () => this._nytIdTilKort(f, false) }, this.t("giv_id")));
         else dele.push(hint(this.t("kort_uden_id_yaml", { linje: "kort: " + forslag(f) })));
+        // To ens kort uden id på en fane kan kortene ikke skelne; ingen af dem virker, til det ene har fået et id.
+        if (fordeling.get(f).dublet) dele.push(hint(this.t("kort_dublet")));
         if (spaerring) dele.push(spaerring);
         return h("div", { class: "kortboks" }, dele);
       }
       // Kopieret med «Duplikér» eller sat ind to steder. På samme fane virker ingen af gangene, til kortene er skilt
-      // ad; på forskellige faner viser de det samme.
+      // ad — så er det den sidste kopi på den fane, der skilles ad. På forskellige faner viser de det samme.
       if (k.steder.length > 1) {
-        const dublet = k.steder.some((s) => fordeling.get(s).dublet);
-        const sidste = k.steder[k.steder.length - 1];
+        const kopier = k.steder.filter((s) => fordeling.get(s).dublet);
+        const dublet = kopier.length > 0;
+        const sidste = dublet ? kopier[kopier.length - 1] : k.steder[k.steder.length - 1];
+        const n = dublet ? kopier.filter((s) => fane(s) === fane(sidste)).length : k.steder.length;
         if (sidste.skrivbar) {
           dele.push(
-            hint(this.t(dublet ? "dublet_fane" : "flere_steder", { n: k.steder.length })),
+            hint(this.t(dublet ? "dublet_fane" : "flere_steder", { n })),
             h("button", { class: "knap", type: "button", onclick: () => this._nytIdTilKort(sidste, true) }, this.t("adskil"))
           );
         } else {
-          dele.push(hint(this.t(dublet ? "dublet_fane_yaml" : "flere_steder_yaml", { n: k.steder.length, linje: "kort: " + forslag(sidste) })));
+          dele.push(hint(this.t(dublet ? "dublet_fane_yaml" : "flere_steder_yaml", { n, linje: "kort: " + forslag(sidste) })));
         }
       }
       if (spaerring) dele.push(spaerring);

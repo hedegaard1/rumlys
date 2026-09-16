@@ -76,13 +76,15 @@ export const hass = {
     "dashboard-hjem": { title: "Hjem", config: { mode: "storage" } },
     "dashboard-yaml": { title: "Væg", config: { mode: "yaml" } },
   },
-  // Hændelser fra Home Assistant: kun «lovelace_updated», som sendes, når et betjeningspanel gemmes.
+  // Hændelser fra Home Assistant: kun «lovelace_updated», som sendes, når et betjeningspanel gemmes. Forbindelsens
+  // «ready» sendes aldrig her — forbindelsen afbrydes ikke.
   connection: {
     subscribeEvents: async (fn, type) => {
       const lytter = { fn, type };
       haendelsesLyttere.push(lytter);
       return () => { haendelsesLyttere = haendelsesLyttere.filter((l) => l !== lytter); };
     },
+    addEventListener: () => {},
   },
   // Entitetsregistret, som frontenden ser det: kun lamper med et id kan få et andet ikon.
   entities: {

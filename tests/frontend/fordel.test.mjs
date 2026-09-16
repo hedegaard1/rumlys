@@ -80,16 +80,48 @@ proev("samme kort to gange på fanen: ingen af gangene virker, men lamperne er o
   assert.equal(res[2].spaerretAf, 0);
 });
 
-proev("et kort uden id viser hele rummet og går forud for et nyt kort", () => {
+proev("et kort uden id viser hele rummet, men går ikke forud for et nyt kort over det", () => {
   const res = fordelLamper([kort("ny"), kort(null)], LAMPER, {});
-  assert.equal(res[1].hele, true);
-  assert.equal(res[0].spaerretAf, 1);
+  assert.equal(res[0].hele, true);
+  assert.equal(res[1].spaerretAf, 0);
+});
+
+proev("et kort uden id beholder sin plads, når det får et id", () => {
+  const foer = fordelLamper([kort(null), kort(null, { size: "small" })], LAMPER, {});
+  const efter = fordelLamper([kort("nyt"), kort(null, { size: "small" })], LAMPER, {});
+  assert.equal(foer[0].hele, true);
+  assert.equal(efter[0].hele, true);
+  assert.equal(foer[1].spaerretAf, 0);
+  assert.equal(efter[1].spaerretAf, 0);
 });
 
 proev("et kort uden id med lamper fra 0.4.9 viser dem", () => {
   const res = fordelLamper([kort(null, { lamper: [BAAND] }), kort("b")], LAMPER, { b: [LOFT] });
   assert.deepEqual(res[0].lamper, [BAAND]);
   assert.deepEqual(res[1].lamper, [LOFT]);
+});
+
+proev("lamperne fra 0.4.9 følger med, når kortet får et id, til Rumlys kender det", () => {
+  const res = fordelLamper([kort("b"), kort("nyt", { lamper: [BAAND] })], LAMPER, { b: [LOFT] });
+  assert.deepEqual(res[1].lamper, [BAAND]);
+  assert.equal(res[1].spaerretAf, null);
+  const [uden] = fordelLamper([kort("nyt", { lamper: ["light.fremmed"] })], LAMPER, {});
+  assert.equal(uden.ingen, true);
+});
+
+proev("Rumlys' valg går forud for kortets egne lamper fra 0.4.9", () => {
+  const [a] = fordelLamper([kort("a", { lamper: [LOFT] })], LAMPER, { a: [] });
+  assert.equal(a.hele, true);
+});
+
+proev("to ens kort uden id på fanen er samme kort to gange", () => {
+  const res = fordelLamper([kort(null), kort(null), kort(null, { size: "small" })], LAMPER, {});
+  assert.equal(res[0].dublet, true);
+  assert.equal(res[1].dublet, true);
+  assert.deepEqual(res[0].lamper, []);
+  assert.deepEqual(res[1].lamper, []);
+  assert.equal(res[2].dublet, false);
+  assert.equal(res[2].spaerretAf, 0);
 });
 
 proev("to kendte kort med samme lampe: det øverste vinder", () => {
