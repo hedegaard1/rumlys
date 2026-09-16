@@ -16,6 +16,7 @@ CONF_LYS = "lys"  # rummets eget lys
 CONF_OVERGANG = "overgang"
 CONF_TIDSRUM = "tidsrum"
 CONF_SCENER = "scener"  # scenerne på kortet
+CONF_IKON = "ikon"  # kortets ikon; uden ikon viser kortet lampernes egne
 
 # En lampe i rummet
 CONF_ENTITY_ID = "entity_id"

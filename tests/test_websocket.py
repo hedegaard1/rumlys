@@ -80,6 +80,7 @@ async def test_liste_til_kortet(hass: HomeAssistant, hass_ws_client: WebSocketGe
         "sensorer": [],
         "tidsrum": [],
         "scener": ["a", "b"],
+        "ikon": None,
         "entiteter": {
             "hold": "switch.gang_hold_lys",
             "tilstand": "sensor.gang_tilstand",
@@ -117,6 +118,7 @@ async def test_hent_og_gem(hass: HomeAssistant, hass_ws_client: WebSocketGenerat
         "sensorer": ["binary_sensor.gang_pir", "binary_sensor.gang_radar"],
         # En sensor, der ikke er valgt i rummet, kan ikke være tilstedeværelsessensor i det.
         "tilstede": ["binary_sensor.gang_radar", "binary_sensor.fjernet"],
+        "ikon": "hue:lightstrip",
         "tidsrum": [
             {"navn": "Nat", "start": "22:00", "slut": "06:30", "lys": {"type": "scene", "scene": "x", "lysstyrke": 10.0}},
             {"navn": "Weekend", "start": "00:00", "slut": "00:00", "dage": [6, 5, 6], "lys": STANDARD_LYS},
@@ -132,6 +134,7 @@ async def test_hent_og_gem(hass: HomeAssistant, hass_ws_client: WebSocketGenerat
     assert gemt["overgang"] == 2
     assert gemt["lamper"] == [{"entity_id": SPOTS, "bevaegelse": False}]
     assert gemt["tilstede"] == ["binary_sensor.gang_radar"]
+    assert gemt["ikon"] == "hue:lightstrip"
     assert gemt["tidsrum"] == [
         {
             "navn": "Nat",
@@ -160,6 +163,8 @@ async def test_gem_afviser_det_ugyldige(hass: HomeAssistant, hass_ws_client: Web
         rum_id="gang",
         data=data | {"tidsrum": [{"navn": "Nat", "start": "22:00", "slut": "06:30", "dage": [], "lys": STANDARD_LYS}]},
     )
+    assert svar["error"]["code"] == "ugyldig"
+    svar = await kommando(klient, type="rumlys/rum/gem", rum_id="gang", data=data | {"ikon": "lightstrip"})
     assert svar["error"]["code"] == "ugyldig"
     svar = await kommando(klient, type="rumlys/rum/gem", rum_id="gang", data=data | {"omraade": "kontor"})
     assert svar["error"]["code"] == "omraade_optaget"

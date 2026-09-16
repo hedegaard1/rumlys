@@ -15,6 +15,7 @@ import {
   hsRgb,
   hueFarve,
   ikon,
+  ikonStak,
   kanFarve,
   kanHvid,
   kategoriNavn,
@@ -24,6 +25,7 @@ import {
   meldOpdateret,
   overgang,
   rummetsFarver,
+  rummetsIkoner,
   sceneFarver,
   sceneNavn,
   sprog,
@@ -132,6 +134,11 @@ select, input[type=text], input[type=time], input[type=search] {
 .dagvalg { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
 .dagknap { min-height: 36px; padding: 0; border: 1px solid var(--rl-linje); border-radius: 10px; background: var(--rl-flade2); color: var(--rl-daempet); font-size: 13px; cursor: pointer; }
 .dagknap.til { background: var(--rl-p); border-color: var(--rl-p); color: var(--rl-paa-p); font-weight: 600; }
+.ikonvalg { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+.ikoner { display: flex; align-items: center; }
+.ikoner .ikon { width: 40px; height: 40px; border-radius: 50%; background: var(--rl-flade2); display: grid; place-items: center; --mdc-icon-size: 22px; box-sizing: border-box; }
+.ikoner .ikon + .ikon { margin-left: -12px; box-shadow: -2px 0 0 0 var(--rl-flade); }
+.ikoner .ikon.flere { font-size: 13px; font-weight: 600; }
 .seg { display: inline-flex; flex: none; border: 1px solid var(--rl-linje); border-radius: 999px; overflow: hidden; }
 .seg button { border: 0; background: transparent; padding: 6px 12px; font-size: 12px; color: var(--rl-daempet); cursor: pointer; }
 .seg button.til { background: var(--rl-p); color: var(--rl-paa-p); font-weight: 600; }
@@ -705,8 +712,86 @@ class RumlysPanel extends HTMLElement {
       null,
       h("div", { class: "felt", style: { marginTop: "10px" } }, h("label", {}, this.t("omraade")), vaelger),
       h("p", { class: "hint" }, this.t("omraade_hint")),
+      this._ikonFelt(),
       slet
     );
+  }
+
+  // Kortets ikon: automatisk lampernes egne, eller et ikon, man selv vælger. Det er det samme på alle kort for rummet.
+  _ikonFelt() {
+    const d = this._kladde.data;
+    const eget = !!d.ikon;
+    const forhaand = h("div", {});
+    const visForhaand = () => forhaand.replaceChildren(ikonStak(rummetsIkoner(this._hass, d.lamper.map((l) => l.entity_id), d.ikon)));
+    visForhaand();
+    const valg = h(
+      "div",
+      { class: "seg", role: "group", "aria-label": this.t("ikon_paa_kortet") },
+      [[false, "ikon_auto"], [true, "ikon_eget"]].map(([vaerdi, noegle]) =>
+        h("button", {
+          type: "button",
+          class: vaerdi === eget ? "til" : "",
+          "aria-pressed": String(vaerdi === eget),
+          onclick: () => {
+            if (vaerdi === eget) return;
+            if (vaerdi) d.ikon = rummetsIkoner(this._hass, d.lamper.map((l) => l.entity_id))[0];
+            else delete d.ikon;
+            this._genTegn("rummet");
+          },
+        }, this.t(noegle))
+      )
+    );
+    let vaelger = null;
+    if (eget) {
+      vaelger = this._ikonVaelger(d.ikon, (vaerdi) => {
+        d.ikon = vaerdi || "mdi:lightbulb-group-outline";
+        visForhaand();
+        this._aendret();
+      });
+    }
+    return h(
+      "div",
+      { class: "felt", style: { marginTop: "14px" } },
+      h("label", {}, this.t("ikon_paa_kortet")),
+      h("div", { class: "ikonvalg" }, forhaand, valg),
+      h("p", { class: "hint", style: { margin: "0" } }, this.t(eget ? "ikon_eget_hint" : "ikon_auto_hint")),
+      vaelger
+    );
+  }
+
+  // Home Assistants egen ikonvælger. Home Assistant indlæser sine vælgere efter behov, så findes den ikke
+  // endnu, hentes den via kortenes hjælpere, og feltet tegnes igen, når den er der; indtil da et tekstfelt.
+  _ikonVaelger(vaerdi, vedValg) {
+    const navn = ["ha-selector", "ha-icon-picker"].find((n) => customElements.get(n));
+    if (navn) {
+      const el = document.createElement(navn);
+      el.hass = this._hass;
+      if (navn === "ha-selector") el.selector = { icon: {} };
+      el.value = vaerdi;
+      el.label = this.t("ikon");
+      el.addEventListener("value-changed", (ev) => vedValg(ev.detail.value));
+      return el;
+    }
+    if (!this._henterIkonvaelger) {
+      this._henterIkonvaelger = true;
+      Promise.race([customElements.whenDefined("ha-selector"), customElements.whenDefined("ha-icon-picker")]).then(() => {
+        if (this._kladde) this._genTegn("rummet");
+      });
+      if (window.loadCardHelpers) {
+        window.loadCardHelpers()
+          .then((hjaelp) => hjaelp.createCardElement({ type: "button", entity: "sun.sun" }))
+          .then((kort) => kort && kort.constructor.getConfigElement && kort.constructor.getConfigElement())
+          .catch(() => {});
+      }
+    }
+    const felt = h("input", { type: "text", value: vaerdi, placeholder: "mdi:lightbulb" });
+    felt.addEventListener("change", () => vedValg(felt.value.trim()));
+    return felt;
+  }
+
+  // Rummets lamper er ændret: ikonerne og scenerne afhænger også af dem.
+  _lamperAendret() {
+    this._genTegn("lamper", "rummet", "scener");
   }
 
   _sletRum() {
@@ -750,7 +835,7 @@ class RumlysPanel extends HTMLElement {
       flueben.addEventListener("click", () => {
         if (valgt) d.lamper = d.lamper.filter((l) => l.entity_id !== entityId);
         else d.lamper.push({ entity_id: entityId, bevaegelse: true });
-        this._genTegn("lamper");
+        this._lamperAendret();
       });
       let foelger = null;
       if (valgt) {
@@ -837,7 +922,7 @@ class RumlysPanel extends HTMLElement {
     this._dialog({
       titel: this.t("lamper_andre"),
       indhold: [soeg, liste],
-      knapper: [{ tekst: this.t("faerdig"), primaer: true, handling: () => this._genTegn("lamper") }],
+      knapper: [{ tekst: this.t("faerdig"), primaer: true, handling: () => this._lamperAendret() }],
     });
   }
 

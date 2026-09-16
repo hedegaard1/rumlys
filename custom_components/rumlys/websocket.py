@@ -16,7 +16,7 @@ from homeassistant.helpers import (
     entity_registry as er,
 )
 
-from .const import CONF_OMRAADE, DOMAIN, RUM
+from .const import CONF_IKON, CONF_OMRAADE, DOMAIN, RUM
 from .omraade import entiteter_i_omraade, gruppens_lamper, nyt_rum
 from .skema import INDSTILLINGER, RUM_DATA, hele_tal
 
@@ -91,6 +91,7 @@ def _rum_kort(hass: HomeAssistant, entry: ConfigEntry, subentry: ConfigSubentry)
         "sensorer": subentry.data.get("sensorer", []),
         "tidsrum": [tidsrum["navn"] for tidsrum in subentry.data.get("tidsrum", [])],
         "scener": subentry.data.get("scener", []),
+        "ikon": subentry.data.get(CONF_IKON),
         "entiteter": _entiteter(hass, subentry.subentry_id),
     }
 

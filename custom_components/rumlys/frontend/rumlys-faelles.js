@@ -56,6 +56,12 @@ const TEKSTER = {
     rummet: "Rummet",
     omraade: "Område i Home Assistant",
     omraade_hint: "Rummet hedder det samme som området og følger med, hvis området omdøbes. Lamper og sensorer foreslås fra området, og enheden lægges i området.",
+    ikon_paa_kortet: "Ikon på kortet",
+    ikon: "Ikon",
+    ikon_auto: "Automatisk",
+    ikon_eget: "Eget ikon",
+    ikon_auto_hint: "Lampernes egne ikoner i rummets rækkefølge — op til tre, ellers to og antallet af resten.",
+    ikon_eget_hint: "Det samme ikon på alle kort for rummet.",
     slet_rum: "Slet rummet",
     slet_spoergsmaal: "Slet {navn}? Rummets enhed og entiteter forsvinder fra Home Assistant.",
     slet: "Slet",
@@ -233,6 +239,12 @@ const TEKSTER = {
     rummet: "The room",
     omraade: "Area in Home Assistant",
     omraade_hint: "The room has the same name as the area and follows if the area is renamed. Lights and sensors are suggested from the area, and the device is placed in the area.",
+    ikon_paa_kortet: "Icon on the card",
+    ikon: "Icon",
+    ikon_auto: "Automatic",
+    ikon_eget: "Own icon",
+    ikon_auto_hint: "The lights' own icons in the room's order — up to three, otherwise two and the number of the rest.",
+    ikon_eget_hint: "The same icon on every card for the room.",
     slet_rum: "Delete room",
     slet_spoergsmaal: "Delete {navn}? The room's device and entities disappear from Home Assistant.",
     slet: "Delete",
@@ -688,6 +700,31 @@ export function kanFarve(hass, lamper) {
     const modes = (st && st.attributes && st.attributes.supported_color_modes) || [];
     return modes.some((m) => FARVE_TILSTANDE.indexOf(m) >= 0);
   });
+}
+
+// Rummets ikoner: det valgte ikon, ellers lampernes egne i rummets rækkefølge. En lampe uden eget ikon —
+// fx en Zigbee2MQTT-gruppe — får sine pærers; hvert ikon vises én gang.
+export function rummetsIkoner(hass, lamper, ikon) {
+  if (ikon) return [ikon];
+  const ikoner = [];
+  lamper.forEach((id) => {
+    const st = hass && hass.states ? hass.states[id] : null;
+    let fundet = st && st.attributes.icon;
+    if (!fundet) {
+      const paere = paerer(hass, [id]).map((p) => hass.states[p]).find((s) => s && s.attributes.icon);
+      fundet = paere ? paere.attributes.icon : "mdi:lightbulb";
+    }
+    if (ikoner.indexOf(fundet) < 0) ikoner.push(fundet);
+  });
+  return ikoner.length ? ikoner : ["mdi:lightbulb-group-outline"];
+}
+
+// Op til tre ikoner i en stak; er der flere, de to første og «+N».
+export function ikonStak(ikoner) {
+  const felter = ikoner.length > 3 ? ikoner.slice(0, 2) : ikoner;
+  const stak = felter.map((i) => h("span", { class: "ikon" }, ikon(i)));
+  if (ikoner.length > 3) stak.push(h("span", { class: "ikon flere" }, "+" + (ikoner.length - 2)));
+  return h("div", { class: "ikoner" }, stak);
 }
 
 // Hvidt lys eller farve på mindst én pære — det, en scene kræver. Samme regel som kortet.

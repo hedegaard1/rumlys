@@ -2,7 +2,8 @@
   Rumlys-kortet: lyset i ét rum til hverdag. Baggrunden viser lampernes farver, skyderen dæmper
   alle rummets lamper i samme forhold, knappen holder lyset tændt med nedtælling, og rummets
   scener står i bunden. Tryk på kortet åbner menuen med lysstyrke, hvidt lys, farve, scener og
-  hver lampe for sig. Kortets opsætning er kun rummet og udseendet; resten hentes fra Rumlys.
+  hver lampe for sig. Kortets opsætning er kun rummet og udseendet; resten — også ikonet — hentes
+  fra Rumlys.
   Bygget på Room Light Card 2.3.0.
 */
 
@@ -13,6 +14,7 @@ import {
   h,
   hentScener,
   hueFarve,
+  ikonStak,
   kanFarve,
   kelvinGraenser,
   luminans,
@@ -21,6 +23,7 @@ import {
   paerer,
   restTekst,
   rummetsFarver,
+  rummetsIkoner,
   sceneFarver,
   sceneNavn,
   tekst,
@@ -182,11 +185,15 @@ const STYLE = KONTROL_STYLE + `
   ha-card.taendt { background:var(--rl-baggrund); color:var(--rl-tekst); border-color:transparent; }
   .inhold { container-type:inline-size; }
   .top { display:flex; align-items:center; gap:var(--rl-gap); min-height:calc(var(--rl-ikon) + 8px); }
+  .ikoner { flex:none; display:flex; align-items:center; }
   .ikon {
-    flex:none; width:var(--rl-ikon); height:var(--rl-ikon); border-radius:50%;
+    flex:none; width:var(--rl-ikon); height:var(--rl-ikon); border-radius:50%; box-sizing:border-box;
     display:flex; align-items:center; justify-content:center; background:rgba(127, 127, 127, 0.12); --mdc-icon-size:var(--rl-ikon-str);
   }
+  .ikoner .ikon + .ikon { margin-left:calc(var(--rl-ikon) * -0.3); box-shadow:-2px 0 0 0 var(--ha-card-background, var(--card-background-color, #fff)); }
+  .ikon.flere { font-size:calc(var(--rl-ikon-str) * 0.6); font-weight:var(--ha-font-weight-medium, 500); }
   ha-card.taendt .ikon { background:rgba(255, 255, 255, 0.3); }
+  ha-card.taendt .ikoner .ikon + .ikon { box-shadow:-2px 0 0 0 rgba(255, 255, 255, 0.45); }
   .tekst { flex:0 1 auto; min-width:0; max-width:42%; }
   .top.uden-skyder .tekst { flex:1 1 0; max-width:none; }
   .navn { font-size:var(--rl-navn); line-height:calc(var(--rl-navn) + 4px); font-weight:var(--ha-font-weight-medium, 500); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -311,17 +318,26 @@ class RumlysCard extends HTMLElement {
     return rum ? rum.lamper.map((l) => l.entity_id) : [];
   }
 
+  // Ikonerne tegnes kun forfra, når de har ændret sig.
+  _visIkoner(ikoner) {
+    const noegle = ikoner.join("|");
+    if (noegle === this._ikonNoegle) return;
+    this._ikonNoegle = noegle;
+    this._el.ikoner.replaceChildren(...[...ikonStak(ikoner).children]);
+  }
+
   _byg() {
     const r = this.shadowRoot;
     r.textContent = "";
+    this._ikonNoegle = null;
     const e = {};
-    e.ikon = h("ha-icon", {});
+    e.ikoner = h("div", { class: "ikoner" });
     e.navn = h("div", { class: "navn" });
     e.status = h("div", { class: "status" });
     e.skyder = h("input", { class: "skyder", type: "range", min: "0", max: "100", step: "1" });
     e.hold = h("button", { class: "hold", type: "button" }, h("ha-icon", { icon: "mdi:lock-clock" }));
     e.kontakt = h("button", { class: "kontakt", type: "button", role: "switch" }, h("span", { class: "knop" }));
-    e.top = h("div", { class: "top" }, h("div", { class: "ikon" }, e.ikon), h("div", { class: "tekst" }, e.navn, e.status), e.skyder, e.hold, e.kontakt);
+    e.top = h("div", { class: "top" }, e.ikoner, h("div", { class: "tekst" }, e.navn, e.status), e.skyder, e.hold, e.kontakt);
     e.scener = h("div", { class: "scener skjult" });
     e.kort = h("ha-card", {}, h("div", { class: "inhold" }, e.top, e.scener));
     r.append(h("style", {}, STYLE), e.kort);
@@ -441,7 +457,7 @@ class RumlysCard extends HTMLElement {
     const rum = this._rum();
     if (!rum) {
       this._stopUr();
-      e.ikon.setAttribute("icon", c.icon || "mdi:lightbulb-group-outline");
+      this._visIkoner(["mdi:lightbulb-group-outline"]);
       e.navn.textContent = c.name || this.t("kort_navn");
       e.status.textContent = !c.rum ? this.t("vaelg_rum_hint") : this._rummene ? this.t("rum_findes_ikke") : "…";
       e.kort.classList.remove("taendt");
@@ -459,7 +475,7 @@ class RumlysCard extends HTMLElement {
     const holdAktiv = !!hold && hold.state === "on";
 
     e.navn.textContent = c.name || rum.navn;
-    e.ikon.setAttribute("icon", c.icon || "mdi:lightbulb-group-outline");
+    this._visIkoner(rummetsIkoner(hass, lamper, rum.ikon));
     e.kontakt.disabled = e.skyder.disabled = !tilgaengelig;
     e.hold.disabled = !hold;
     e.skyder.classList.toggle("skjult", !kanDaempe);

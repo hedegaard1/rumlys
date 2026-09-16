@@ -15,6 +15,7 @@ from .const import (
     CONF_DAGE,
     CONF_ENTITY_ID,
     CONF_FARVE,
+    CONF_IKON,
     CONF_KELVIN,
     CONF_LAMPER,
     CONF_LYS,
@@ -119,6 +120,7 @@ RUM_DATA = vol.All(
             ),
             vol.Optional(CONF_TIDSRUM, default=[]): [TIDSRUM],
             vol.Optional(CONF_SCENER, default=[]): [cv.string],
+            vol.Optional(CONF_IKON): cv.icon,
         }
     ),
     _kun_rummets_sensorer,

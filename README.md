@@ -37,6 +37,8 @@ vælges.
 
 ### Rummets side i sidepanelet
 
+- **Rummet** — området og kortets ikon: «Automatisk» viser lampernes egne ikoner i rummets rækkefølge
+  (op til tre, ellers to og «+N»; en gruppe uden eget ikon får sine pærers), eller et eget ikon.
 - **Lamper** — hver lampe kan sættes til ikke at tænde ved bevægelse; den hører stadig til rummet og
   slukker med det. Her sættes også blød tænd og sluk.
 - **Sensorer** — med «ser nogen nu» og valget Bevægelse eller Tilstedeværelse. En bevægelsessensor ser ikke
@@ -55,7 +57,8 @@ vælges.
 
 Ét kort pr. rum. Baggrunden viser lampernes farver; skyderen dæmper alle rummets lamper i samme
 forhold; knappen holder lyset tændt og tæller ned. Tryk på kortet åbner menuen med lysstyrke, hvidt
-lys, farve, scener og hver lampe for sig. Kortets opsætning er kun rummet og udseendet:
+lys, farve, scener og hver lampe for sig. Ikonet kommer fra rummet. Kortets opsætning er kun rummet og
+udseendet:
 
 ```yaml
 type: custom:rumlys-card
@@ -127,8 +130,9 @@ python -m venv .venv
 Home Assistant er ikke lavet til Windows. Der skal testene køres med `PYTHONPATH=tests/windows`, som
 giver to Linux-moduler, Home Assistant importerer, en tom erstatning.
 
-Sidepanelet og kortet kan ses uden Home Assistant: `python -m http.server 8766`, og åbn
+Sidepanelet og kortet kan ses uden Home Assistant: `python tests/frontend/server.py 8766`, og åbn
 `/tests/frontend/panel.html` eller `/tests/frontend/kort.html`, der bruger et falsk Home Assistant.
+Serveren beder browseren om ikke at gemme filerne, så en rettelse ses ved næste genindlæsning.
 
 ## Licens
 
