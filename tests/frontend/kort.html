@@ -18,11 +18,13 @@
 <rumlys-card id="kontor"></rumlys-card>
 <rumlys-card id="traening"></rumlys-card>
 <rumlys-card id="gang"></rumlys-card>
+<rumlys-card id="stue"></rumlys-card>
 <div class="editor"><rumlys-card-editor></rumlys-card-editor></div>
 <script type="module">
   const { hass, vedOpdatering } = await import("./mock.js");
   await import("../../custom_components/rumlys/frontend/rumlys-card.js");
-  const kort = [["kontor", { rum: "kontor" }], ["traening", { rum: "traeningsrum", scene_size: "large" }], ["gang", { rum: "gang", size: "small" }]];
+  // Gang har et ældre kort med rummets id; Stue er ikke sat op i Rumlys.
+  const kort = [["kontor", { omraade: "office" }], ["traening", { omraade: "training_room", scene_size: "large" }], ["gang", { rum: "gang", size: "small" }], ["stue", { omraade: "living_room" }]];
   kort.forEach(([id, config]) => {
     const el = document.getElementById(id);
     el.setConfig(Object.assign({ type: "custom:rumlys-card" }, config));

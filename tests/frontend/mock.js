@@ -61,6 +61,14 @@ export const hass = {
   language: "da",
   locale: { language: "da" },
   user: { is_admin: true },
+  areas: {
+    entryway: { area_id: "entryway", name: "Entre" },
+    hallway: { area_id: "hallway", name: "Gang" },
+    kitchen: { area_id: "kitchen", name: "Køkken" },
+    office: { area_id: "office", name: "Kontor" },
+    living_room: { area_id: "living_room", name: "Stue" },
+    training_room: { area_id: "training_room", name: "Træningsrum" },
+  },
   states: Object.assign(
     {
       "light.kontor_loftspots": { state: "on", attributes: Object.assign({ friendly_name: "Kontor Loftspots", group_entities: [1, 2, 3, 4, 5, 6].map((i) => `light.kontor_spot_${i}`), supported_color_modes: ["color_temp", "xy"], supported_features: 44, min_color_temp_kelvin: 2000, max_color_temp_kelvin: 6535 }, hvid(3508, 255)) },

@@ -62,10 +62,15 @@ udseendet:
 
 ```yaml
 type: custom:rumlys-card
-rum: <rummets id>                  # vælges i kortets opsætning
+omraade: <områdets id>             # vælges i kortets opsætning
 size: medium                       # small, medium eller large
 scene_size: small                  # small eller large (med navn)
 ```
+
+Kortets opsætning viser alle husets rum. Et kort kan stå på et betjeningspanel, før rummet er sat op i
+Rumlys: så viser det «Ikke sat op i Rumlys», og en administrator kan trykke «Sæt op i Rumlys», som
+opretter rummet og åbner det i sidepanelet. Kort fra før 0.4.8 peger på rummets id med `rum` og virker
+stadig; de skifter til `omraade`, når rummet vælges igen i opsætningen.
 
 ## Entiteter
 
