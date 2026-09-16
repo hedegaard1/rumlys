@@ -31,6 +31,8 @@ Kræver Home Assistant 2026.9 eller nyere.
 **Tilføj rum** — i sidepanelet eller under integrationen — spørger kun om området i Home Assistant.
 Rummet får områdets navn og følger med, hvis området omdøbes, og områdets lamper og
 bevægelsessensorer er valgt på forhånd. Er en gruppe med, er dens pærer det ikke. Ét rum pr. område.
+En lampe, der er skjult i Home Assistant — fx et relæ, der kun giver strøm til smarte pærer — kan ikke
+vælges.
 
 ### Rummets side i sidepanelet
 

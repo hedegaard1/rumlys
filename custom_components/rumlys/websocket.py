@@ -279,13 +279,15 @@ def ws_omraader(
 def ws_lamper(
     hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
 ) -> None:
-    """Alle husets lamper — til en lampe, der står i et andet område end rummet."""
+    """Alle husets synlige lamper — til en lampe, der står i et andet område end rummet."""
     register = er.async_get(hass)
     enheder = dr.async_get(hass)
     omraader = ar.async_get(hass)
     svar = []
     for tilstand in sorted(hass.states.async_all("light"), key=lambda t: t.name.lower()):
         entitet = register.async_get(tilstand.entity_id)
+        if entitet and entitet.hidden_by:
+            continue
         omraade_id = entitet.area_id if entitet else None
         if entitet and omraade_id is None and entitet.device_id:
             enhed = enheder.async_get(entitet.device_id)

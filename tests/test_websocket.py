@@ -189,3 +189,18 @@ async def test_omraader_og_lamper(hass: HomeAssistant, hass_ws_client: WebSocket
 
     svar = await kommando(klient, type="rumlys/lamper")
     assert {"entity_id": SPOTS, "navn": "Gang Spots", "omraade": "Gang", "gruppe": []} in svar["result"]
+
+
+async def test_skjulte_lamper_kan_ikke_vaelges(hass: HomeAssistant, hass_ws_client: WebSocketGenerator) -> None:
+    await opsaet(hass)
+    # Et relæ, der kun giver strøm til smarte pærer, skjules i Home Assistant.
+    entiteter = er.async_get(hass)
+    entiteter.async_get_or_create("light", "test", "relae", suggested_object_id="kontor_relae")
+    entiteter.async_update_entity("light.kontor_relae", area_id="kontor", hidden_by=er.RegistryEntryHider.USER)
+    hass.states.async_set("light.kontor_relae", "on", {"friendly_name": "Kontor Relæ"})
+    klient = await hass_ws_client(hass)
+
+    svar = await kommando(klient, type="rumlys/omraader")
+    assert svar["result"][1]["lamper"] == []
+    svar = await kommando(klient, type="rumlys/lamper")
+    assert "light.kontor_relae" not in [lampe["entity_id"] for lampe in svar["result"]]
