@@ -391,15 +391,16 @@ class RumlysCard extends HTMLElement {
     this._tilpasScener();
   }
 
-  // Skyderen står mellem ikonerne og knapperne, hvis den dér kan blive mindst SKYDER_MIN bred, når navn og
-  // status vises helt; ellers får den sin egen linje. Det afhænger af kortets bredde, antallet af ikoner og
-  // teksternes længde, så det måles i stedet for at bruge en fast bredde.
+  // Skyderen står mellem ikonerne og knapperne, hvis den dér kan blive mindst SKYDER_MIN bred, mens navn og
+  // status kan læses helt; ellers får den sin egen linje. Det afhænger af kortets bredde, antallet af ikoner
+  // og teksternes længde, så det måles i stedet for at bruge en fast bredde.
   _placerSkyder() {
     const e = this._el;
     if (!e || !e.top.isConnected) return;
     const bredde = e.top.clientWidth;
     if (!bredde || e.skyder.classList.contains("skjult")) {
       e.top.classList.remove("skyder-under");
+      e.tekst.style.flex = e.tekst.style.maxWidth = "";
       return;
     }
     if (!this._canvas) this._canvas = document.createElement("canvas");
@@ -409,13 +410,24 @@ class RumlysCard extends HTMLElement {
       ctx.font = cs.fontWeight + " " + cs.fontSize + " " + cs.fontFamily;
       return ctx.measureText(tekst).width;
     };
-    // Status måles med de længste faste tekster, så skyderen ikke flytter sig, når lyset tændes, dæmpes
-    // eller tæller ned — en nedtælling må godt blive afkortet.
-    const status = this._rum() ? [this.t("taendt") + " · 100 %", this.t("slukket"), this.t("utilgaengelig")] : [e.status.textContent];
+    // Statussen skal kunne læses helt, også med den længste nedtælling. Den måles med de længste tekster,
+    // den kan få, så skyderen ikke flytter sig, når lyset tændes, dæmpes eller tæller ned.
+    const status = this._rum()
+      ? [
+          this.t("taendt") + " · 100 % · " + this.t("holdes_i", { tid: this.t("timer", { n: 23 }) + " " + this.t("min", { n: 59 }) }),
+          this.t("taendt") + " · 100 % · " + this.t("slukker_om", { tid: this.t("timer", { n: 1 }) + " " + this.t("min", { n: 59 }) }),
+          this.t("slukket"),
+          this.t("utilgaengelig"),
+        ]
+      : [e.status.textContent];
     const tekst = Math.ceil(Math.max(maal(e.navn.textContent, e.navn), ...status.map((s) => maal(s, e.status))));
     const gap = parseFloat(getComputedStyle(e.top).columnGap) || 0;
     const plads = bredde - (e.ikoner.offsetWidth + tekst + e.hold.offsetWidth + e.kontakt.offsetWidth + 4 * gap);
-    e.top.classList.toggle("skyder-under", plads < SKYDER_MIN);
+    const under = plads < SKYDER_MIN;
+    e.top.classList.toggle("skyder-under", under);
+    // Mellem ikonerne og knapperne får teksten den målte bredde, så den står helt og ikke flytter skyderen.
+    e.tekst.style.flex = under ? "" : "0 0 " + tekst + "px";
+    e.tekst.style.maxWidth = under ? "" : "none";
   }
 
   // Scenerne skal gøre kortet så lidt højere som muligt: kan alle stå på én række i felter på mindst
