@@ -39,4 +39,4 @@ class Tilstand(RumEntitet, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         slukker = self.rum.slukker
-        return {"slukker": slukker and slukker.isoformat()}
+        return {"slukker": slukker and slukker.isoformat(), "kort_opdateret": self.rum.kort_opdateret}

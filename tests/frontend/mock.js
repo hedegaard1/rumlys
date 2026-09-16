@@ -69,6 +69,12 @@ export const hass = {
     living_room: { area_id: "living_room", name: "Stue" },
     training_room: { area_id: "training_room", name: "Træningsrum" },
   },
+  // Betjeningspanelerne, som frontenden ser dem: navn og om de er i YAML.
+  panels: {
+    lovelace: { title: null, config: { mode: "storage" } },
+    "dashboard-hjem": { title: "Hjem", config: { mode: "storage" } },
+    "dashboard-yaml": { title: "Væg", config: { mode: "yaml" } },
+  },
   // Entitetsregistret, som frontenden ser det: kun lamper med et id kan få et andet ikon.
   entities: {
     "light.kontor_loftspots": { entity_id: "light.kontor_loftspots" },
@@ -131,14 +137,43 @@ const kontorData = {
   ],
   scener: STANDARD.map((s) => s[0]),
 };
+// Kortenes lamper, som Rumlys kender dem: et kort for hele rummet, et der er fjernet fra betjeningspanelet
+// (k999…), og et med et lysbånd.
+const kortLager = { kontor: { k111111111111: [], k333333333333: ["light.kontor_bord_lysband"], k999999999999: ["light.kontor_loftspots"] } };
+const kontorLamper = () => kontorData.lamper.map((l) => l.entity_id);
+const kortetsLamper = (lamper) => {
+  const valgte = kontorLamper().filter((l) => lamper.indexOf(l) >= 0);
+  return valgte.length === kontorLamper().length ? [] : valgte;
+};
+// Betjeningspanelerne. Kontor-fanen har et kort for hele rummet, et nyt lille kort, det samme kort kopieret
+// ind i en stak, og et kort fra før 0.4.11 uden id med lamper i sin egen opsætning. «Hjem» har kortet med
+// lysbåndet inde i et betinget kort; «Væg» er i YAML; «Energi» bygger Home Assistant selv.
+const paneler = {
+  "": {
+    views: [
+      { title: "Kontor", path: "kontor", sections: [{ type: "grid", cards: [
+        { type: "custom:rumlys-card", omraade: "office", kort: "k111111111111" },
+        { type: "custom:rumlys-card", omraade: "office", size: "small", kort: "k222222222222" },
+        { type: "vertical-stack", cards: [{ type: "custom:rumlys-card", omraade: "office", size: "small", kort: "k222222222222" }] },
+        { type: "custom:rumlys-card", omraade: "office", lamper: ["light.kontor_bord_lysband"] },
+      ] }] },
+      { title: "Træning", path: "traening", cards: [{ type: "custom:rumlys-card", omraade: "training_room" }] },
+    ],
+  },
+  "dashboard-hjem": {
+    views: [{ title: "Hjem", cards: [{ type: "conditional", conditions: [], card: { type: "custom:rumlys-card", omraade: "office", kort: "k333333333333" } }] }],
+  },
+  "dashboard-yaml": { views: [{ title: "Tablet", cards: [{ type: "custom:rumlys-card", omraade: "office" }] }] },
+};
 const WS = {
-  "rumlys/rum/liste": [
-    { id: "entre", navn: "Entre", omraade: "entryway", lamper: [{ entity_id: "light.entre_loftspots", bevaegelse: true }], sensorer: ["binary_sensor.entre"], tidsrum: ["Nat"], scener: [], entiteter: ent("entre") },
-    { id: "gang", navn: "Gang", omraade: "hallway", lamper: [{ entity_id: "light.gang_loftspots", bevaegelse: true }], sensorer: ["binary_sensor.gang_pir"], tidsrum: ["Dag", "Nat"], scener: [], entiteter: ent("gang") },
-    { id: "kontor", navn: "Kontor", omraade: "office", lamper: kontorData.lamper, sensorer: kontorData.sensorer, tidsrum: ["Arbejde", "Aften"], scener: kontorData.scener, entiteter: ent("kontor") },
-    { id: "traeningsrum", navn: "Træningsrum", omraade: "training_room", lamper: [{ entity_id: "light.traeningsrum_loftspots", bevaegelse: true }, { entity_id: "light.traeningsrum_stenlampe", bevaegelse: false }], sensorer: ["binary_sensor.traening"], tidsrum: [], scener: [], entiteter: ent("traeningsrum") },
-  ],
+  "rumlys/rum/liste": () => JSON.parse(JSON.stringify([
+    { id: "entre", navn: "Entre", omraade: "entryway", lamper: [{ entity_id: "light.entre_loftspots", bevaegelse: true }], sensorer: ["binary_sensor.entre"], tidsrum: ["Nat"], scener: [], entiteter: ent("entre"), kort: {} },
+    { id: "gang", navn: "Gang", omraade: "hallway", lamper: [{ entity_id: "light.gang_loftspots", bevaegelse: true }], sensorer: ["binary_sensor.gang_pir"], tidsrum: ["Dag", "Nat"], scener: [], entiteter: ent("gang"), kort: {} },
+    { id: "kontor", navn: "Kontor", omraade: "office", lamper: kontorData.lamper, sensorer: kontorData.sensorer, tidsrum: ["Arbejde", "Aften"], scener: kontorData.scener, entiteter: ent("kontor"), kort: kortLager.kontor },
+    { id: "traeningsrum", navn: "Træningsrum", omraade: "training_room", lamper: [{ entity_id: "light.traeningsrum_loftspots", bevaegelse: true }, { entity_id: "light.traeningsrum_stenlampe", bevaegelse: false }], sensorer: ["binary_sensor.traening"], tidsrum: [], scener: [], entiteter: ent("traeningsrum"), kort: {} },
+  ])),
   "rumlys/rum/hent": (msg) => ({
+    kort: JSON.parse(JSON.stringify(kortLager.kontor)),
     id: msg.rum_id,
     navn: "Kontor",
     omraade: "office",
@@ -182,17 +217,30 @@ const WS = {
     { entity_id: "light.stue_sort_gulvlampe", navn: "Stue Sort Gulvlampe", omraade: "Stue", gruppe: [] },
     { entity_id: "light.udendors_lampe", navn: "Udendørs lampe", omraade: null, gruppe: [] },
   ],
-  "rumlys/rum/gem": (msg) => ({ id: msg.rum_id }),
+  "rumlys/rum/gem": (msg) => {
+    if (msg.kort) kortLager.kontor = Object.fromEntries(Object.entries(msg.kort).map(([id, lamper]) => [id, kortetsLamper(lamper)]));
+    return { id: msg.rum_id };
+  },
+  "rumlys/kort/nye": (msg) => {
+    Object.entries(msg.kort).forEach(([id, lamper]) => { if (!(id in kortLager.kontor)) kortLager.kontor[id] = kortetsLamper(lamper); });
+    return { kort: JSON.parse(JSON.stringify(kortLager.kontor)) };
+  },
   "rumlys/rum/opret": () => ({ id: "kontor" }),
   "rumlys/rum/slet": (msg) => ({ id: msg.rum_id }),
-  // Betjeningspanelet med Kontor-fanen: et kort for hele rummet og et for lysbåndet.
-  "lovelace/config": {
-    views: [
-      { path: "kontor", sections: [{ type: "grid", cards: [
-        { type: "custom:rumlys-card", omraade: "office" },
-        { type: "custom:rumlys-card", omraade: "office", lamper: ["light.kontor_bord_lysband"] },
-      ] }] },
-    ],
+  "lovelace/dashboards/list": [
+    { url_path: "dashboard-hjem", title: "Hjem", mode: "storage" },
+    { url_path: "dashboard-yaml", title: "Væg", mode: "yaml" },
+    { url_path: "dashboard-energi", title: "Energi", mode: "storage" },
+  ],
+  "lovelace/config": (msg) => {
+    const config = paneler[msg.url_path || ""];
+    if (!config) throw { code: "config_not_found", message: "No config found." };
+    return JSON.parse(JSON.stringify(config));
+  },
+  "lovelace/config/save": (msg) => {
+    if (msg.url_path === "dashboard-yaml") throw { code: "error", message: "Not supported" };
+    paneler[msg.url_path || ""] = JSON.parse(JSON.stringify(msg.config));
+    return null;
   },
   "config/entity_registry/update": (msg) => {
     const st = hass.states[msg.entity_id];

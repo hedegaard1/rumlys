@@ -4,7 +4,7 @@
   ha-martin: hvidt lys tegnes som i Hue-appen, og en hvid scene genkendes på pærerne.
 */
 
-export const VERSION = "0.4.10";
+export const VERSION = "0.4.11";
 // Mappen, filen selv ligger i — i Home Assistant med versionen i stien, på testsiden repoets egen.
 export const FILER = new URL("./", import.meta.url).href;
 // Scenerne ligger i Rumlys selv. I Home Assistant har de en fast adresse uden version, så et kort,
@@ -68,6 +68,38 @@ const TEKSTER = {
     standard_ikon: "Standard",
     ikon_gemt: "Ikonet er gemt",
     ikon_ikke_gemt: "Ikonet kunne ikke gemmes: {fejl}",
+    kort_sektion: "Kort",
+    kort_sektion_hint: "Rummets kort på dine betjeningspaneler, i den rækkefølge de står. Et kort viser hele rummet eller de lamper, du vælger — og en lampe kan kun vælges på ét kort pr. fane.",
+    kort_nr: "Kort {n}",
+    nyt: "Nyt",
+    hele_rummet: "Hele rummet",
+    valgte_lamper: "Valgte lamper",
+    paa_kort: "På kort {n}",
+    ogsaa_paa_kort: "Også valgt på kort {n}",
+    flyt_hertil: "Flyt hertil",
+    kort_nu_hele_rummet: "Kort {n} har ikke flere lamper og viser nu hele rummet",
+    vaelg_lamper_hint: "Vælg en eller flere lamper. Uden valg viser kortet hele rummet.",
+    alle_valgt: "Alle lamper er valgt, så kortet viser hele rummet.",
+    alle_taget: "Alle rummets lamper står på andre kort på fanen. Kortet viser hele rummet — eller flyt en lampe hertil.",
+    flere_steder: "Kortet står {n} gange, og alle viser de samme lamper. «Adskil» giver det sidste sit eget valg.",
+    flere_steder_yaml: "Kortet står {n} gange, og alle viser de samme lamper. Skal det sidste have sit eget valg, så ret dets linje med «kort:» til «{linje}».",
+    adskil: "Adskil",
+    kort_uden_id: "Kortet har ikke sit eget id endnu. Giv det et, så kan du vælge lamper til det her.",
+    kort_uden_id_yaml: "Kortet står på et betjeningspanel i YAML, som Rumlys ikke kan skrive i. Tilføj linjen «{linje}» til kortet, så kan du vælge lamper til det her.",
+    giv_id: "Giv kortet et id",
+    tidligere_kort: "Tidligere kort",
+    kort_findes_ikke: "Står ikke længere på et betjeningspanel.",
+    glem_kort: "Glem kortet",
+    ingen_kort: "Rummet står ikke på et betjeningspanel endnu. Sæt kortet «Rumlys» ind på en fane, så dukker det op her.",
+    kort_ufuldstaendig: "Nogle betjeningspaneler kunne ikke læses, så der kan mangle kort.",
+    kort_skrevet: "Kortet har fået sit eget id",
+    kort_ikke_skrevet: "Kortet kunne ikke ændres: {fejl}",
+    kort_aendret: "kortet er ændret på betjeningspanelet i mellemtiden",
+    standard_panel: "Oversigt",
+    kort_1: "1 kort",
+    kort_n: "{n} kort",
+    nyt_kort_1: "1 nyt kort",
+    nye_kort_n: "{n} nye kort",
     slet_rum: "Slet rummet",
     slet_spoergsmaal: "Slet {navn}? Rummets enhed og entiteter forsvinder fra Home Assistant.",
     slet: "Slet",
@@ -203,16 +235,13 @@ const TEKSTER = {
     scenefelter: "Scenefelter",
     smaa: "Små",
     store: "Store med navn",
-    kort_hint: "Lamper, hold lys og scener hentes fra rummet. De rettes i Rumlys i sidepanelet.",
+    kort_hint: "Lamper, hold lys og scener hentes fra rummet. Hvilke lamper kortet viser, vælger du i Rumlys under rummet, når kortet er gemt.",
     vaelg_rum_hint: "Vælg rummet i kortets opsætning",
     kort_ikke_sat_op: "Ikke sat op i Rumlys",
     saet_op: "Sæt op i Rumlys",
     gruppe_sat_op: "Sat op i Rumlys",
     gruppe_ikke_sat_op: "Ikke sat op",
     ikke_sat_op_hint: "Rummet er ikke sat op i Rumlys endnu. Gem kortet, og tryk «Sæt op i Rumlys» på det.",
-    lamper_paa_kortet: "Lamper på kortet",
-    lamper_kort_hint: "Uden valg viser kortet hele rummet. En lampe kan kun stå på ét lampekort på fanen, men gerne også på et kort for hele rummet. «Hold lys» står kun på et kort for hele rummet.",
-    paa_andet_kort: "På et andet kort",
     taend_sluk: "Tænd eller sluk",
     luk: "Luk",
     detaljer: "Historik og indstillinger i Home Assistant",
@@ -265,6 +294,38 @@ const TEKSTER = {
     standard_ikon: "Default",
     ikon_gemt: "The icon is saved",
     ikon_ikke_gemt: "The icon could not be saved: {fejl}",
+    kort_sektion: "Cards",
+    kort_sektion_hint: "The room's cards on your dashboards, in the order they appear. A card shows the whole room or the lights you choose — and a light can only be chosen on one card per tab.",
+    kort_nr: "Card {n}",
+    nyt: "New",
+    hele_rummet: "Whole room",
+    valgte_lamper: "Chosen lights",
+    paa_kort: "On card {n}",
+    ogsaa_paa_kort: "Also chosen on card {n}",
+    flyt_hertil: "Move here",
+    kort_nu_hele_rummet: "Card {n} has no lights left and now shows the whole room",
+    vaelg_lamper_hint: "Choose one or more lights. Without a choice the card shows the whole room.",
+    alle_valgt: "All lights are chosen, so the card shows the whole room.",
+    alle_taget: "All the room's lights are on other cards on the tab. The card shows the whole room — or move a light here.",
+    flere_steder: "The card appears {n} times, and all of them show the same lights. «Separate» gives the last one its own choice.",
+    flere_steder_yaml: "The card appears {n} times, and all of them show the same lights. To give the last one its own choice, change its «kort:» line to «{linje}».",
+    adskil: "Separate",
+    kort_uden_id: "The card has no id of its own yet. Give it one to choose its lights here.",
+    kort_uden_id_yaml: "The card is on a YAML dashboard, which Rumlys cannot write to. Add the line «{linje}» to the card to choose its lights here.",
+    giv_id: "Give the card an id",
+    tidligere_kort: "Former card",
+    kort_findes_ikke: "Is no longer on a dashboard.",
+    glem_kort: "Forget card",
+    ingen_kort: "The room is not on a dashboard yet. Add the «Rumlys» card to a tab and it shows up here.",
+    kort_ufuldstaendig: "Some dashboards could not be read, so cards may be missing.",
+    kort_skrevet: "The card now has its own id",
+    kort_ikke_skrevet: "The card could not be changed: {fejl}",
+    kort_aendret: "the card has changed on the dashboard in the meantime",
+    standard_panel: "Overview",
+    kort_1: "1 card",
+    kort_n: "{n} cards",
+    nyt_kort_1: "1 new card",
+    nye_kort_n: "{n} new cards",
     slet_rum: "Delete room",
     slet_spoergsmaal: "Delete {navn}? The room's device and entities disappear from Home Assistant.",
     slet: "Delete",
@@ -400,16 +461,13 @@ const TEKSTER = {
     scenefelter: "Scene tiles",
     smaa: "Small",
     store: "Large with name",
-    kort_hint: "Lights, keep light on and scenes come from the room. They are edited in Rumlys in the sidebar.",
+    kort_hint: "Lights, keep light on and scenes come from the room. Which lights the card shows is chosen in Rumlys under the room once the card is saved.",
     vaelg_rum_hint: "Choose the room in the card's settings",
     kort_ikke_sat_op: "Not set up in Rumlys",
     saet_op: "Set up in Rumlys",
     gruppe_sat_op: "Set up in Rumlys",
     gruppe_ikke_sat_op: "Not set up",
     ikke_sat_op_hint: "The room is not set up in Rumlys yet. Save the card and press «Set up in Rumlys» on it.",
-    lamper_paa_kortet: "Lights on the card",
-    lamper_kort_hint: "Without a choice the card shows the whole room. A light can only be on one light card on the tab, but also on a card for the whole room. «Keep light on» is only on a card for the whole room.",
-    paa_andet_kort: "On another card",
     taend_sluk: "Turn on or off",
     luk: "Close",
     detaljer: "History and settings in Home Assistant",
@@ -734,6 +792,14 @@ export function kanFarve(hass, lamper) {
 // viser sit ikon. Den er tegnet efter brand-ikonet, som beholder sine farver og vises af Home Assistant
 // selv. Kortfilen indlæses på alle sider, så ikonet er klar, før menuen tegnes.
 export const RUMLYS_IKON = "rumlys:lampe";
+
+// Et korts id, som Rumlys kender kortet på. crypto.randomUUID findes kun over https; getRandomValues
+// findes også, når Home Assistant åbnes over almindelig http på husets netværk.
+export function nytKortId() {
+  const tal = new Uint8Array(6);
+  crypto.getRandomValues(tal);
+  return "k" + Array.from(tal, (b) => b.toString(16).padStart(2, "0")).join("");
+}
 const IKONER = {
   lampe:
     "M11 1H13V4.5H11ZM8.8 4H15.2V7.4H8.8ZM1.5 13.6A10.5 7.1 0 0 1 22.5 13.6ZM20.4 11.9A8.4 3.6 0 0 0 3.6 11.9Z" +

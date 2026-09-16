@@ -24,8 +24,8 @@
 <script type="module">
   const { hass, vedOpdatering } = await import("./mock.js");
   await import("../../custom_components/rumlys/frontend/rumlys-card.js");
-  // Lysbånd er et kort for én af Kontors lamper; Gang har et ældre kort med rummets id; Stue er ikke sat op.
-  const kort = [["kontor", { omraade: "office" }], ["lysbaand", { omraade: "office", lamper: ["light.kontor_bord_lysband"] }], ["traening", { omraade: "training_room", scene_size: "large" }], ["gang", { rum: "gang", size: "small" }], ["stue", { omraade: "living_room" }]];
+  // Lysbånd er et kort for én af Kontors lamper, valgt i Rumlys; Gang har et ældre kort med rummets id; Stue er ikke sat op.
+  const kort = [["kontor", { omraade: "office", kort: "k111111111111" }], ["lysbaand", { omraade: "office", kort: "k333333333333" }], ["traening", { omraade: "training_room", scene_size: "large" }], ["gang", { rum: "gang", size: "small" }], ["stue", { omraade: "living_room" }]];
   kort.forEach(([id, config]) => {
     const el = document.getElementById(id);
     el.setConfig(Object.assign({ type: "custom:rumlys-card" }, config));

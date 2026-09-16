@@ -56,6 +56,11 @@ vælges.
 - **Når ingen er i rummet** — hvornår lys tændt af sensoren, og lys nogen selv har valgt, slukker.
 - **Hold lys tændt** — hvor længe.
 - **Scener på kortet** — de samme på alle kort for rummet.
+- **Kort** — rummets kort på alle betjeningspaneler, i den rækkefølge de står, og hvor de står. Et nyt kort
+  dukker op af sig selv som «Nyt» og viser hele rummet, til der vælges lamper til det. En lampe kan kun
+  vælges på ét kort pr. fane: på de andre kort står den som «På kort N» med «Flyt hertil». Står samme kort
+  flere steder — fx efter «Duplikér» — giver «Adskil» det sidste sit eget valg. Et kort, der er fjernet fra
+  betjeningspanelet, står som «Tidligere kort», til det glemmes.
 - **Seneste hændelser** — fx «Slukket: ingen i rummet, valgt lys».
 
 ### Kortet
@@ -68,17 +73,20 @@ udseendet:
 ```yaml
 type: custom:rumlys-card
 omraade: <områdets id>             # vælges i kortets opsætning
-lamper:                            # valgfri: kun nogle af rummets lamper
-  - light.kontor_bord_lysband
+kort: k1a2b3c4d5e6                 # kortets id — sættes af sig selv
 size: medium                       # small, medium eller large
 scene_size: small                  # small eller large (med navn)
 ```
 
-Med `lamper` viser kortet kun de lamper: tænd og sluk, skyder, scener og menuen gælder dem, og et kort for én
-lampe hedder som lampen. På samme fane kan en lampe kun stå på ét kort for nogle af lamperne — opsætningen viser
-de andre som «På et andet kort» — men gerne også på et kort for hele rummet. «Hold lys» hører til hele rummet og
-står kun på et kort for hele rummet. Tændes en
-lampe fra kortet, tæller det som valgt lys i rummet, så rummets nedtælling stadig slukker den.
+Hvilke lamper kortet viser, vælges i sidepanelet under rummets **Kort**, efter kortets id. Viser kortet nogle
+af lamperne, gælder tænd og sluk, skyder, scener og menuen dem, og et kort for én lampe hedder som lampen.
+«Hold lys» hører til hele rummet og står kun på et kort for hele rummet. Tændes en lampe fra kortet, tæller
+det som valgt lys i rummet, så rummets nedtælling stadig slukker den.
+
+Id'et sættes, når kortet sættes ind, eller når dets opsætning åbnes. Et kort på et betjeningspanel i YAML får
+det ikke af sig selv; sidepanelet foreslår en linje `kort: …`. Kort fra 0.4.9–0.4.10 har intet id og kan have
+`lamper` i opsætningen: de virker stadig, og får de et id — med «Giv kortet et id» i sidepanelet eller ved at
+åbne kortets opsætning — følger lamperne med ind i Rumlys.
 
 Kortets opsætning viser alle husets rum. Et kort kan stå på et betjeningspanel, før rummet er sat op i
 Rumlys: så viser det «Ikke sat op i Rumlys», og en administrator kan trykke «Sæt op i Rumlys», som

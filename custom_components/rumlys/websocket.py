@@ -12,11 +12,12 @@ from homeassistant.config_entries import ConfigEntry, ConfigEntryState, ConfigSu
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import (
     area_registry as ar,
+    config_validation as cv,
     device_registry as dr,
     entity_registry as er,
 )
 
-from .const import CONF_IKON, CONF_OMRAADE, DOMAIN, RUM
+from .const import CONF_ENTITY_ID, CONF_IKON, CONF_LAMPER, CONF_OMRAADE, DOMAIN, RUM
 from .omraade import entiteter_i_omraade, gruppens_lamper, nyt_rum
 from .skema import INDSTILLINGER, RUM_DATA, hele_tal
 
@@ -36,6 +37,7 @@ def async_register(hass: HomeAssistant) -> None:
         ws_liste,
         ws_hent,
         ws_gem,
+        ws_nye_kort,
         ws_opret,
         ws_slet,
         ws_omraader,
@@ -93,6 +95,7 @@ def _rum_kort(hass: HomeAssistant, entry: ConfigEntry, subentry: ConfigSubentry)
         "scener": subentry.data.get("scener", []),
         "ikon": subentry.data.get(CONF_IKON),
         "entiteter": _entiteter(hass, subentry.subentry_id),
+        "kort": dict(rum.kort) if rum else {},
     }
 
 
@@ -151,6 +154,8 @@ def ws_hent(
         vol.Required("rum_id"): str,
         vol.Required("data"): dict,
         vol.Optional("indstillinger"): dict,
+        # Kortenes lamper efter kortets id. Gemmes i Rumlys' egen tilstand, så de ikke genindlæser Rumlys.
+        vol.Optional("kort"): vol.Schema({cv.string: [cv.entity_id]}),
     }
 )
 @callback
@@ -179,10 +184,35 @@ def ws_gem(
     rum = entry.runtime_data.rum[subentry.subentry_id]
     for noegle, vaerdi in indstillinger.items():
         rum.saet(noegle, vaerdi)
+    if "kort" in msg:
+        # Mod lamperne, som de gemmes nu: en lampe, der lige er valgt i rummet, kan også vælges til et kort.
+        rum.saet_kort(msg["kort"], [lampe[CONF_ENTITY_ID] for lampe in data[CONF_LAMPER]])
     hass.config_entries.async_update_subentry(
         entry, subentry, data=data, title=omraade.name, unique_id=omraade.id
     )
     connection.send_result(msg["id"], {"id": subentry.subentry_id})
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "rumlys/kort/nye",
+        vol.Required("rum_id"): str,
+        vol.Required("kort"): vol.Schema({cv.string: [cv.entity_id]}),
+    }
+)
+@callback
+def ws_nye_kort(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Kort, sidepanelet har fundet på betjeningspanelerne for første gang. Genindlæser ikke Rumlys."""
+    if (entry := _entry_eller_fejl(hass, connection, msg)) is None:
+        return
+    if (subentry := _rum_eller_fejl(entry, connection, msg)) is None:
+        return
+    rum = entry.runtime_data.rum[subentry.subentry_id]
+    rum.nye_kort(msg["kort"])
+    connection.send_result(msg["id"], {"kort": dict(rum.kort)})
 
 
 @websocket_api.require_admin

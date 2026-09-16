@@ -139,6 +139,13 @@ class Rum:
         self.haendelser: deque[dict[str, Any]] = deque(
             gemt.get("haendelser", []), maxlen=HAENDELSER
         )
+        # Kortene på betjeningspanelerne efter id, og de lamper hvert kort viser. En tom liste er hele
+        # rummet. Et kort, rummet ikke kender endnu, er nyt i sidepanelet.
+        self.kort: dict[str, list[str]] = {
+            kort_id: list(lamper) for kort_id, lamper in gemt.get("kort", {}).items()
+        }
+        # Hvornår kortene sidst er ændret. Står på tilstandssensoren, så et kort på en anden skærm henter rummet igen.
+        self.kort_opdateret: str | None = gemt.get("kort_opdateret")
         self.bevaegelse = False
         self._gem = gem
         self._lyttere: list[Callable[[], None]] = []
@@ -215,7 +222,31 @@ class Rum:
             "hold_slutter": self.hold_slutter and self.hold_slutter.isoformat(),
             "husket": self.husket,
             "haendelser": list(self.haendelser),
+            "kort": self.kort,
+            "kort_opdateret": self.kort_opdateret,
         }
+
+    @callback
+    def saet_kort(self, kort: dict[str, list[str]], lys: list[str]) -> None:
+        """Kortenes lamper, som sidepanelet gemmer dem — målt mod rummets lamper, som de gemmes samtidig."""
+        nye = {kort_id: _kortets_lamper(lamper, lys) for kort_id, lamper in kort.items()}
+        if nye != self.kort:
+            self.kort = nye
+            self.kort_opdateret = dt_util.utcnow().isoformat()
+            self._opdater()
+
+    @callback
+    def nye_kort(self, kort: dict[str, list[str]]) -> None:
+        """Kort, sidepanelet har fundet for første gang. Et kort, rummet kender, røres ikke."""
+        nye = {
+            kort_id: _kortets_lamper(lamper, self.lys)
+            for kort_id, lamper in kort.items()
+            if kort_id not in self.kort
+        }
+        if nye:
+            self.kort |= nye
+            self.kort_opdateret = dt_util.utcnow().isoformat()
+            self._opdater()
 
     @callback
     def saet(self, noegle: str, vaerdi: float) -> None:
@@ -595,6 +626,12 @@ class Rum:
             f"rumlys {self.navn} {tjeneste}",
         )
         return kontekst
+
+
+def _kortets_lamper(lamper: list[str], lys: list[str]) -> list[str]:
+    """Rummets lamper blandt de valgte, i rummets rækkefølge. Ingen eller alle er hele rummet."""
+    valgte = [entity_id for entity_id in lys if entity_id in lamper]
+    return [] if len(valgte) == len(lys) else valgte
 
 
 def _lysdata(lys: dict[str, Any]) -> dict[str, Any]:

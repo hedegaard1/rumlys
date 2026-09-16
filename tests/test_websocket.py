@@ -88,6 +88,7 @@ async def test_liste_til_kortet(hass: HomeAssistant, hass_ws_client: WebSocketGe
             "sluk_efter_tryk": "number.gang_sluk_efter_tryk",
             "hold_tid": "number.gang_hold_tid",
         },
+        "kort": {},
     }
     assert [rum["navn"] for rum in svar["result"]] == ["Gang", "Kontor"]
 
@@ -146,6 +147,50 @@ async def test_hent_og_gem(hass: HomeAssistant, hass_ws_client: WebSocketGenerat
         {"navn": "Weekend", "start": "00:00:00", "slut": "00:00:00", "dage": [5, 6], "lys": STANDARD_LYS},
     ]
     assert hass.states.get("number.gang_sluk_efter_tryk").state == "10"
+
+
+async def test_kortenes_lamper(hass: HomeAssistant, hass_ws_client: WebSocketGenerator) -> None:
+    entry = await opsaet(hass)
+    klient = await hass_ws_client(hass)
+    bord = "light.gang_bordlampe"
+
+    data = (await kommando(klient, type="rumlys/rum/hent", rum_id="gang"))["result"]["data"]
+    # Bordlampen vælges i rummet og til et kort i samme gem.
+    data |= {"lamper": [{"entity_id": SPOTS, "bevaegelse": True}, {"entity_id": bord, "bevaegelse": False}]}
+    svar = await kommando(
+        klient,
+        type="rumlys/rum/gem",
+        rum_id="gang",
+        data=data,
+        kort={"k1": [bord, "light.fremmed"], "k2": [bord, SPOTS], "k3": []},
+    )
+    assert svar["success"], svar
+    await hass.async_block_till_done()
+    liste = (await kommando(klient, type="rumlys/rum/liste"))["result"]
+    # Lamper uden for rummet tæller ikke, og alle rummets lamper er hele rummet.
+    assert liste[0]["kort"] == {"k1": [bord], "k2": [], "k3": []}
+
+    # Nye kort fra sidepanelet: et kort, rummet kender, røres ikke.
+    foer = hass.states.get("sensor.gang_tilstand").attributes["kort_opdateret"]
+    svar = await kommando(klient, type="rumlys/kort/nye", rum_id="gang", kort={"k1": [SPOTS], "k4": [SPOTS]})
+    assert svar["result"]["kort"] == {"k1": [bord], "k2": [], "k3": [], "k4": [SPOTS]}
+    # Tilstandssensoren viser, at kortene er ændret, så kort på andre skærme henter rummet igen.
+    await hass.async_block_till_done()
+    assert hass.states.get("sensor.gang_tilstand").attributes["kort_opdateret"] not in (None, foer)
+
+    # Kortene overlever, at Rumlys genindlæses, og de alene genindlæser det ikke.
+    await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    liste = (await kommando(klient, type="rumlys/rum/liste"))["result"]
+    assert liste[0]["kort"] == {"k1": [bord], "k2": [], "k3": [], "k4": [SPOTS]}
+
+    # Et gem, hvor kun kortene er ændret, gemmer dem også — og et glemt kort er væk.
+    data = (await kommando(klient, type="rumlys/rum/hent", rum_id="gang"))["result"]["data"]
+    svar = await kommando(klient, type="rumlys/rum/gem", rum_id="gang", data=data, kort={"k1": [SPOTS]})
+    assert svar["success"], svar
+    await hass.async_block_till_done()
+    liste = (await kommando(klient, type="rumlys/rum/liste"))["result"]
+    assert liste[0]["kort"] == {"k1": [SPOTS]}
 
 
 async def test_gem_afviser_det_ugyldige(hass: HomeAssistant, hass_ws_client: WebSocketGenerator) -> None:
