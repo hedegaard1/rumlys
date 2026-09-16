@@ -16,6 +16,8 @@ from .websocket import rumlys_entry
 RUM_VALG = {
     vol.Exclusive("rum", "rum"): cv.string,
     vol.Exclusive("omraade", "rum"): cv.string,
+    # Kun nogle af rummets lamper — fra et kort, der viser dem.
+    vol.Optional("lamper"): cv.entity_ids,
 }
 
 DAEMP = vol.Schema(
@@ -55,16 +57,31 @@ def _rummet(call: ServiceCall) -> Rum:
     )
 
 
+def _lamper(call: ServiceCall, rum: Rum) -> list[str] | None:
+    if not (lamper := call.data.get("lamper")):
+        return None
+    if not rum.lamperne(lamper):
+        raise ServiceValidationError(
+            translation_domain=DOMAIN,
+            translation_key="lamper_ikke_i_rummet",
+            translation_placeholders={"rum": rum.navn},
+        )
+    return lamper
+
+
 async def _daemp(call: ServiceCall) -> None:
-    _rummet(call).daemp(call.data["lysstyrke"])
+    rum = _rummet(call)
+    rum.daemp(call.data["lysstyrke"], _lamper(call, rum))
 
 
 async def _anvend_lys(call: ServiceCall) -> None:
-    _rummet(call).anvend_lys(hele_tal(call.data["lys"]))
+    rum = _rummet(call)
+    rum.anvend_lys(hele_tal(call.data["lys"]), _lamper(call, rum))
 
 
 async def _anvend_scene(call: ServiceCall) -> None:
     lys = {CONF_TYPE: LYS_SCENE, CONF_SCENE: call.data[CONF_SCENE]}
     if CONF_LYSSTYRKE in call.data:
         lys[CONF_LYSSTYRKE] = call.data[CONF_LYSSTYRKE]
-    _rummet(call).anvend_lys(lys)
+    rum = _rummet(call)
+    rum.anvend_lys(lys, _lamper(call, rum))

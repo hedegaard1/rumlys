@@ -26,6 +26,10 @@ Kræver Home Assistant 2026.9 eller nyere.
 | **Rumlys i sidepanelet** | administratorer | al opsætning af et rum på én side, og hvad rummet har gjort og hvorfor |
 | **Enheder og tjenester** | — | integrationen og nye rum: kun området |
 
+Sidepanelet har Rumlys' lampe som ikon i én farve, så det passer til de andre ikoner i menuen; logoet med
+farver bruges af Home Assistant under Enheder og tjenester og i HACS. Ikonet kan også bruges andre steder,
+fx på et kort, som `rumlys:lampe`.
+
 ### Et rum er et område
 
 **Nyt rum** — i sidepanelet eller under integrationen — spørger kun om området i Home Assistant.
@@ -40,7 +44,8 @@ vælges.
 - **Rummet** — området og kortets ikon: «Automatisk» viser lampernes egne ikoner i rummets rækkefølge
   (op til tre, ellers to og «+N»; en gruppe uden eget ikon får sine pærers), eller et eget ikon.
 - **Lamper** — hver lampe kan sættes til ikke at tænde ved bevægelse; den hører stadig til rummet og
-  slukker med det. Her sættes også blød tænd og sluk.
+  slukker med det. Tryk på lampens ikon for at skifte det i Home Assistant — det gælder overalt, også på
+  kortene. Her sættes også blød tænd og sluk.
 - **Sensorer** — med «ser nogen nu» og valget Bevægelse eller Tilstedeværelse. En bevægelsessensor ser ikke
   en, der står stille, så valget sætter den anbefalede tid for lys tændt af sensoren: 5 min med kun
   bevægelsessensorer, 30 sek. med en tilstedeværelsessensor. Tiden kan stadig sættes frit.
@@ -63,9 +68,15 @@ udseendet:
 ```yaml
 type: custom:rumlys-card
 omraade: <områdets id>             # vælges i kortets opsætning
+lamper:                            # valgfri: kun nogle af rummets lamper
+  - light.kontor_bord_lysband
 size: medium                       # small, medium eller large
 scene_size: small                  # small eller large (med navn)
 ```
+
+Med `lamper` viser kortet kun de lamper: tænd og sluk, skyder, scener og menuen gælder dem, og et kort for én
+lampe hedder som lampen. «Hold lys» hører til hele rummet og står kun på et kort for hele rummet. Tændes en
+lampe fra kortet, tæller det som valgt lys i rummet, så rummets nedtælling stadig slukker den.
 
 Kortets opsætning viser alle husets rum. Et kort kan stå på et betjeningspanel, før rummet er sat op i
 Rumlys: så viser det «Ikke sat op i Rumlys», og en administrator kan trykke «Sæt op i Rumlys», som
@@ -92,7 +103,8 @@ Hvert rum er en enhed med fem entiteter. Id'erne dannes af nøglen, så de er en
 | `rumlys.anvend_lys` | Tænder rummet med et lysvalg, fx `{"type": "hvid", "lysstyrke": 80, "kelvin": 2700}` |
 | `rumlys.anvend_scene` | Tænder rummet med en scene, eventuelt med egen lysstyrke |
 
-Rummet angives med `rum` (id'et) eller `omraade`. Begge tæller som lys valgt i hånden og huskes.
+Rummet angives med `rum` (id'et) eller `omraade`. Begge tæller som lys valgt i hånden og huskes. Med
+`lamper` rammer tjenesten kun de af rummets lamper; slukkes de, mens andre lamper lyser, fortsætter rummet.
 
 ## Sådan opfører lyset sig
 

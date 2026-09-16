@@ -38,7 +38,7 @@ async def async_register(hass: HomeAssistant) -> None:
             frontend_url_path=DOMAIN,
             webcomponent_name="rumlys-panel",
             sidebar_title="Rumlys",
-            sidebar_icon="mdi:lightbulb-group-outline",
+            sidebar_icon="rumlys:lampe",
             module_url=f"{URL}/rumlys-panel.js",
             require_admin=True,
             config={},

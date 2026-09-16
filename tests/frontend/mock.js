@@ -69,6 +69,11 @@ export const hass = {
     living_room: { area_id: "living_room", name: "Stue" },
     training_room: { area_id: "training_room", name: "Træningsrum" },
   },
+  // Entitetsregistret, som frontenden ser det: kun lamper med et id kan få et andet ikon.
+  entities: {
+    "light.kontor_loftspots": { entity_id: "light.kontor_loftspots" },
+    "light.kontor_bord_lysband": { entity_id: "light.kontor_bord_lysband", icon: "hue:lightstrip" },
+  },
   states: Object.assign(
     {
       "light.kontor_loftspots": { state: "on", attributes: Object.assign({ friendly_name: "Kontor Loftspots", group_entities: [1, 2, 3, 4, 5, 6].map((i) => `light.kontor_spot_${i}`), supported_color_modes: ["color_temp", "xy"], supported_features: 44, min_color_temp_kelvin: 2000, max_color_temp_kelvin: 6535 }, hvid(3508, 255)) },
@@ -180,6 +185,14 @@ const WS = {
   "rumlys/rum/gem": (msg) => ({ id: msg.rum_id }),
   "rumlys/rum/opret": () => ({ id: "kontor" }),
   "rumlys/rum/slet": (msg) => ({ id: msg.rum_id }),
+  "config/entity_registry/update": (msg) => {
+    const st = hass.states[msg.entity_id];
+    hass.entities = Object.assign({}, hass.entities, { [msg.entity_id]: Object.assign({}, hass.entities[msg.entity_id], { icon: msg.icon || undefined }) });
+    const attributes = Object.assign({}, st.attributes, { icon: msg.icon || undefined });
+    hass.states = Object.assign({}, hass.states, { [msg.entity_id]: Object.assign({}, st, { attributes }) });
+    setTimeout(opdater, 50);
+    return { entity_entry: hass.entities[msg.entity_id] };
+  },
 };
 
 let lyttere = [];

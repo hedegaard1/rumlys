@@ -6,6 +6,7 @@
 
 import {
   OPDATERET,
+  RUMLYS_IKON,
   STANDARDSCENER,
   VERSION,
   beskrivLys,
@@ -101,6 +102,9 @@ select, input[type=text], input[type=time], input[type=search] {
 .flueben { width: 22px; height: 22px; border-radius: 6px; border: 2px solid var(--rl-daempet); display: grid; place-items: center; flex: none; cursor: pointer; background: transparent; padding: 0; color: var(--rl-paa-p); }
 .flueben.til { background: var(--rl-p); border-color: var(--rl-p); }
 .flueben ha-icon { --mdc-icon-size: 16px; }
+.lampeikon { width: 36px; height: 36px; border-radius: 50%; border: 0; padding: 0; flex: none; display: grid; place-items: center; background: var(--rl-flade2); color: inherit; cursor: pointer; --mdc-icon-size: 20px; }
+.lampeikon:disabled { cursor: default; }
+.lampeikon:not(:disabled):hover { box-shadow: inset 0 0 0 2px var(--rl-p); }
 .kontakt { position: relative; width: 40px; height: 24px; flex: none; border: 0; border-radius: 999px; background: var(--rl-flade2); cursor: pointer; padding: 0; box-shadow: inset 0 0 0 1px var(--rl-linje); }
 .kontakt::after { content: ""; position: absolute; left: 3px; top: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.3); transition: transform .2s; }
 .kontakt.til { background: var(--rl-p); box-shadow: none; }
@@ -744,7 +748,7 @@ class RumlysPanel extends HTMLElement {
     let vaelger = null;
     if (eget) {
       vaelger = this._ikonVaelger(d.ikon, (vaerdi) => {
-        d.ikon = vaerdi || "mdi:lightbulb-group-outline";
+        d.ikon = vaerdi || RUMLYS_IKON;
         visForhaand();
         this._aendret();
       });
@@ -846,7 +850,21 @@ class RumlysPanel extends HTMLElement {
         });
         foelger = h("label", { class: "kontaktfelt" }, this.t("taender_ved_bevaegelse"), kontakt);
       }
-      return h("div", { class: "raekke" }, flueben, h("div", { class: "tx" }, h("b", {}, navn), under ? h("small", {}, under) : null), foelger);
+      // Lampens eget ikon. Tryk skifter det i Home Assistant — kun for lamper i entitetsregistret.
+      let vist = rummetsIkoner(this._hass, [entityId], null)[0];
+      const ikonEl = ikon(vist);
+      const kanSkifte = !!(this._hass.entities && this._hass.entities[entityId]);
+      const ikonKnap = h("button", { class: "lampeikon", type: "button", disabled: !kanSkifte, title: kanSkifte ? this.t("skift_ikon") : null, "aria-label": this.t("skift_ikon") }, ikonEl);
+      if (kanSkifte) ikonKnap.addEventListener("click", () => this._lampeIkon(entityId, navn));
+      this._levende.push((hass) => {
+        const nyt = rummetsIkoner(hass, [entityId], null)[0];
+        if (nyt === vist) return;
+        vist = nyt;
+        ikonEl.setAttribute("icon", nyt);
+        // Rummets ikon under «Rummet» viser lampernes egne ikoner.
+        setTimeout(() => this._genTegn("rummet"));
+      });
+      return h("div", { class: "raekke" }, flueben, ikonKnap, h("div", { class: "tx" }, h("b", {}, navn), under ? h("small", {}, under) : null), foelger);
     };
     omraade.lamper.forEach((l) => {
       if (medlemmer.has(l.entity_id) && !valgte.has(l.entity_id)) return;
@@ -861,7 +879,28 @@ class RumlysPanel extends HTMLElement {
     });
     if (!liste.children.length) liste.appendChild(h("p", { class: "hint" }, this.t("ingen_lamper")));
     const andre = h("button", { class: "knap t", onclick: () => this._andreLamper() }, ikon("mdi:plus"), this.t("vis_andre"));
-    return this._sektion("mdi:lightbulb-group-outline", this.t("lamper"), this.t("lamper_hint"), liste, andre, this._blodFelt());
+    return this._sektion(RUMLYS_IKON, this.t("lamper"), this.t("lamper_hint"), liste, andre, this._blodFelt());
+  }
+
+  // Lampens ikon hører til lampen, ikke til rummet: det gemmes med det samme i Home Assistants
+  // entitetsregister og gælder overalt, også på kortene, når rummet viser lampernes egne ikoner.
+  _lampeIkon(entityId, navn) {
+    let valgt = (this._hass.entities[entityId] || {}).icon || "";
+    const gem = (icon) => {
+      this._hass.callWS({ type: "config/entity_registry/update", entity_id: entityId, icon: icon || null }).then(
+        () => this._toast(this.t("ikon_gemt")),
+        (e) => this._toast(this.t("ikon_ikke_gemt", { fejl: String((e && e.message) || e) }))
+      );
+    };
+    this._dialog({
+      titel: this.t("ikon_for", { navn }),
+      indhold: [h("p", { class: "hint" }, this.t("ikon_lampe_hint")), this._ikonVaelger(valgt, (vaerdi) => { valgt = vaerdi; })],
+      knapper: [
+        { tekst: this.t("annuller"), handling: () => {} },
+        { tekst: this.t("standard_ikon"), handling: () => gem(null) },
+        { tekst: this.t("gem"), primaer: true, handling: () => gem(valgt) },
+      ],
+    });
   }
 
   // Blød tænd og sluk virker kun på lamper, der selv melder, at de kan (Home Assistant springer det

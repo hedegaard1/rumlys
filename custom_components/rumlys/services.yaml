@@ -7,6 +7,11 @@ daemp:
     omraade:
       selector:
         area:
+    lamper:
+      selector:
+        entity:
+          domain: light
+          multiple: true
     lysstyrke:
       required: true
       selector:
@@ -23,6 +28,11 @@ anvend_lys:
     omraade:
       selector:
         area:
+    lamper:
+      selector:
+        entity:
+          domain: light
+          multiple: true
     lys:
       required: true
       example: '{"type": "hvid", "lysstyrke": 80, "kelvin": 2700}'
@@ -37,6 +47,11 @@ anvend_scene:
     omraade:
       selector:
         area:
+    lamper:
+      selector:
+        entity:
+          domain: light
+          multiple: true
     scene:
       required: true
       selector:

@@ -4,7 +4,7 @@
   ha-martin: hvidt lys tegnes som i Hue-appen, og en hvid scene genkendes på pærerne.
 */
 
-export const VERSION = "0.4.8";
+export const VERSION = "0.4.9";
 // Mappen, filen selv ligger i — i Home Assistant med versionen i stien, på testsiden repoets egen.
 export const FILER = new URL("./", import.meta.url).href;
 // Scenerne ligger i Rumlys selv. I Home Assistant har de en fast adresse uden version, så et kort,
@@ -62,6 +62,12 @@ const TEKSTER = {
     ikon_eget: "Eget ikon",
     ikon_auto_hint: "Lampernes egne ikoner i rummets rækkefølge — op til tre, ellers to og antallet af resten.",
     ikon_eget_hint: "Det samme ikon på alle kort for rummet.",
+    skift_ikon: "Skift ikon",
+    ikon_for: "Ikon for {navn}",
+    ikon_lampe_hint: "Ikonet skiftes for lampen i hele Home Assistant — også på kortene, når rummet viser lampernes egne ikoner.",
+    standard_ikon: "Standard",
+    ikon_gemt: "Ikonet er gemt",
+    ikon_ikke_gemt: "Ikonet kunne ikke gemmes: {fejl}",
     slet_rum: "Slet rummet",
     slet_spoergsmaal: "Slet {navn}? Rummets enhed og entiteter forsvinder fra Home Assistant.",
     slet: "Slet",
@@ -199,11 +205,13 @@ const TEKSTER = {
     store: "Store med navn",
     kort_hint: "Lamper, hold lys og scener hentes fra rummet. De rettes i Rumlys i sidepanelet.",
     vaelg_rum_hint: "Vælg rummet i kortets opsætning",
-    ikke_sat_op: "Ikke sat op i Rumlys",
+    kort_ikke_sat_op: "Ikke sat op i Rumlys",
     saet_op: "Sæt op i Rumlys",
     gruppe_sat_op: "Sat op i Rumlys",
     gruppe_ikke_sat_op: "Ikke sat op",
     ikke_sat_op_hint: "Rummet er ikke sat op i Rumlys endnu. Gem kortet, og tryk «Sæt op i Rumlys» på det.",
+    lamper_paa_kortet: "Lamper på kortet",
+    lamper_kort_hint: "Uden valg viser kortet hele rummet. «Hold lys» står kun på et kort for hele rummet.",
     taend_sluk: "Tænd eller sluk",
     luk: "Luk",
     detaljer: "Historik og indstillinger i Home Assistant",
@@ -250,6 +258,12 @@ const TEKSTER = {
     ikon_eget: "Own icon",
     ikon_auto_hint: "The lights' own icons in the room's order — up to three, otherwise two and the number of the rest.",
     ikon_eget_hint: "The same icon on every card for the room.",
+    skift_ikon: "Change icon",
+    ikon_for: "Icon for {navn}",
+    ikon_lampe_hint: "The icon changes for the light everywhere in Home Assistant — also on the cards when the room shows the lights' own icons.",
+    standard_ikon: "Default",
+    ikon_gemt: "The icon is saved",
+    ikon_ikke_gemt: "The icon could not be saved: {fejl}",
     slet_rum: "Delete room",
     slet_spoergsmaal: "Delete {navn}? The room's device and entities disappear from Home Assistant.",
     slet: "Delete",
@@ -387,11 +401,13 @@ const TEKSTER = {
     store: "Large with name",
     kort_hint: "Lights, keep light on and scenes come from the room. They are edited in Rumlys in the sidebar.",
     vaelg_rum_hint: "Choose the room in the card's settings",
-    ikke_sat_op: "Not set up in Rumlys",
+    kort_ikke_sat_op: "Not set up in Rumlys",
     saet_op: "Set up in Rumlys",
     gruppe_sat_op: "Set up in Rumlys",
     gruppe_ikke_sat_op: "Not set up",
     ikke_sat_op_hint: "The room is not set up in Rumlys yet. Save the card and press «Set up in Rumlys» on it.",
+    lamper_paa_kortet: "Lights on the card",
+    lamper_kort_hint: "Without a choice the card shows the whole room. «Keep light on» is only on a card for the whole room.",
     taend_sluk: "Turn on or off",
     luk: "Close",
     detaljer: "History and settings in Home Assistant",
@@ -712,6 +728,24 @@ export function kanFarve(hass, lamper) {
   });
 }
 
+// Rumlys' lampe i én farve, som ikonsættet «rumlys»: til menuen i venstre side og de steder, Rumlys selv
+// viser sit ikon. Den er tegnet efter brand-ikonet, som beholder sine farver og vises af Home Assistant
+// selv. Kortfilen indlæses på alle sider, så ikonet er klar, før menuen tegnes.
+export const RUMLYS_IKON = "rumlys:lampe";
+const IKONER = {
+  lampe:
+    "M11 1H13V4.5H11ZM8.8 4H15.2V7.4H8.8ZM1.5 13.6A10.5 7.1 0 0 1 22.5 13.6ZM20.4 11.9A8.4 3.6 0 0 0 3.6 11.9Z" +
+    "M14.7 13.6A2.7 2.7 0 0 1 9.3 13.6ZM10.87 18.46L9.87 22.16A1 1 0 0 1 7.93 21.64L8.93 17.94A1 1 0 0 1 10.87 18.46Z" +
+    "M15.07 17.94L16.07 21.64A1 1 0 0 1 14.13 22.16L13.13 18.46A1 1 0 0 1 15.07 17.94Z" +
+    "M6.85 17.99L3.25 19.79A1 1 0 0 1 2.35 18.01L5.95 16.21A1 1 0 0 1 6.85 17.99Z" +
+    "M18.05 16.21L21.65 18.01A1 1 0 0 1 20.75 19.79L17.15 17.99A1 1 0 0 1 18.05 16.21Z",
+};
+window.customIcons = window.customIcons || {};
+window.customIcons.rumlys = {
+  getIcon: async (navn) => ({ path: IKONER[navn] || "" }),
+  getIconList: async () => Object.keys(IKONER).map((name) => ({ name, keywords: ["rumlys", "lampe", "loftlampe"] })),
+};
+
 // Rummets ikoner: det valgte ikon, ellers lampernes egne i rummets rækkefølge. En lampe uden eget ikon —
 // fx en Zigbee2MQTT-gruppe — får sine pærers; hvert ikon vises én gang.
 export function rummetsIkoner(hass, lamper, ikon) {
@@ -726,7 +760,7 @@ export function rummetsIkoner(hass, lamper, ikon) {
     }
     if (ikoner.indexOf(fundet) < 0) ikoner.push(fundet);
   });
-  return ikoner.length ? ikoner : ["mdi:lightbulb-group-outline"];
+  return ikoner.length ? ikoner : [RUMLYS_IKON];
 }
 
 // Op til tre ikoner i en stak; er der flere, de to første og «+N».

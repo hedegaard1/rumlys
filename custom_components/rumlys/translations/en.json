@@ -51,6 +51,7 @@
       "fields": {
         "rum": { "name": "Room", "description": "The room's id in Rumlys." },
         "omraade": { "name": "Area", "description": "Or the room's area." },
+        "lamper": { "name": "Lights", "description": "Only these of the room's lights. Empty: the whole room." },
         "lysstyrke": { "name": "Brightness", "description": "The brightest light's brightness." }
       }
     },
@@ -60,6 +61,7 @@
       "fields": {
         "rum": { "name": "Room", "description": "The room's id in Rumlys." },
         "omraade": { "name": "Area", "description": "Or the room's area." },
+        "lamper": { "name": "Lights", "description": "Only these of the room's lights. Empty: the whole room." },
         "lys": { "name": "Light", "description": "For example {\"type\": \"hvid\", \"lysstyrke\": 80, \"kelvin\": 2700}." }
       }
     },
@@ -69,6 +71,7 @@
       "fields": {
         "rum": { "name": "Room", "description": "The room's id in Rumlys." },
         "omraade": { "name": "Area", "description": "Or the room's area." },
+        "lamper": { "name": "Lights", "description": "Only these of the room's lights. Empty: the whole room." },
         "scene": { "name": "Scene", "description": "The scene's id." },
         "lysstyrke": { "name": "Brightness", "description": "Empty: the scene's own brightness." }
       }
@@ -77,6 +80,9 @@
   "exceptions": {
     "rum_findes_ikke": {
       "message": "Rumlys has no room «{rum}»."
+    },
+    "lamper_ikke_i_rummet": {
+      "message": "None of the lights belong to the room «{rum}»."
     }
   },
   "entity": {

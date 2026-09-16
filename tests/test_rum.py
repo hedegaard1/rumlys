@@ -837,6 +837,49 @@ async def test_tjeneste_til_et_rum_der_ikke_findes(hus: Hus) -> None:
         await hus.tjeneste(DOMAIN, "daemp", rum="stue", lysstyrke=50)
 
 
+TO_LAMPER = [{"entity_id": SPOTS, "bevaegelse": True}, {"entity_id": STENLAMPE, "bevaegelse": False}]
+
+
+async def test_daemp_kun_kortets_lamper(hass: HomeAssistant, hus: Hus) -> None:
+    # Et kort for stenlampen alene dæmper kun den.
+    hass.states.async_set(STENLAMPE, "on", {"brightness": 128})
+    await hus.lys("on", brightness=255)
+    await hus.saet_op(RUMMET | {"lamper": TO_LAMPER})
+    await hus.tjeneste(DOMAIN, "daemp", rum="traeningsrum", lysstyrke=50, lamper=[STENLAMPE])
+    assert [(k.data["entity_id"], k.data["brightness"]) for k in hus.taend] == [([STENLAMPE], 128)]
+    assert hus.tilstand() == "haand"
+
+
+async def test_slukket_kortlampe_taender_kun_sig_selv(hass: HomeAssistant, hus: Hus) -> None:
+    await hus.saet_op(RUMMET | {"lamper": TO_LAMPER})
+    await hus.tjeneste(DOMAIN, "daemp", rum="traeningsrum", lysstyrke=40, lamper=[STENLAMPE])
+    assert [(k.data["entity_id"], k.data["brightness_pct"]) for k in hus.taend] == [([STENLAMPE], 40)]
+
+
+async def test_sluk_kortets_lamper_mens_rummet_lyser(hass: HomeAssistant, hus: Hus) -> None:
+    hass.states.async_set(STENLAMPE, "on", {"brightness": 128})
+    await hus.lys("on", brightness=255)
+    await hus.saet_op(RUMMET | {"lamper": TO_LAMPER})
+    await hus.tjeneste(DOMAIN, "daemp", rum="traeningsrum", lysstyrke=0, lamper=[STENLAMPE])
+    assert [k.data["entity_id"] for k in hus.sluk] == [[STENLAMPE]]
+    assert hus.tilstand() == "haand"  # spottene lyser stadig, så rummet nulstilles ikke
+
+
+async def test_lys_og_scene_kun_til_kortets_lamper(hass: HomeAssistant, hus: Hus) -> None:
+    hass.states.async_set(SPOTS, "off", {"supported_color_modes": ["color_temp"]})
+    hass.states.async_set(STENLAMPE, "off", {"supported_color_modes": ["color_temp"]})
+    await hus.saet_op(RUMMET | {"lamper": TO_LAMPER})
+    await hus.tjeneste(DOMAIN, "anvend_lys", rum="traeningsrum", lys={"type": "hvid", "lysstyrke": 60, "kelvin": 2700}, lamper=[STENLAMPE])
+    await hus.tjeneste(DOMAIN, "anvend_scene", rum="traeningsrum", scene="e03267e7-9914-4f47-97fe-63c0bd317fe7", lamper=[STENLAMPE])
+    assert {lampe for k in hus.taend for lampe in k.data["entity_id"]} == {STENLAMPE}
+
+
+async def test_lamper_uden_for_rummet_afvises(hus: Hus) -> None:
+    await hus.saet_op()
+    with pytest.raises(ServiceValidationError):
+        await hus.tjeneste(DOMAIN, "daemp", rum="traeningsrum", lysstyrke=50, lamper=["light.stue_loftspots"])
+
+
 async def test_haendelserne_overlever_genindlaesning(hass: HomeAssistant, hus: Hus) -> None:
     entry = await hus.saet_op()
     await hus.bevaegelse("on")

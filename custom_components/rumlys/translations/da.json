@@ -51,6 +51,7 @@
       "fields": {
         "rum": { "name": "Rum", "description": "Rummets id fra Rumlys." },
         "omraade": { "name": "Område", "description": "Eller rummets område." },
+        "lamper": { "name": "Lamper", "description": "Kun disse af rummets lamper. Tom: hele rummet." },
         "lysstyrke": { "name": "Lysstyrke", "description": "Den lyseste lampes lysstyrke." }
       }
     },
@@ -60,6 +61,7 @@
       "fields": {
         "rum": { "name": "Rum", "description": "Rummets id fra Rumlys." },
         "omraade": { "name": "Område", "description": "Eller rummets område." },
+        "lamper": { "name": "Lamper", "description": "Kun disse af rummets lamper. Tom: hele rummet." },
         "lys": { "name": "Lys", "description": "Fx {\"type\": \"hvid\", \"lysstyrke\": 80, \"kelvin\": 2700}." }
       }
     },
@@ -69,6 +71,7 @@
       "fields": {
         "rum": { "name": "Rum", "description": "Rummets id fra Rumlys." },
         "omraade": { "name": "Område", "description": "Eller rummets område." },
+        "lamper": { "name": "Lamper", "description": "Kun disse af rummets lamper. Tom: hele rummet." },
         "scene": { "name": "Scene", "description": "Scenens id." },
         "lysstyrke": { "name": "Lysstyrke", "description": "Tom: scenens egen lysstyrke." }
       }
@@ -77,6 +80,9 @@
   "exceptions": {
     "rum_findes_ikke": {
       "message": "Rumlys har intet rum «{rum}»."
+    },
+    "lamper_ikke_i_rummet": {
+      "message": "Ingen af lamperne hører til rummet «{rum}»."
     }
   },
   "entity": {

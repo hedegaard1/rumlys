@@ -326,30 +326,40 @@ class Rum:
             return
         self.valgt_i_haanden()
 
+    def lamperne(self, lamper: list[str] | None) -> list[str]:
+        """Rummets lamper — eller dem af dem, et kort for nogle af lamperne har valgt."""
+        if not lamper:
+            return self.lys
+        return [entity_id for entity_id in self.lys if entity_id in lamper]
+
     @callback
-    def anvend_lys(self, lys: dict[str, Any]) -> None:
-        """Nogen har valgt et lys til hele rummet — på kortet, i sidepanelet eller i en automatisering."""
-        self._anvend(lys, self.lys)
+    def anvend_lys(self, lys: dict[str, Any], lamper: list[str] | None = None) -> None:
+        """Nogen har valgt et lys til rummet — på kortet, i sidepanelet eller i en automatisering."""
+        self._anvend(lys, self.lamperne(lamper))
         self.valgt_i_haanden()
 
     @callback
-    def daemp(self, procent: int) -> None:
-        """Hele rummet i samme forhold: den lyseste lampe får procenten, og de andre følger med."""
+    def daemp(self, procent: int, lamper: list[str] | None = None) -> None:
+        """Lamperne i samme forhold: den lyseste lampe får procenten, og de andre følger med."""
+        valgte = self.lamperne(lamper)
         if procent <= 0:
-            self._kald("turn_off", {}, self.lys)
+            self._kald("turn_off", {}, valgte)
+            if self._taendt_uden_for(valgte):
+                # Rummet lyser stadig med sine andre lamper.
+                return
             if self.kilde is not None:
                 self._log("slukket_i_haanden")
             self._nulstil()
             return
         taendte = {
             entity_id: tilstand.attributes.get("brightness") or 255
-            for entity_id in self.lys
+            for entity_id in valgte
             if (tilstand := self.hass.states.get(entity_id)) is not None
             and tilstand.state == STATE_ON
         }
         if not taendte:
             # Slukket: lamperne tænder med deres egen farve, ved den valgte lysstyrke.
-            self._kald("turn_on", {"brightness_pct": procent}, self.foelger)
+            self._kald("turn_on", {"brightness_pct": procent}, self.foelger if not lamper else valgte)
         else:
             faktor = procent * 255 / 100 / max(taendte.values())
             kontekst: Context | None = None
@@ -512,6 +522,15 @@ class Rum:
         if not kendte:
             return None
         return any(tilstand.state == STATE_ON for tilstand in kendte)
+
+    def _taendt_uden_for(self, lamper: list[str]) -> bool:
+        """Om en af rummets andre lamper er tændt."""
+        return any(
+            (tilstand := self.hass.states.get(entity_id)) is not None
+            and tilstand.state == STATE_ON
+            for entity_id in self.lys
+            if entity_id not in lamper
+        )
 
     def _sensor_taendt(self) -> bool:
         return any(
