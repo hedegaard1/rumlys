@@ -410,6 +410,8 @@ class RumlysPanel extends HTMLElement {
       h("div", { class: "titel" }, titel || this.t("titel"))
     );
     rod.append(h("style", {}, STIL), bjaelke, h("div", { class: "indhold" }, indhold));
+    // En besked overlever, at siden tegnes igen — fx når rummet hentes på ny lige efter «Gem rum».
+    if (this._besked) rod.append(this._besked);
   }
 
   _tilbage() {
@@ -418,9 +420,14 @@ class RumlysPanel extends HTMLElement {
   }
 
   _toast(besked) {
+    if (this._besked) this._besked.remove();
     const el = h("div", { class: "toast" }, besked);
+    this._besked = el;
     this.shadowRoot.appendChild(el);
-    setTimeout(() => el.remove(), 2400);
+    setTimeout(() => {
+      el.remove();
+      if (this._besked === el) this._besked = null;
+    }, 5000);
   }
 
   _dialog({ titel, indhold, knapper, venstre, bred }) {
