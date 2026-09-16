@@ -187,6 +187,9 @@ function kopi(v) {
 // Ugedagene, mandag = 0, som Rumlys gemmer dem.
 const ALLE_DAGE = [0, 1, 2, 3, 4, 5, 6];
 
+// Home Assistants LightEntityFeature.TRANSITION: lampen kan tænde og slukke blødt.
+const LYS_OVERGANG = 32;
+
 function minut(klokkeslaet) {
   const [t, m] = String(klokkeslaet).split(":");
   return Number(t) * 60 + Number(m);
@@ -757,6 +760,20 @@ class RumlysPanel extends HTMLElement {
     });
     if (!liste.children.length) liste.appendChild(h("p", { class: "hint" }, this.t("ingen_lamper")));
     const andre = h("button", { class: "knap t", onclick: () => this._andreLamper() }, ikon("mdi:plus"), this.t("vis_andre"));
+    return this._sektion("mdi:lightbulb-group-outline", this.t("lamper"), this.t("lamper_hint"), liste, andre, this._blodFelt());
+  }
+
+  // Blød tænd og sluk virker kun på lamper, der selv melder, at de kan (Home Assistant springer det
+  // over for resten). Kan ingen af rummets lamper, er der ingen skyder.
+  _blodFelt() {
+    const d = this._kladde.data;
+    if (!d.lamper.length) return null;
+    const ikkeBlod = d.lamper
+      .map((l) => this._hass.states[l.entity_id])
+      .filter((st) => !st || !((st.attributes.supported_features || 0) & LYS_OVERGANG));
+    if (ikkeBlod.length === d.lamper.length) {
+      return h("div", { class: "felt", style: { marginTop: "14px" } }, h("label", {}, this.t("blod")), h("p", { class: "hint", style: { margin: "0" } }, this.t("blod_ingen")));
+    }
     const vaerdi = h("output", {}, this.t("sek", { n: String(d.overgang || 0).replace(".", ",") }));
     const skyder = h("input", { type: "range", min: "0", max: "10", step: "0.5", value: String(d.overgang || 0), "aria-label": this.t("blod") });
     skyder.addEventListener("input", () => {
@@ -764,13 +781,13 @@ class RumlysPanel extends HTMLElement {
       vaerdi.textContent = this.t("sek", { n: String(d.overgang).replace(".", ",") });
       this._aendret();
     });
-    return this._sektion(
-      "mdi:lightbulb-group-outline",
-      this.t("lamper"),
-      this.t("lamper_hint"),
-      liste,
-      andre,
-      h("div", { class: "felt", style: { marginTop: "14px" } }, h("label", {}, this.t("blod")), h("div", { class: "skyder" }, skyder, vaerdi))
+    const navne = ikkeBlod.filter(Boolean).map((st) => st.attributes.friendly_name || st.entity_id);
+    return h(
+      "div",
+      { class: "felt", style: { marginTop: "14px" } },
+      h("label", {}, this.t("blod")),
+      h("div", { class: "skyder" }, skyder, vaerdi),
+      navne.length ? h("p", { class: "hint", style: { margin: "0" } }, this.t("blod_ikke", { lamper: navne.join(", ") })) : null
     );
   }
 

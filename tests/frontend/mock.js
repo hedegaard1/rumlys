@@ -51,7 +51,7 @@ customElements.define("ha-menu-button", class extends HTMLElement {
 const om = (min) => new Date(Date.now() + min * 60000).toISOString();
 const spots = (rum, n, attr) => {
   const s = {};
-  for (let i = 1; i <= n; i++) s[`light.${rum}_spot_${i}`] = { state: attr ? "on" : "off", attributes: Object.assign({ friendly_name: `${rum} Spot ${i}`, supported_color_modes: ["color_temp", "xy"], min_color_temp_kelvin: 2000, max_color_temp_kelvin: 6535 }, attr || {}) };
+  for (let i = 1; i <= n; i++) s[`light.${rum}_spot_${i}`] = { state: attr ? "on" : "off", attributes: Object.assign({ friendly_name: `${rum} Spot ${i}`, supported_color_modes: ["color_temp", "xy"], supported_features: 44, min_color_temp_kelvin: 2000, max_color_temp_kelvin: 6535 }, attr || {}) };
   return s;
 };
 const hvid = (k, b) => ({ brightness: b, color_mode: "color_temp", color_temp_kelvin: k });
@@ -62,8 +62,8 @@ export const hass = {
   user: { is_admin: true },
   states: Object.assign(
     {
-      "light.kontor_loftspots": { state: "on", attributes: Object.assign({ friendly_name: "Kontor Loftspots", group_entities: [1, 2, 3, 4, 5, 6].map((i) => `light.kontor_spot_${i}`), supported_color_modes: ["color_temp", "xy"], min_color_temp_kelvin: 2000, max_color_temp_kelvin: 6535 }, hvid(3508, 255)) },
-      "light.kontor_bord_lysband": { state: "on", attributes: { friendly_name: "Kontor Bord Lysbånd", brightness: 200, color_mode: "xy", xy_color: [0.45, 0.25], rgb_color: [255, 110, 170], supported_color_modes: ["color_temp", "xy"] } },
+      "light.kontor_loftspots": { state: "on", attributes: Object.assign({ friendly_name: "Kontor Loftspots", group_entities: [1, 2, 3, 4, 5, 6].map((i) => `light.kontor_spot_${i}`), supported_color_modes: ["color_temp", "xy"], supported_features: 44, min_color_temp_kelvin: 2000, max_color_temp_kelvin: 6535 }, hvid(3508, 255)) },
+      "light.kontor_bord_lysband": { state: "on", attributes: { friendly_name: "Kontor Bord Lysbånd", brightness: 200, color_mode: "xy", xy_color: [0.45, 0.25], rgb_color: [255, 110, 170], supported_color_modes: ["color_temp", "xy"], supported_features: 44 } },
       "light.entre_loftspots": { state: "on", attributes: Object.assign({ friendly_name: "Entre Loftspots" }, hvid(2700, 230)) },
       "light.gang_loftspots": { state: "off", attributes: { friendly_name: "Gang Loftspots" } },
       "light.traeningsrum_loftspots": { state: "on", attributes: { friendly_name: "Træningsrum Loftspots", brightness: 180, color_mode: "hs", hs_color: [35, 80], rgb_color: [255, 170, 60] } },

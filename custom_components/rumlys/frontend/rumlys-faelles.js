@@ -4,7 +4,7 @@
   ha-martin: hvidt lys tegnes som i Hue-appen, og en hvid scene genkendes på pærerne.
 */
 
-export const VERSION = "0.4.3";
+export const VERSION = "0.4.4";
 // Mappen, filen selv ligger i — i Home Assistant med versionen i stien, på testsiden repoets egen.
 export const FILER = new URL("./", import.meta.url).href;
 // Scenerne ligger i Rumlys selv; findes de ikke, bruges en installeret Scene Presets.
@@ -67,6 +67,8 @@ const TEKSTER = {
     ser_nogen: "Ser nogen nu",
     ingen_sensorer: "Området har ingen bevægelsessensorer.",
     blod: "Blød tænd og sluk",
+    blod_ingen: "Lamperne i rummet kan ikke tænde og slukke blødt.",
+    blod_ikke: "Virker ikke på {lamper}.",
     sek: "{n} sek.",
     min: "{n} min",
     timer: "{n} t",
@@ -236,6 +238,8 @@ const TEKSTER = {
     ser_nogen: "Sees someone now",
     ingen_sensorer: "The area has no motion sensors.",
     blod: "Soft on and off",
+    blod_ingen: "The lights in the room can't turn on and off softly.",
+    blod_ikke: "Doesn't work on {lamper}.",
     sek: "{n} s",
     min: "{n} min",
     timer: "{n} h",
