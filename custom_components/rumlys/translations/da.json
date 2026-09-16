@@ -3,24 +3,24 @@
     "step": {
       "user": {
         "title": "Rumlys",
-        "description": "Rumlys samler lyset i hvert rum: bevægelse, sluk-tider, «hold lys», døgnets tidsrum og scener. Når integrationen er sat op, tilføjes rummene med «Tilføj rum» og sættes op i Rumlys i sidepanelet."
+        "description": "Rumlys samler lyset i hvert rum: bevægelse, sluk-tider, «hold lys», en tidsplan med ugedage og scener. Når integrationen er sat op, oprettes rummene med «Nyt rum» og sættes op i Rumlys i sidepanelet."
       }
     },
     "abort": {
-      "single_instance_allowed": "Rumlys er allerede sat op. Tilføj rum under integrationen."
+      "single_instance_allowed": "Rumlys er allerede sat op. Nye rum oprettes med «Nyt rum»."
     }
   },
   "config_subentries": {
     "rum": {
       "entry_type": "Rum",
       "initiate_flow": {
-        "user": "Tilføj rum",
+        "user": "Nyt rum",
         "reconfigure": "Ret rum"
       },
       "step": {
         "user": {
-          "title": "Tilføj rum",
-          "description": "Vælg området. Rummet får områdets navn, og områdets lamper og sensorer er valgt på forhånd. Resten sættes op i Rumlys i sidepanelet.",
+          "title": "Nyt rum",
+          "description": "Vælg området. Rummet får områdets navn, og områdets lamper og sensorer er valgt på forhånd. Områder, der allerede har et rum, står ikke på listen. Resten sættes op i Rumlys i sidepanelet.",
           "data": {
             "omraade": "Område"
           },
@@ -28,12 +28,15 @@
         },
         "reconfigure": {
           "title": "Ret {navn}",
-          "description": "Lamper, lys, døgnet og tider rettes i [Rumlys i sidepanelet]({sti}). Her kan rummet flyttes til et andet område.",
+          "description": "Lamper, tidsplan og tider rettes i [Rumlys i sidepanelet]({sti}). Her kan rummet flyttes til et andet område.",
           "data": {
             "omraade": "Område"
           },
           "submit": "Gem rum"
         }
+      },
+      "error": {
+        "vaelg_omraade": "Vælg et område."
       },
       "abort": {
         "reconfigure_successful": "Rummet er gemt.",

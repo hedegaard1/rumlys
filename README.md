@@ -28,7 +28,8 @@ Kræver Home Assistant 2026.9 eller nyere.
 
 ### Et rum er et område
 
-**Tilføj rum** — i sidepanelet eller under integrationen — spørger kun om området i Home Assistant.
+**Nyt rum** — i sidepanelet eller under integrationen — spørger kun om området i Home Assistant.
+Områder, der allerede har et rum, står ikke på listen, og intet område er valgt på forhånd.
 Rummet får områdets navn og følger med, hvis området omdøbes, og områdets lamper og
 bevægelsessensorer er valgt på forhånd. Er en gruppe med, er dens pærer det ikke. Ét rum pr. område.
 En lampe, der er skjult i Home Assistant — fx et relæ, der kun giver strøm til smarte pærer — kan ikke

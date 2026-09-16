@@ -3,24 +3,24 @@
     "step": {
       "user": {
         "title": "Rumlys",
-        "description": "Rumlys brings the light in each room together: motion, turn-off times, «keep light on», periods of the day and scenes. Once the integration is set up, add rooms with «Add room» and set them up in Rumlys in the sidebar."
+        "description": "Rumlys brings the light in each room together: motion, turn-off times, «keep light on», a schedule with weekdays and scenes. Once the integration is set up, create rooms with «New room» and set them up in Rumlys in the sidebar."
       }
     },
     "abort": {
-      "single_instance_allowed": "Rumlys is already set up. Add rooms under the integration."
+      "single_instance_allowed": "Rumlys is already set up. Create rooms with «New room»."
     }
   },
   "config_subentries": {
     "rum": {
       "entry_type": "Room",
       "initiate_flow": {
-        "user": "Add room",
+        "user": "New room",
         "reconfigure": "Edit room"
       },
       "step": {
         "user": {
-          "title": "Add room",
-          "description": "Choose the area. The room takes the area's name, and the area's lights and sensors are selected in advance. The rest is set up in Rumlys in the sidebar.",
+          "title": "New room",
+          "description": "Choose the area. The room takes the area's name, and the area's lights and sensors are selected in advance. Areas that already have a room are not listed. The rest is set up in Rumlys in the sidebar.",
           "data": {
             "omraade": "Area"
           },
@@ -28,12 +28,15 @@
         },
         "reconfigure": {
           "title": "Edit {navn}",
-          "description": "Lights, light, the day and times are edited in [Rumlys in the sidebar]({sti}). Here the room can be moved to another area.",
+          "description": "Lights, schedule and times are edited in [Rumlys in the sidebar]({sti}). Here the room can be moved to another area.",
           "data": {
             "omraade": "Area"
           },
           "submit": "Save room"
         }
+      },
+      "error": {
+        "vaelg_omraade": "Choose an area."
       },
       "abort": {
         "reconfigure_successful": "The room is saved.",

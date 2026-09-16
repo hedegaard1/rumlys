@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
+import voluptuous as vol
 
 from homeassistant.config_entries import SOURCE_RECONFIGURE, SOURCE_USER, ConfigSubentryData
 from homeassistant.core import HomeAssistant
@@ -92,6 +93,7 @@ async def test_integrationen_kun_en_gang(hass: HomeAssistant) -> None:
 
 
 async def test_tilfoej_rum_vaelger_omraadet(hass: HomeAssistant) -> None:
+    hass.config.language = "da"
     await gangen(hass)
     ar.async_get(hass).async_create("Kontor")
     entry = MockConfigEntry(
@@ -103,8 +105,18 @@ async def test_tilfoej_rum_vaelger_omraadet(hass: HomeAssistant) -> None:
 
     result = await flow.async_init((entry.entry_id, RUM), context={"source": SOURCE_USER})
     assert result["step_id"] == "user"
-    (felt,) = result["data_schema"].schema.values()
-    assert [valg["value"] for valg in felt.config["options"]] == ["gang"]  # Kontor har et rum
+    ((noegle, felt),) = result["data_schema"].schema.items()
+    # Kontor har et rum og er ikke med; Gang står med det, et nyt rum får valgt på forhånd.
+    assert felt.config["options"] == [{"value": "gang", "label": "Gang — 2 lamper · 1 sensor"}]
+    # Valgfrit felt: et påkrævet valg får Home Assistants formular til at vælge det første område selv.
+    assert type(noegle) is vol.Optional
+    assert felt.config["mode"] == "list"
+
+    # Intet valgt: formularen igen, uden at et rum er oprettet.
+    result = await flow.async_configure(result["flow_id"], {})
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"omraade": "vaelg_omraade"}
+    assert len(entry.subentries) == 1
 
     result = await flow.async_configure(result["flow_id"], {"omraade": "gang"})
     assert result["type"] is FlowResultType.CREATE_ENTRY

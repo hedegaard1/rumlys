@@ -503,11 +503,17 @@ class RumlysPanel extends HTMLElement {
       liste.textContent = "";
       this._omraader.forEach((o) => {
         const optaget = !!o.rum;
+        // Lamperne, rummet får valgt på forhånd: en gruppes pærer tæller ikke, gruppen gør.
+        const medlemmer = new Set(o.lamper.flatMap((l) => l.gruppe));
+        const antalLamper = o.lamper.filter((l) => l.gruppe.length || !medlemmer.has(l.entity_id)).length;
         const raekke = h(
           "div",
           { class: "raekke", style: { opacity: optaget ? 0.5 : 1, cursor: optaget ? "default" : "pointer" } },
           h("span", { class: "flueben" + (valgt === o.id ? " til" : "") }, valgt === o.id ? ikon("mdi:check") : null),
-          h("div", { class: "tx" }, h("b", {}, o.navn), h("small", {}, optaget ? this.t("har_rum") : [this.t("lamper_n", { n: o.lamper.length }), this.t("sensorer_n", { n: o.sensorer.length })].join(" · ")))
+          h("div", { class: "tx" }, h("b", {}, o.navn), h("small", {}, optaget ? this.t("har_rum") : [
+            antalLamper === 1 ? this.t("lampe_1") : this.t("lamper_n", { n: antalLamper }),
+            o.sensorer.length === 1 ? this.t("sensor_1") : this.t("sensorer_n", { n: o.sensorer.length }),
+          ].join(" · ")))
         );
         if (!optaget) raekke.addEventListener("click", () => { valgt = o.id; if (opretKnap) opretKnap.disabled = false; tegn(); });
         liste.appendChild(raekke);
