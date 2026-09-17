@@ -632,6 +632,47 @@ class RumlysPanel extends HTMLElement {
     this._genTegn("kort");
   }
 
+  // Pærens navn uden rummets ord foran: «Kontor Loftspots» i Kontor bliver «Loftspots», som på kortet selv.
+  _lampeNavn(entity_id) {
+    const st = this._hass.states[entity_id];
+    return kortNavn((st && st.attributes.friendly_name) || entity_id, this._detalje.navn);
+  }
+
+  // Flere lamper valgt ét sted — på et kort eller til en sensor. Fluebenene står i en dialog, så rummets egen
+  // lampeliste er den eneste liste på siden.
+  _vaelgLamper({ titel, lamper, valgte, optaget, gem, fortryd }) {
+    const valg = new Set(valgte);
+    const liste = h("div", { class: "liste" });
+    const tegn = () => {
+      liste.textContent = "";
+      lamper.forEach((lampe) => {
+        const valgt = valg.has(lampe);
+        const andet = optaget ? optaget(lampe) : null;
+        const flueben = h(
+          "button",
+          { class: "flueben" + (valgt ? " til" : ""), type: "button", disabled: !valgt && !!andet, "aria-pressed": String(valgt), "aria-label": this._lampeNavn(lampe) },
+          valgt ? ikon("mdi:check") : null
+        );
+        flueben.addEventListener("click", () => {
+          if (valgt) valg.delete(lampe);
+          else valg.add(lampe);
+          tegn();
+        });
+        const under = andet ? this.t(andet.hele ? "paa_hele_kort" : "paa_kort", { n: andet.nr }) : null;
+        liste.appendChild(h("div", { class: "raekke" }, flueben, h("div", { class: "tx" }, h("b", {}, this._lampeNavn(lampe)), under ? h("small", {}, under) : null)));
+      });
+    };
+    tegn();
+    this._dialog({
+      titel,
+      indhold: liste,
+      knapper: [
+        { tekst: this.t("annuller"), handling: fortryd },
+        { tekst: this.t("vaelg"), primaer: true, handling: () => gem(lamper.filter((l) => valg.has(l))) },
+      ],
+    });
+  }
+
   // Kortet tages af betjeningspanelet. Rumlys husker dets lamper, hvis det kommer igen.
   _fjernKort(fund) {
     this._dialog({
@@ -787,10 +828,7 @@ class RumlysPanel extends HTMLElement {
     };
     const hint = (tekst) => h("p", { class: "hint" }, tekst);
 
-    const lampeNavn = (entity_id) => {
-      const st = this._hass.states[entity_id];
-      return kortNavn((st && st.attributes.friendly_name) || entity_id, this._detalje.navn);
-    };
+    const lampeNavn = (entity_id) => this._lampeNavn(entity_id);
     const boks = (k) => {
       const f = k.steder[0];
       const stoerrelse = this.t({ small: "lille", large: "stor" }[f.config.size] || "mellem");
@@ -893,48 +931,57 @@ class RumlysPanel extends HTMLElement {
       const andres = lamper.map((l) => andenHar(k, l)).filter(Boolean);
       const heleLukket = !hele && andres.length > 0;
       const alleHosAndre = !hele && lamper.length > 0 && lamper.every((l) => valgte.indexOf(l) < 0 && andenHar(k, l));
-      dele.push(
-        h(
-          "div",
-          { class: "seg", role: "group" },
-          [[true, "hele_rummet"], [false, "valgte_lamper"]].map(([heleKnap, noegle]) =>
-            h("button", {
-              type: "button",
-              class: heleKnap === hele ? "til" : "",
-              "aria-pressed": String(heleKnap === hele),
-              disabled: heleKnap && heleLukket,
-              onclick: () => {
-                if (heleKnap === hele) return;
-                // «Valgte lamper» begynder uden lamper: kortet viser først noget, når der er sat flueben.
-                d.kort[k.id] = heleKnap ? [] : null;
-                this._genTegn("kort");
-              },
-            }, this.t(noegle))
-          )
-        )
-      );
-      if (heleLukket && !alleHosAndre) dele.push(hint(this.t("hele_optaget", { n: nr(andres[0].kort) })));
-      if (hele) return h("div", { class: "kortboks" }, hoved, dele);
+      // Ét felt i stedet for en liste med flueben — rummets egen lampeliste står længere oppe på siden, og to
+      // lister med de samme navne forvirrer. Har rummet mere end to lamper, vælges en kombination i en dialog.
+      const vaelger = h("select", {});
+      const tilfoejValg = (vaerdi, tekst, slaaFra) =>
+        vaelger.appendChild(h("option", slaaFra ? { value: vaerdi, disabled: "" } : { value: vaerdi }, tekst));
+      // Det, kortet viser nu, har sin egen linje, når det hverken er hele rummet eller én lampe.
+      const eget = valg === null ? this.t("kort_viser_ingen") : !hele && valgte.length > 1 ? valgte.map(lampeNavn).join(", ") : null;
+      if (eget) tilfoejValg("eget", eget);
+      tilfoejValg("hele", this.t("hele_rummet"), heleLukket);
       lamper.forEach((lampe) => {
-        const valgt = valgte.indexOf(lampe) >= 0;
-        // Valgt både her og på et andet kort på fanen — et kort fra før, eller et kort flyttet hertil fra en anden
-        // fane — vises på begge, så det ene kan fravælges.
         const andet = andenHar(k, lampe);
-        const st = this._hass.states[lampe];
-        const navn = (st && st.attributes.friendly_name) || lampe;
-        const flueben = h(
-          "button",
-          { class: "flueben" + (valgt ? " til" : ""), type: "button", disabled: !valgt && !!andet, "aria-pressed": String(valgt), "aria-label": navn },
-          valgt ? ikon("mdi:check") : null
-        );
-        flueben.addEventListener("click", () => {
-          const nye = lamper.filter((l) => (l === lampe ? !valgt : valgte.indexOf(l) >= 0));
-          d.kort[k.id] = nye.length ? nye : null;
-          this._genTegn("kort");
-        });
-        // En lampe kan flyttes fra et kort for nogle af lamperne. Et kort for hele rummet skal ændres med vilje først.
-        const flyt = !valgt && andet && andet.kort.id && !andet.hele
-          ? h("button", {
+        const alene = valgte.length === 1 && valgte[0] === lampe;
+        const paa = andet ? " · " + this.t(andet.hele ? "paa_hele_kort" : "paa_kort", { n: nr(andet.kort) }) : "";
+        tilfoejValg(lampe, lampeNavn(lampe) + paa, !!andet && !alene);
+      });
+      if (lamper.length > 2) tilfoejValg("flere", this.t("vaelg_lamper") + " …");
+      vaelger.value = eget ? "eget" : hele ? "hele" : valgte.length === 1 ? valgte[0] : "hele";
+      vaelger.addEventListener("change", () => {
+        const v = vaelger.value;
+        if (v === "flere") {
+          this._vaelgLamper({
+            titel: this.t("vaelg_lamper"),
+            lamper,
+            valgte,
+            optaget: (lampe) => {
+              const a = andenHar(k, lampe);
+              return a ? { hele: a.hele, nr: nr(a.kort) } : null;
+            },
+            gem: (nye) => {
+              d.kort[k.id] = nye.length ? nye : null;
+              this._genTegn("kort");
+            },
+            fortryd: () => this._genTegn("kort"),
+          });
+          return;
+        }
+        d.kort[k.id] = v === "hele" ? [] : [v];
+        this._genTegn("kort");
+      });
+      dele.push(h("div", { class: "felt" }, h("label", {}, this.t("viser")), vaelger));
+      if (heleLukket && !alleHosAndre) dele.push(hint(this.t("hele_optaget", { n: nr(andres[0].kort) })));
+      // En lampe kan flyttes fra et kort for nogle af lamperne. Et kort for hele rummet skal ændres med vilje først.
+      lamper.forEach((lampe) => {
+        const andet = andenHar(k, lampe);
+        if (!andet || valgte.indexOf(lampe) >= 0 || andet.hele || !andet.kort.id) return;
+        dele.push(
+          h(
+            "div",
+            { class: "raekke" },
+            h("div", { class: "tx" }, h("b", {}, lampeNavn(lampe)), h("small", {}, this.t("paa_kort", { n: nr(andet.kort) }))),
+            h("button", {
               class: "knap t",
               type: "button",
               onclick: () => {
@@ -945,16 +992,13 @@ class RumlysPanel extends HTMLElement {
                 this._genTegn("kort");
               },
             }, this.t("flyt_hertil"))
-          : null;
-        let under = null;
-        if (andet) under = andet.hele ? this.t("paa_hele_kort", { n: nr(andet.kort) }) : this.t(valgt ? "ogsaa_paa_kort" : "paa_kort", { n: nr(andet.kort) });
-        dele.push(h("div", { class: "raekke" }, flueben, h("div", { class: "tx" }, h("b", {}, lampeNavn(lampe)), under ? h("small", {}, under) : null), flyt));
+          )
+        );
       });
       if (alleHosAndre) {
         const heleKort = andres.find((a) => a.hele);
         dele.push(hint(heleKort ? this.t("alle_taget_hele", { n: nr(heleKort.kort) }) : this.t("alle_taget")));
-      } else if (!valgte.length) dele.push(hint(this.t("ingen_lamper_valgt")));
-      else if (valgte.length === lamper.length) dele.push(hint(this.t("alle_valgt")));
+      } else if (!hele && !valgte.length) dele.push(hint(this.t("ingen_lamper_valgt")));
       if (k.steder.length === 1 && f.skrivbar) {
         dele.push(h("button", { class: "knap farlig", type: "button", onclick: () => this._fjernKort(f) }, ikon("mdi:close"), this.t("fjern_kort")));
       }
@@ -1577,7 +1621,43 @@ class RumlysPanel extends HTMLElement {
           )
         );
       }
-      return h("div", { class: "raekke", style: { flexWrap: "wrap" } }, flueben, h("div", { class: "tx", style: { minWidth: "140px" } }, h("b", {}, navn), under ? h("small", {}, under) : null), pille, type);
+      // Sensorens egne lamper: uden valg tænder den alle, der tænder ved bevægelse. Vælges kun, når der er
+      // mere end én at vælge imellem.
+      let taender = null;
+      const bevaegelsesLamper = d.lamper.filter((l) => l.bevaegelse !== false).map((l) => l.entity_id);
+      if (valgt && bevaegelsesLamper.length > 1) {
+        const egne = ((d.sensor_lamper || {})[entityId] || []).filter((l) => bevaegelsesLamper.indexOf(l) >= 0);
+        const vaelger = h("select", {});
+        const tilfoejValg = (vaerdi, tekst) => vaelger.appendChild(h("option", { value: vaerdi }, tekst));
+        if (egne.length > 1) tilfoejValg("eget", egne.map((l) => this._lampeNavn(l)).join(", "));
+        tilfoejValg("alle", this.t("alle_bevaegelseslamper"));
+        bevaegelsesLamper.forEach((l) => tilfoejValg(l, this._lampeNavn(l)));
+        if (bevaegelsesLamper.length > 2) tilfoejValg("flere", this.t("vaelg_lamper") + " …");
+        vaelger.value = egne.length > 1 ? "eget" : egne.length === 1 ? egne[0] : "alle";
+        const saet = (nye) => {
+          const alle = Object.assign({}, d.sensor_lamper || {});
+          if (!nye.length || nye.length === bevaegelsesLamper.length) delete alle[entityId];
+          else alle[entityId] = nye;
+          d.sensor_lamper = alle;
+          this._genTegn("sensorer");
+        };
+        vaelger.addEventListener("change", () => {
+          const v = vaelger.value;
+          if (v === "flere") {
+            this._vaelgLamper({
+              titel: this.t("taender"),
+              lamper: bevaegelsesLamper,
+              valgte: egne.length ? egne : bevaegelsesLamper,
+              gem: saet,
+              fortryd: () => this._genTegn("sensorer"),
+            });
+            return;
+          }
+          saet(v === "alle" ? [] : [v]);
+        });
+        taender = h("div", { class: "felt", style: { marginTop: "4px", width: "100%" } }, h("label", {}, this.t("taender")), vaelger);
+      }
+      return h("div", { class: "raekke", style: { flexWrap: "wrap" } }, flueben, h("div", { class: "tx", style: { minWidth: "140px" } }, h("b", {}, navn), under ? h("small", {}, under) : null), pille, type, taender);
     };
     omraade.sensorer.forEach((s) => liste.appendChild(raekke(s.entity_id, s.navn)));
     d.sensorer.forEach((s) => {

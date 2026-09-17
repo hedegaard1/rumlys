@@ -56,6 +56,7 @@ from .const import (
     CONF_SCENE,
     CONF_SCENER,
     CONF_SENSORER,
+    CONF_SENSOR_LAMPER,
     CONF_SLUK_EFTER,
     CONF_SLUT,
     CONF_START,
@@ -116,6 +117,14 @@ class Rum:
             lampe[CONF_ENTITY_ID] for lampe in lamper if lampe.get(CONF_BEVAEGELSE, True)
         ]
         self.sensorer: list[str] = list(data.get(CONF_SENSORER, []))
+        # Hver sensor kan tænde sine egne af rummets lamper. Uden valg tænder den alle, der tænder ved bevægelse.
+        self.sensor_lamper: dict[str, list[str]] = {
+            sensor: valgte
+            for sensor, lamper in (data.get(CONF_SENSOR_LAMPER) or {}).items()
+            if sensor in self.sensorer and (valgte := [l for l in lamper if l in self.foelger])
+        }
+        # Lamperne, bevægelse sidst tændte — dem gælder et skift af tidsrum.
+        self._sidst_taendt: list[str] | None = None
         self.overgang: float = data.get(CONF_OVERGANG, 0)
         self.standard: dict[str, Any] = data.get(CONF_LYS) or dict(STANDARD_LYS)
         self.tidsrum = [
@@ -303,12 +312,18 @@ class Rum:
     @callback
     def _nulstil(self) -> None:
         self.kilde = self.slukker = self.hold_slutter = None
+        self._sidst_taendt = None
         self._opdater()
 
     @callback
     def _sensor_aendret(self, event: Event[EventStateChangedData]) -> None:
         bevaegelse = self._sensor_taendt()
+        ny_tilstand = event.data["new_state"]
+        udloeser = event.data["entity_id"] if ny_tilstand is not None and ny_tilstand.state == STATE_ON else None
         if bevaegelse == self.bevaegelse:
+            # En anden sensor i rummet ser nogen: har den sine egne lamper, tændes de med.
+            if bevaegelse and udloeser and self.kilde == BEVAEGELSE and self.hold_slutter is None:
+                self._taend_med_sensor(udloeser, kun_slukkede=True)
             return
         self.bevaegelse = bevaegelse
         if self.hold_slutter is not None:
@@ -316,21 +331,44 @@ class Rum:
         if bevaegelse:
             if self.kilde is None:
                 self.kilde = BEVAEGELSE
-                self._taend_ved_bevaegelse()
+                self._taend_ved_bevaegelse(udloeser)
             # Bevægelse stopper nedtællingen — også når lyset er valgt i hånden.
             self.slukker = None
         elif self.kilde is not None:
             self.slukker = self._frist(self.kilde)
         self._opdater()
 
+    def _sensorens_lamper(self, sensor: str | None) -> list[str]:
+        """Lamperne, en sensor tænder: dens egne, ellers alle rummets, der tænder ved bevægelse."""
+        return self.sensor_lamper.get(sensor or "") or self.foelger
+
     @callback
-    def _taend_ved_bevaegelse(self) -> None:
+    def _taend_med_sensor(self, sensor: str, kun_slukkede: bool = False) -> None:
+        """Sensorens egne lamper, mens rummet allerede er tændt af bevægelse. Kun for rum, hvor sensorerne
+        har hver deres lamper — ellers er der intet nyt at tænde."""
+        if sensor not in self.sensor_lamper:
+            return
+        lamper = [
+            entity_id
+            for entity_id in self._sensorens_lamper(sensor)
+            if not kun_slukkede or (t := self.hass.states.get(entity_id)) is None or t.state != STATE_ON
+        ]
+        if not lamper:
+            return
+        self._sidst_taendt = sorted({*(self._sidst_taendt or []), *lamper}, key=self.lys.index)
+        self._anvend(self._scenarie(), lamper)
+        self._log("taendt", lys="sensor")
+
+    @callback
+    def _taend_ved_bevaegelse(self, sensor: str | None = None) -> None:
+        lamper = self._sensorens_lamper(sensor)
+        self._sidst_taendt = lamper
         husket = self._husket_lys()
-        if husket is not None and self._gendan(husket, self.foelger):
+        if husket is not None and self._gendan(husket, lamper):
             self._log("taendt", lys="husket")
             return
         tidsrum = self.aktivt_tidsrum()
-        self._anvend(self._scenarie(), self.foelger)
+        self._anvend(self._scenarie(), lamper)
         if tidsrum is not None:
             self._log("taendt", lys="tidsrum", navn=tidsrum[CONF_NAVN])
         else:
@@ -486,7 +524,7 @@ class Rum:
         self.husket = None
         self._log("tidsrum", navn=tidsrum[CONF_NAVN] if tidsrum else None)
         if self.kilde == BEVAEGELSE and self.hold_slutter is None:
-            self._anvend(tidsrum[CONF_LYS] if tidsrum else self.standard, self.foelger)
+            self._anvend(tidsrum[CONF_LYS] if tidsrum else self.standard, self._sidst_taendt or self.foelger)
         self._opdater()
 
     @callback

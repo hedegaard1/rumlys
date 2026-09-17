@@ -26,6 +26,7 @@ from .const import (
     CONF_SCENE,
     CONF_SCENER,
     CONF_SENSORER,
+    CONF_SENSOR_LAMPER,
     CONF_SLUK_EFTER,
     CONF_SLUT,
     CONF_START,
@@ -96,8 +97,18 @@ TIDSRUM = vol.Schema(
 )
 
 def _kun_rummets_sensorer(rum: dict[str, Any]) -> dict[str, Any]:
-    """En tilstedeværelsessensor skal være valgt i rummet."""
-    return rum | {CONF_TILSTEDE: [s for s in rum[CONF_TILSTEDE] if s in rum[CONF_SENSORER]]}
+    """En tilstedeværelsessensor skal være valgt i rummet, og en sensors lamper skal være rummets."""
+    rummets = {lampe[CONF_ENTITY_ID] for lampe in rum[CONF_LAMPER]}
+    valgte = {
+        sensor: [lampe for lampe in lamper if lampe in rummets]
+        for sensor, lamper in rum.get(CONF_SENSOR_LAMPER, {}).items()
+        if sensor in rum[CONF_SENSORER]
+    }
+    return rum | {
+        CONF_TILSTEDE: [s for s in rum[CONF_TILSTEDE] if s in rum[CONF_SENSORER]],
+        # En sensor uden lamper tilbage tænder alle rummets bevægelseslamper — som en sensor uden valg.
+        CONF_SENSOR_LAMPER: {s: l for s, l in valgte.items() if l},
+    }
 
 
 RUM_DATA = vol.All(
@@ -114,6 +125,9 @@ RUM_DATA = vol.All(
             ],
             vol.Optional(CONF_SENSORER, default=[]): [cv.entity_domain("binary_sensor")],
             vol.Optional(CONF_TILSTEDE, default=[]): [cv.entity_domain("binary_sensor")],
+            vol.Optional(CONF_SENSOR_LAMPER, default={}): {
+                cv.entity_domain("binary_sensor"): [cv.entity_domain("light")]
+            },
             vol.Required(CONF_LYS): LYSVALG,
             vol.Optional(CONF_OVERGANG, default=0): vol.All(
                 vol.Coerce(float), vol.Range(min=0, max=10)

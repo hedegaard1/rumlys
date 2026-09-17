@@ -191,6 +191,50 @@ async def test_bevaegelse_taender_og_slukker_efter_tiden(hus: Hus) -> None:
     assert len(hus.taend) == 1
 
 
+async def test_sensoren_taender_kun_sine_egne_lamper(hus: Hus) -> None:
+    """Hver sensor kan have sine egne af rummets lamper. Rummet slukker stadig samlet."""
+    sensor2 = "binary_sensor.bevaegelse_traeningsrum_2"
+    rummet = RUMMET | {
+        "lamper": [
+            {"entity_id": SPOTS, "bevaegelse": True},
+            {"entity_id": STENLAMPE, "bevaegelse": True},
+        ],
+        "sensorer": [SENSOR, sensor2],
+        "sensor_lamper": {SENSOR: [SPOTS], sensor2: [STENLAMPE]},
+    }
+    await hus.saet_op(rummet)
+    hus.hass.states.async_set(sensor2, "off")
+    await hus.hass.async_block_till_done()
+
+    await hus.bevaegelse("on")
+    assert [k.data["entity_id"] for k in hus.taend] == [[SPOTS]]
+
+    # Den anden sensor ser nogen, mens lyset er tændt: dens egen lampe tændes med.
+    hus.hass.states.async_set(sensor2, "on")
+    await hus.hass.async_block_till_done()
+    assert [k.data["entity_id"] for k in hus.taend] == [[SPOTS], [STENLAMPE]]
+
+    # Ingen ser nogen: hele rummet slukker efter tiden.
+    await hus.bevaegelse("off")
+    hus.hass.states.async_set(sensor2, "off")
+    await hus.hass.async_block_till_done()
+    await hus.vent(31)
+    assert hus.sluk[-1].data["entity_id"] == [SPOTS, STENLAMPE]
+
+
+async def test_sensor_uden_egne_lamper_taender_dem_alle(hus: Hus) -> None:
+    """Uden valg tænder sensoren alle rummets lamper, der tænder ved bevægelse — som hidtil."""
+    rummet = RUMMET | {
+        "lamper": [
+            {"entity_id": SPOTS, "bevaegelse": True},
+            {"entity_id": STENLAMPE, "bevaegelse": True},
+        ]
+    }
+    await hus.saet_op(rummet)
+    await hus.bevaegelse("on")
+    assert [k.data["entity_id"] for k in hus.taend] == [[SPOTS, STENLAMPE]]
+
+
 async def test_ny_bevaegelse_stopper_nedtaellingen(hus: Hus) -> None:
     await hus.saet_op()
     await hus.bevaegelse("on")

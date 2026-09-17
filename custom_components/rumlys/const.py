@@ -12,6 +12,7 @@ CONF_OMRAADE = "omraade"
 CONF_LAMPER = "lamper"
 CONF_SENSORER = "sensorer"
 CONF_TILSTEDE = "tilstede"  # sensorerne, der ser tilstedeværelse; de andre ser kun bevægelse
+CONF_SENSOR_LAMPER = "sensor_lamper"  # hvilke af rummets lamper hver sensor tænder; tom = alle
 CONF_LYS = "lys"  # rummets eget lys
 CONF_OVERGANG = "overgang"
 CONF_TIDSRUM = "tidsrum"

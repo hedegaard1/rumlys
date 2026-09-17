@@ -48,7 +48,9 @@ vælges.
   kortene. Her sættes også blød tænd og sluk.
 - **Sensorer** — med «ser nogen nu» og valget Bevægelse eller Tilstedeværelse. En bevægelsessensor ser ikke
   en, der står stille, så valget sætter den anbefalede tid for lys tændt af sensoren: 5 min med kun
-  bevægelsessensorer, 30 sek. med en tilstedeværelsessensor. Tiden kan stadig sættes frit.
+  bevægelsessensorer, 30 sek. med en tilstedeværelsessensor. Tiden kan stadig sættes frit. **Hver sensor kan
+  tænde sine egne af rummets lamper** — «Tænder: alle bevægelseslamper» som standard, eller fx kun loftspots
+  ved døren. Rummet har stadig én tilstand og én nedtælling: når ingen sensor ser nogen, slukker det samlet.
 - **Tidsplan** — ugen med én række pr. dag. Nederst ligger **Hele døgnet**, rummets eget lys, som gælder,
   når intet tidsrum gør; det kan ikke slettes. Tidsrummene ligger oven på det, fx *Nat* 22:00–06:30 med
   scenen Natlys, og hvert har sit eget lys, sine dage (Alle dage, Hverdage, Weekend eller enkelte dage) og
@@ -59,10 +61,10 @@ vælges.
 - **Kort** — rummets kort på alle betjeningspaneler, i den rækkefølge de står, og hvor de står. **«Tilføj kort til
   en fane»** sætter kortet ind nederst på den fane, du vælger, og i kortets boks vælger du fanen igen for at flytte
   det — eller «Fjern kortet». Hvert kort står som én linje med, hvad det viser; tryk på linjen for at folde den ud.
-  Et kort, der ikke kan bruges, er foldet ud med det samme. Et kort viser
-  hele rummet eller de lamper, der er valgt til det. På en fane kan en lampe kun stå på ét kort, og et kort for
-  hele rummet optager dem alle: på de andre kort står en lampe som «På kort N» — med «Flyt hertil», når kort N
-  kun har nogle af lamperne. Kommer et kort ind uden om Rumlys — YAML, «Duplikér» eller en gendannet backup —
+  Et kort, der ikke kan bruges, er foldet ud med det samme. I kortets boks står **«Viser»**: hele rummet eller
+  én af rummets lamper — og «Vælg lamper …», når rummet har flere end to. På en fane kan en lampe kun stå på ét
+  kort, og et kort for hele rummet optager dem alle: på de andre kort står en lampe som «På kort N» — med
+  «Flyt hertil», når kort N kun har nogle af lamperne. Kommer et kort ind uden om Rumlys — YAML, «Duplikér» eller en gendannet backup —
   dukker det op som «Nyt»; det viser hele rummet, hvis det er rummets eneste kort på fanen, og ellers ingen lamper,
   til de vælges. Står samme kort flere gange på en fane, virker ingen af dem, til «Adskil» har givet det sidste sit
   eget id. Listen følger selv
