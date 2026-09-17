@@ -234,6 +234,17 @@ const LYS_OVERGANG = 32;
 const ANBEFALET_BEVAEGELSE = 300;
 const ANBEFALET_TILSTEDE = 30;
 
+// Navne, der skal kunne sammenlignes på tværs af store bogstaver, æøå og bindestreger: «Træningsrum» og
+// stien «traeningsrum» er den samme fane.
+function enkeltNavn(tekst) {
+  return String(tekst || "")
+    .toLowerCase()
+    .replace(/æ/g, "ae")
+    .replace(/ø/g, "oe")
+    .replace(/å/g, "aa")
+    .replace(/[^a-z0-9]/g, "");
+}
+
 function minut(klokkeslaet) {
   const [t, m] = String(klokkeslaet).split(":");
   return Number(t) * 60 + Number(m);
@@ -500,7 +511,7 @@ class RumlysPanel extends HTMLElement {
       const skrivbar = ((hassPanel.config || {}).mode || panel.mode) !== "yaml";
       (config.views || []).forEach((fane, nr) => {
         const sted = panelNavn + " › " + (fane.title || fane.path || String(nr + 1));
-        if (skrivbar) faner.push({ panel: panel.url_path, fane: nr, sted });
+        if (skrivbar) faner.push({ panel: panel.url_path, fane: nr, sted, titel: fane.title || fane.path || "" });
         // Også kort inde i andre kort: stakke, betingede kort, pop-ups.
         const gaa = (x, sti) => {
           if (Array.isArray(x)) x.forEach((y, i) => gaa(y, sti.concat(i)));
@@ -547,12 +558,22 @@ class RumlysPanel extends HTMLElement {
     await this._hass.callWS({ type: "lovelace/config/save", url_path: urlPath, config });
   }
 
-  // Hvilken fane skal kortet stå på? Rumlys sætter det ind nederst og kan flytte det bagefter.
+  // Hvilken fane skal kortet stå på? Rumlys foreslår rummets egen fane — den, der hedder som rummet — og
+  // skriver ud for de faner, hvor rummet allerede har et kort, så man kan se, at et kort mere bliver spærret.
   _vaelgFaneTilKort() {
     const faner = (this._kortfund && this._kortfund.faner) || [];
     if (!faner.length) return;
+    const harKort = new Set(
+      ((this._kortfund && this._kortfund.fundne) || [])
+        .filter((f) => this._erRummets(f.config, this._detalje))
+        .map((f) => (f.panel || "") + "/" + f.fane)
+    );
+    const rummets = faner.findIndex((m) => enkeltNavn(m.titel) === enkeltNavn(this._detalje.navn));
     const vaelger = h("select", {});
-    faner.forEach((m, i) => vaelger.appendChild(h("option", { value: String(i) }, m.sted)));
+    faner.forEach((m, i) =>
+      vaelger.appendChild(h("option", { value: String(i) }, m.sted + (harKort.has((m.panel || "") + "/" + m.fane) ? " · " + this.t("har_kort") : "")))
+    );
+    vaelger.value = String(Math.max(0, rummets));
     this._dialog({
       titel: this.t("tilfoej_kort"),
       indhold: h("div", {}, h("div", { class: "felt" }, h("label", {}, this.t("fane")), vaelger), h("p", { class: "hint" }, this.t("tilfoej_kort_hint"))),
