@@ -467,11 +467,13 @@ class RumlysPanel extends HTMLElement {
   /* ---------- kortene på betjeningspanelerne ---------- */
 
   // Alle Rumlys-kort på alle betjeningspaneler: hvor de står, og stien til dem i opsætningen. `fuld` er
-  // falsk, hvis et betjeningspanel ikke kunne læses — så ved vi ikke, om et kort er væk.
+  // falsk, hvis et betjeningspanel ikke kunne læses — så ved vi ikke, om et kort er væk. `faner` er alle
+  // fanerne, Rumlys selv kan sætte et kort ind på.
   async _findKort() {
     const hass = this._hass;
     let fuld = true;
     let ekstra = [];
+    const faner = [];
     try {
       ekstra = await hass.callWS({ type: "lovelace/dashboards/list" });
     } catch (e) {
@@ -496,6 +498,7 @@ class RumlysPanel extends HTMLElement {
       const skrivbar = ((hassPanel.config || {}).mode || panel.mode) !== "yaml";
       (config.views || []).forEach((fane, nr) => {
         const sted = panelNavn + " › " + (fane.title || fane.path || String(nr + 1));
+        if (skrivbar) faner.push({ panel: panel.url_path, fane: nr, sted });
         // Også kort inde i andre kort: stakke, betingede kort, pop-ups.
         const gaa = (x, sti) => {
           if (Array.isArray(x)) x.forEach((y, i) => gaa(y, sti.concat(i)));
@@ -507,7 +510,132 @@ class RumlysPanel extends HTMLElement {
         gaa(fane, ["views", nr]);
       });
     }
-    return { fundne, fuld };
+    return { fundne, fuld, faner };
+  }
+
+  /* ---------- Rumlys sætter selv kortene ind ---------- */
+
+  // Kortet sættes nederst i fanens første sektion — eller i fanens kort, hvis den ikke har sektioner.
+  _saetIndIFane(config, nr, kort) {
+    const fane = (config.views || [])[nr];
+    if (!fane) throw new Error(this.t("kort_aendret"));
+    if (Array.isArray(fane.sections)) {
+      if (!fane.sections.length) fane.sections.push({ type: "grid", cards: [] });
+      const sektion = fane.sections[0];
+      sektion.cards = (sektion.cards || []).concat([kort]);
+    } else {
+      fane.cards = (fane.cards || []).concat([kort]);
+    }
+  }
+
+  // Kortet tages ud af opsætningen igen — kun hvis det står, hvor det stod, da siden blev læst.
+  _tagUdAfFane(config, fund) {
+    const sti = fund.sti;
+    const liste = sti.slice(0, -1).reduce((x, k) => (x ? x[k] : undefined), config);
+    const plads = sti[sti.length - 1];
+    const kort = Array.isArray(liste) ? liste[plads] : undefined;
+    if (!kort || kort.type !== "custom:rumlys-card" || (kort.kort || null) !== (fund.config.kort || null)) {
+      throw new Error(this.t("kort_aendret"));
+    }
+    liste.splice(plads, 1);
+    return kort;
+  }
+
+  async _gemPanel(urlPath, config) {
+    await this._hass.callWS({ type: "lovelace/config/save", url_path: urlPath, config });
+  }
+
+  // Hvilken fane skal kortet stå på? Rumlys sætter det ind nederst og kan flytte det bagefter.
+  _vaelgFaneTilKort() {
+    const faner = (this._kortfund && this._kortfund.faner) || [];
+    if (!faner.length) return;
+    const vaelger = h("select", {});
+    faner.forEach((m, i) => vaelger.appendChild(h("option", { value: String(i) }, m.sted)));
+    this._dialog({
+      titel: this.t("tilfoej_kort"),
+      indhold: h("div", {}, h("div", { class: "felt" }, h("label", {}, this.t("fane")), vaelger), h("p", { class: "hint" }, this.t("tilfoej_kort_hint"))),
+      knapper: [
+        { tekst: this.t("annuller"), handling: () => {} },
+        { tekst: this.t("tilfoej"), primaer: true, handling: () => { this._nytKortPaaFane(faner[Number(vaelger.value)]); } },
+      ],
+    });
+  }
+
+  // Et nyt kort på en fane: Rumlys kender det fra første sekund, så det hverken står som nyt eller venter.
+  // Det får det, fanens regel giver det — hele rummet, hvis rummet ikke har et kort der i forvejen.
+  async _nytKortPaaFane(maal) {
+    const rumId = this._aktiv;
+    const id = nytKortId();
+    const nyt = { type: "custom:rumlys-card", omraade: this._detalje.omraade, kort: id };
+    try {
+      const config = await this._hass.callWS({ type: "lovelace/config", url_path: maal.panel });
+      this._saetIndIFane(config, maal.fane, nyt);
+      const rummets = this._detalje.lamper.map((l) => l.entity_id);
+      const paaFanen = ((this._kortfund && this._kortfund.fundne) || [])
+        .filter((x) => this._erRummets(x.config, this._detalje) && (x.panel || "") === (maal.panel || "") && x.fane === maal.fane)
+        .map((x) => x.config);
+      const r = fordelLamper(paaFanen.concat([nyt]), rummets, this._kladde.kort).pop();
+      await this._registrerKort(rumId, { [id]: r.spaerretAf !== null || r.ingen ? null : r.hele ? [] : r.optager.slice() }, false);
+      await this._gemPanel(maal.panel, config);
+    } catch (e) {
+      this._toast(this.t("kort_ikke_skrevet", { fejl: String((e && e.message) || e) }));
+      return;
+    }
+    this._toast(this.t("kort_sat_ind", { sted: maal.sted }));
+    await this._hentKort();
+    this._genTegn("kort");
+  }
+
+  // Kortet flyttes til en anden fane: det sættes ind det nye sted, før det tages ud af det gamle, så det
+  // aldrig kan nå at forsvinde helt, hvis den anden gemning fejler.
+  async _flytKort(fund, maal) {
+    try {
+      const ny = await this._hass.callWS({ type: "lovelace/config", url_path: maal.panel });
+      if (maal.panel === fund.panel) {
+        this._tagUdAfFane(ny, fund);
+        this._saetIndIFane(ny, maal.fane, fund.config);
+        await this._gemPanel(maal.panel, ny);
+      } else {
+        this._saetIndIFane(ny, maal.fane, fund.config);
+        await this._gemPanel(maal.panel, ny);
+        const gammel = await this._hass.callWS({ type: "lovelace/config", url_path: fund.panel });
+        this._tagUdAfFane(gammel, fund);
+        await this._gemPanel(fund.panel, gammel);
+      }
+    } catch (e) {
+      this._toast(this.t("kort_ikke_skrevet", { fejl: String((e && e.message) || e) }));
+    }
+    await this._hentKort();
+    this._genTegn("kort");
+  }
+
+  // Kortet tages af betjeningspanelet. Rumlys husker dets lamper, hvis det kommer igen.
+  _fjernKort(fund) {
+    this._dialog({
+      titel: this.t("fjern_kort"),
+      indhold: h("p", {}, this.t("fjern_kort_spoergsmaal", { sted: fund.sted })),
+      knapper: [
+        { tekst: this.t("annuller"), handling: () => {} },
+        {
+          tekst: this.t("fjern"),
+          primaer: true,
+          handling: () => {
+            (async () => {
+              try {
+                const config = await this._hass.callWS({ type: "lovelace/config", url_path: fund.panel });
+                this._tagUdAfFane(config, fund);
+                await this._gemPanel(fund.panel, config);
+                this._toast(this.t("kort_fjernet", { sted: fund.sted }));
+              } catch (e) {
+                this._toast(this.t("kort_ikke_skrevet", { fejl: String((e && e.message) || e) }));
+              }
+              await this._hentKort();
+              this._genTegn("kort");
+            })();
+          },
+        },
+      ],
+    });
   }
 
   _erRummets(config, rum) {
@@ -550,23 +678,29 @@ class RumlysPanel extends HTMLElement {
     });
     if (!Object.keys(nye).length) return;
     try {
-      const svar = await this._hass.callWS({ type: "rumlys/kort/nye", rum_id: rumId, kort: nye });
-      // Oversigten skal ikke længere kalde kortene nye.
-      meldOpdateret(rumId);
-      if (this._aktiv !== rumId || !this._kladde) return;
-      const original = JSON.parse(this._original);
-      Object.keys(nye).forEach((id) => {
-        // Er kortet kommet med imens, fx ved en scanning mere, er det valg, der står i kladden, det rigtige.
-        if (id in this._kladde.kort) return;
-        const vaerdi = id in svar.kort ? svar.kort[id] : nye[id];
-        this._nyeKort.add(id);
-        this._kladde.kort[id] = kopi(vaerdi);
-        original.kort[id] = kopi(vaerdi);
-      });
-      this._original = JSON.stringify(original);
+      await this._registrerKort(rumId, nye);
     } catch (e) {
       // Kortene står som nye igen næste gang.
     }
+  }
+
+  // Rumlys får kortene at vide, uden at rummet står som ændret. Kort, Rumlys selv har sat ind, er ikke «nye»
+  // for brugeren — han har lige lavet dem.
+  async _registrerKort(rumId, nye, somNye = true) {
+    const svar = await this._hass.callWS({ type: "rumlys/kort/nye", rum_id: rumId, kort: nye });
+    // Oversigten skal ikke længere kalde kortene nye.
+    meldOpdateret(rumId);
+    if (this._aktiv !== rumId || !this._kladde) return;
+    const original = JSON.parse(this._original);
+    Object.keys(nye).forEach((id) => {
+      // Er kortet kommet med imens, fx ved en scanning mere, er det valg, der står i kladden, det rigtige.
+      if (id in this._kladde.kort) return;
+      const vaerdi = id in svar.kort ? svar.kort[id] : nye[id];
+      if (somNye) this._nyeKort.add(id);
+      this._kladde.kort[id] = kopi(vaerdi);
+      original.kort[id] = kopi(vaerdi);
+    });
+    this._original = JSON.stringify(original);
   }
 
   // Skriver et nyt id i ét korts opsætning på betjeningspanelet — kun hvis kortet står, som det stod, da
@@ -693,6 +827,19 @@ class RumlysPanel extends HTMLElement {
         )
       );
       if (!aaben) return h("div", { class: "kortboks" }, hoved);
+      // Kortet flyttes ved at vælge en anden fane. Står det flere steder, eller på et panel i YAML, kan Rumlys
+      // ikke gøre det for dig.
+      if (k.id && k.steder.length === 1 && f.skrivbar && fund.faner.length) {
+        const vaelger = h("select", {});
+        const noegleFor = (m) => (m.panel || "") + "/" + m.fane;
+        fund.faner.forEach((m) => vaelger.appendChild(h("option", { value: noegleFor(m) }, m.sted)));
+        vaelger.value = noegleFor(f);
+        vaelger.addEventListener("change", () => {
+          const maal = fund.faner.find((m) => noegleFor(m) === vaelger.value);
+          if (maal && noegleFor(maal) !== noegleFor(f)) this._flytKort(f, maal);
+        });
+        dele.push(h("div", { class: "felt" }, h("label", {}, this.t("fane")), vaelger));
+      }
       if (!k.id) {
         if (f.skrivbar) dele.push(hint(this.t("kort_uden_id")), h("button", { class: "knap", type: "button", onclick: () => this._nytIdTilKort(f, false) }, this.t("giv_id")));
         else dele.push(hint(this.t("kort_uden_id_yaml", { linje: "kort: " + forslag(f) })));
@@ -785,6 +932,9 @@ class RumlysPanel extends HTMLElement {
         dele.push(hint(heleKort ? this.t("alle_taget_hele", { n: nr(heleKort.kort) }) : this.t("alle_taget")));
       } else if (!valgte.length) dele.push(hint(this.t("ingen_lamper_valgt")));
       else if (valgte.length === lamper.length) dele.push(hint(this.t("alle_valgt")));
+      if (k.steder.length === 1 && f.skrivbar) {
+        dele.push(h("button", { class: "knap farlig", type: "button", onclick: () => this._fjernKort(f) }, ikon("mdi:close"), this.t("fjern_kort")));
+      }
       return h("div", { class: "kortboks" }, hoved, dele);
     };
 
@@ -792,7 +942,11 @@ class RumlysPanel extends HTMLElement {
     // kommer igen — fortrudt, eller klippet og sat ind et andet sted — stadig viser sine lamper.
     const liste = h("div", { class: "kortliste" }, kort.map(boks));
     if (!liste.children.length) liste.appendChild(h("p", { class: "hint" }, this.t("ingen_kort")));
-    return this._sektion(...titel, fund.fuld ? null : h("p", { class: "hint" }, this.t("kort_ufuldstaendig")), liste);
+    // Rumlys sætter selv kortet ind på den fane, du vælger, så det kender kortet fra første sekund.
+    const tilfoej = fund.faner.length
+      ? h("button", { class: "knap t", type: "button", onclick: () => this._vaelgFaneTilKort() }, ikon("mdi:plus"), this.t("tilfoej_kort"))
+      : h("p", { class: "hint" }, this.t("ingen_skrivbare_faner"));
+    return this._sektion(...titel, fund.fuld ? null : h("p", { class: "hint" }, this.t("kort_ufuldstaendig")), liste, tilfoej);
   }
 
   async _hentRum(id, forsoeg = 1) {

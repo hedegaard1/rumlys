@@ -311,18 +311,6 @@ class RumlysCard extends HTMLElement {
     return document.createElement(NAVN + "-editor");
   }
 
-  // Forhåndsvisningen i «Føj til betjeningspanel» viser et rigtigt rum — helst et med scener.
-  // Et nyt kort får sit id her, så det dukker op som sin egen boks i Rumlys.
-  static async getStubConfig(hass) {
-    try {
-      const rummene = await hass.callWS({ type: "rumlys/rum/liste" });
-      const rum = rummene.find((r) => r.scener.length) || rummene[0];
-      return rum ? { omraade: rum.omraade, kort: nytKortId() } : { kort: nytKortId() };
-    } catch (e) {
-      return { kort: nytKortId() };
-    }
-  }
-
   setConfig(config) {
     const foer = this._config;
     this._config = Object.assign({}, config);
@@ -1451,12 +1439,7 @@ customElements.define(NAVN, RumlysCard);
 customElements.define(NAVN + "-menu", RumlysMenu);
 customElements.define(NAVN + "-editor", RumlysCardEditor);
 
-window.customCards = window.customCards || [];
-window.customCards.push({
-  type: NAVN,
-  name: "Rumlys",
-  description: "Lyset i et rum fra Rumlys: lysstyrke, hold lys og rummets scener.",
-  preview: true,
-  documentationURL: "https://github.com/hedegaard1/rumlys",
-});
+// Kortet står ikke i Home Assistants «Tilføj kort»-liste: det sættes ind fra Rumlys under rummets «Kort»,
+// så Rumlys kender det fra første sekund. Et kort, der alligevel kommer ind — YAML, «Duplikér» eller en
+// gendannet backup — klarer fanens regel.
 console.info("%c RUMLYS-KORT %c " + VERSION + " ", "color:#fff;background:#F5A623;font-weight:700;border-radius:3px 0 0 3px", "color:#fff;background:#3373A3;font-weight:700;border-radius:0 3px 3px 0");

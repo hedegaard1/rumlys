@@ -56,14 +56,16 @@ vælges.
 - **Når ingen er i rummet** — hvornår lys tændt af sensoren, og lys nogen selv har valgt, slukker.
 - **Hold lys tændt** — hvor længe.
 - **Scener på kortet** — de samme på alle kort for rummet.
-- **Kort** — rummets kort på alle betjeningspaneler, i den rækkefølge de står, og hvor de står. Hvert kort står
-  som én linje med, hvad det viser; tryk på linjen for at vælge lamper. Et kort, der ikke kan bruges, er foldet ud
-  med det samme. Et kort viser
+- **Kort** — rummets kort på alle betjeningspaneler, i den rækkefølge de står, og hvor de står. **«Tilføj kort til
+  en fane»** sætter kortet ind nederst på den fane, du vælger, og i kortets boks vælger du fanen igen for at flytte
+  det — eller «Fjern kortet». Hvert kort står som én linje med, hvad det viser; tryk på linjen for at folde den ud.
+  Et kort, der ikke kan bruges, er foldet ud med det samme. Et kort viser
   hele rummet eller de lamper, der er valgt til det. På en fane kan en lampe kun stå på ét kort, og et kort for
   hele rummet optager dem alle: på de andre kort står en lampe som «På kort N» — med «Flyt hertil», når kort N
-  kun har nogle af lamperne. Et nyt kort dukker op af sig selv som «Nyt»; det viser hele rummet, hvis det er
-  rummets eneste kort på fanen, og ellers ingen lamper, til de vælges. Står samme kort flere gange på en fane —
-  fx efter «Duplikér» — virker ingen af dem, til «Adskil» har givet det sidste sit eget id. Listen følger selv
+  kun har nogle af lamperne. Kommer et kort ind uden om Rumlys — YAML, «Duplikér» eller en gendannet backup —
+  dukker det op som «Nyt»; det viser hele rummet, hvis det er rummets eneste kort på fanen, og ellers ingen lamper,
+  til de vælges. Står samme kort flere gange på en fane, virker ingen af dem, til «Adskil» har givet det sidste sit
+  eget id. Listen følger selv
   med, når et betjeningspanel gemmes. Et kort, der fjernes, forsvinder fra listen, men Rumlys husker dets valg,
   så et kort, der kommer igen — fx med Fortryd — stadig viser sine lamper.
 - **Seneste hændelser** — fx «Slukket: ingen i rummet, valgt lys».
@@ -94,7 +96,10 @@ forhåndsvisningen, mens det sættes ind — «Lamperne står på et andet kort 
 Rumlys kender, går altid forud for et nyt, og et nyt kort styrer først noget, når det har læst sin fane; indtil da
 står det med «…». En administrator får knappen «Vælg lamper i Rumlys».
 
-Id'et sættes, når kortet sættes ind, eller når dets opsætning åbnes. Et kort på et betjeningspanel i YAML får
+**Kortet sættes ind fra Rumlys**, under rummets «Kort», og står derfor ikke i Home Assistants «Tilføj kort»-liste.
+Det er sat ind, flyttet og fjernet ét sted, og Rumlys kender det fra første sekund. Et kort, der alligevel kommer
+ind — skrevet i YAML, kopieret med «Duplikér» eller gendannet fra en backup — virker stadig; så gælder fanens
+regel ovenfor, og sidepanelet giver det et id. Et kort på et betjeningspanel i YAML får
 det ikke af sig selv; sidepanelet foreslår en linje `kort: …`. Kort fra 0.4.9–0.4.10 har intet id og kan have
 `lamper` i opsætningen: de virker stadig, og får de et id — med «Giv kortet et id» i sidepanelet eller ved at
 åbne kortets opsætning — følger lamperne med ind i Rumlys.
