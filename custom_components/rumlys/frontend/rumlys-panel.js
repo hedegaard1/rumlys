@@ -134,6 +134,9 @@ select, input[type=text], input[type=time], input[type=search] {
 .naar .tx { flex: 1; min-width: 180px; }
 .naar .tx b { display: block; font-size: 14px; font-weight: 500; }
 .naar .tx small { color: var(--rl-daempet); font-size: 12px; }
+/* En indstilling, der ikke bruges endnu — fx tiden for sensoren i et rum uden sensor. Den kan stadig sættes. */
+.naar.ubrugt .tx b, .naar.ubrugt .tx small:not(.advarsel) { opacity: .55; }
+.advarsel { color: var(--rl-p); }
 .uge { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 10px; align-items: center; }
 .uge .dag { font-size: 12px; color: var(--rl-daempet); }
 .uge .dag.idag { color: var(--primary-text-color); font-weight: 700; }
@@ -1510,6 +1513,8 @@ class RumlysPanel extends HTMLElement {
       "mdi:calendar-clock",
       this.t("tidsplan"),
       this.t("tidsplan_hint"),
+      // Tidsrummets lys er det, en sensor tænder med. Uden sensor sker det aldrig, og så siger vi det.
+      d.sensorer.length ? null : h("p", { class: "hint advarsel" }, this.t("tidsplan_uden_sensor")),
       uge,
       liste,
       fast,
@@ -1657,16 +1662,18 @@ class RumlysPanel extends HTMLElement {
   _sekIngen() {
     const ind = this._kladde.indstillinger;
     const anbefalet = this._anbefaletTid();
-    const anbefaling = this._kladde.data.sensorer.length
-      ? h("small", { style: { display: "block" } }, this.t(anbefalet === ANBEFALET_TILSTEDE ? "anb_tilstede" : "anb_bevaegelse", { tid: this._sekunder(anbefalet) }))
-      : null;
+    const udenSensor = !this._kladde.data.sensorer.length;
+    // Uden sensor er der intet, der tænder lyset, så tiden for automatisk lys bruges ikke — den kan stadig sættes.
+    const anbefaling = udenSensor
+      ? h("small", { class: "advarsel", style: { display: "block" } }, this.t("auto_uden_sensor"))
+      : h("small", { style: { display: "block" } }, this.t(anbefalet === ANBEFALET_TILSTEDE ? "anb_tilstede" : "anb_bevaegelse", { tid: this._sekunder(anbefalet) }));
     const auto = trinvalg([0, 10, 20, 30, 45, 60, 90, 120, 180, 300, 600, 900, 1800], ind.sluk_efter_bevaegelse, (v) => this._sekunder(v), (v) => { ind.sluk_efter_bevaegelse = v; this._aendret(); });
     const valgt = trinvalg([0, 1, 2, 3, 5, 10, 15, 20, 30, 45, 60, 90, 120], ind.sluk_efter_tryk, (v) => (v === 0 ? this.t("aldrig") : v >= 60 && v % 60 === 0 ? this.t("timer", { n: v / 60 }) : this.t("min", { n: v })), (v) => { ind.sluk_efter_tryk = v; this._aendret(); });
     return this._sektion(
       "mdi:motion-sensor-off",
       this.t("ingen_i_rummet"),
       this.t("ingen_hint"),
-      h("div", { class: "naar" }, h("div", { class: "tx" }, h("b", {}, this.t("auto_lys")), h("small", {}, this.t("auto_sub")), anbefaling), auto),
+      h("div", { class: "naar" + (udenSensor ? " ubrugt" : "") }, h("div", { class: "tx" }, h("b", {}, this.t("auto_lys")), h("small", {}, this.t("auto_sub")), anbefaling), auto),
       h("div", { class: "naar" }, h("div", { class: "tx" }, h("b", {}, this.t("valgt_lys")), h("small", {}, this.t("valgt_sub"))), valgt)
     );
   }
