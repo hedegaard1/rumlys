@@ -1435,9 +1435,11 @@ class RumlysCardEditor extends HTMLElement {
   }
 }
 
-customElements.define(NAVN, RumlysCard);
-customElements.define(NAVN + "-menu", RumlysMenu);
-customElements.define(NAVN + "-editor", RumlysCardEditor);
+// En fane, der står åben under en opdatering, får den nye fil oven i den gamle. Uden vagten kaster `define`
+// en fejl, og resten af filen bliver aldrig kørt — nu kører fanen bare videre på forrige version.
+[[NAVN, RumlysCard], [NAVN + "-menu", RumlysMenu], [NAVN + "-editor", RumlysCardEditor]].forEach(([navn, klasse]) => {
+  if (!customElements.get(navn)) customElements.define(navn, klasse);
+});
 
 // Kortet står ikke i Home Assistants «Tilføj kort»-liste: det sættes ind fra Rumlys under rummets «Kort»,
 // så Rumlys kender det fra første sekund. Et kort, der alligevel kommer ind — YAML, «Duplikér» eller en

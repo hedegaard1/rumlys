@@ -2142,5 +2142,7 @@ class RumlysPanel extends HTMLElement {
   }
 }
 
-customElements.define("rumlys-panel", RumlysPanel);
+// En side, der står åben under en opdatering, indlæser den nye fil oven i den gamle. Uden vagten her kaster
+// `define` en fejl, og siden går i stå — nu bliver den bare stående på forrige version, til den genindlæses.
+if (!customElements.get("rumlys-panel")) customElements.define("rumlys-panel", RumlysPanel);
 console.info("%c RUMLYS %c " + VERSION + " ", "color:#fff;background:#F5A623;font-weight:700;border-radius:3px 0 0 3px", "color:#fff;background:#3373A3;font-weight:700;border-radius:0 3px 3px 0");
