@@ -82,7 +82,9 @@ button { font: inherit; color: inherit; }
 .rumfelt .tekst { padding: 10px 12px 12px; }
 .rumfelt b { display: block; font-size: 15px; font-weight: 600; }
 .rumfelt .status { font-size: 13px; color: var(--rl-daempet); }
-.rumfelt.nyt { border: 2px dashed var(--rl-linje); background: transparent; box-shadow: none; align-items: center; justify-content: center; min-height: 140px; color: var(--rl-p); font-weight: 600; gap: 6px; }
+/* Den stiplede kant tegnes i temaets farve, ikke i stregfarven: i fx «Graphite Light» er stregfarven næsten hvid,
+   og så forsvandt feltet. */
+.rumfelt.nyt { border: 2px dashed color-mix(in srgb, var(--rl-p) 45%, transparent); background: transparent; box-shadow: none; align-items: center; justify-content: center; min-height: 140px; color: var(--rl-p); font-weight: 600; gap: 6px; }
 .rumfelt .meta { font-size: 12px; color: var(--rl-daempet); margin-top: 6px; }
 
 /* rummets side */
