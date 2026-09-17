@@ -24,6 +24,7 @@ import {
   kategoriNavn,
   kelvinGraenser,
   klokken,
+  kortNavn,
   lysvalgBaggrund,
   meldOpdateret,
   nytKortId,
@@ -155,8 +156,14 @@ select, input[type=text], input[type=time], input[type=search] {
 .kortboks { border: 1px solid var(--rl-linje); border-radius: 12px; padding: 12px; display: grid; gap: 8px; justify-items: start; }
 .kortboks .raekke { width: 100%; box-sizing: border-box; }
 .kortboks .hint { margin: 0; }
-.korthoved { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; width: 100%; }
+.korthoved { display: flex; align-items: center; gap: 8px; width: 100%; box-sizing: border-box; padding: 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.korthoved .kt { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.korthoved .kt1 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.korthoved .hvad { color: var(--rl-daempet); font-size: 13px; }
+.korthoved .hvad.advarsel { color: var(--rl-p); font-weight: 600; }
 .korthoved small { color: var(--rl-daempet); font-size: 12px; }
+.korthoved .chev { color: var(--rl-daempet); flex: none; transition: transform .15s ease; }
+.korthoved[aria-expanded="true"] .chev { transform: rotate(90deg); }
 .pille.ny { background: var(--rl-p); color: var(--rl-paa-p); }
 .genveje { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0 10px; }
 .genveje .knap { padding: 6px 12px; font-size: 13px; }
@@ -325,6 +332,9 @@ class RumlysPanel extends HTMLElement {
     // Rumlys-kortene på betjeningspanelerne, og kortene der var nye, da rummet blev åbnet.
     this._kortfund = null;
     this._nyeKort = new Set();
+    // Hvilke kort der er foldet ud, og hvilke der har fået deres første stilling — foldet ud, hvis de skal ses efter.
+    this._aabneKort = new Set();
+    this._kendteKort = new Set();
     // Id'er foreslået til kort, Rumlys ikke kan skrive i, efter kortets plads: de samme, også efter en ny scanning.
     this._forslag = {};
     this._vedOpdatering = () => this._hentListe();
@@ -434,6 +444,8 @@ class RumlysPanel extends HTMLElement {
     }
     this._levende = [];
     this._nyeKort = new Set();
+    this._aabneKort = new Set();
+    this._kendteKort = new Set();
     this._tegnRamme(this._navnPaaAktivt(), h("div", { class: "besked" }, "…"), true);
     try {
       await Promise.all([this._hentRum(this._aktiv), this._hentOmraader()]);
@@ -615,31 +627,76 @@ class RumlysPanel extends HTMLElement {
     };
     const hint = (tekst) => h("p", { class: "hint" }, tekst);
 
+    const lampeNavn = (entity_id) => {
+      const st = this._hass.states[entity_id];
+      return kortNavn((st && st.attributes.friendly_name) || entity_id, this._detalje.navn);
+    };
     const boks = (k) => {
       const f = k.steder[0];
       const stoerrelse = this.t({ small: "lille", large: "stor" }[f.config.size] || "mellem");
       const steder = [...new Set(k.steder.map((s) => s.sted))].join(" · ");
-      const dele = [
-        h(
-          "div",
-          { class: "korthoved" },
-          h("b", {}, this.t("kort_nr", { n: nr(k) })),
-          k.id && this._nyeKort.has(k.id) ? h("span", { class: "pille ny" }, this.t("nyt")) : null,
-          h("small", {}, steder + " · " + stoerrelse)
-        ),
-      ];
+      const dele = [];
       // Har et andet kort på en af kortets faner allerede kortets lamper, kan kortet ikke bruges der.
       const spaerretSted = k.steder.find((s) => fordeling.get(s).spaerretAf !== null);
       const spaerring = spaerretSted
         ? hint(this.t("kort_spaerret_boks", { n: nr(kortVed(faner[fane(spaerretSted)][fordeling.get(spaerretSted).spaerretAf])) }))
         : null;
+      // Kladdens valg: en tom liste er hele rummet, null er ingen lamper. Et kort, der ikke er nået at blive
+      // registreret, viser hele rummet. Et kort uden id har sit valg i sin egen opsætning og får det fra fanen.
+      const paaFanen = fordeling.get(f);
+      const valg = !k.id ? (paaFanen.ingen ? null : paaFanen.lamper) : k.id in d.kort ? d.kort[k.id] : [];
+      const hele = valg !== null && valg.length === 0;
+      const valgte = valg === null ? [] : valg.filter((l) => lamper.indexOf(l) >= 0);
+      // Linjen, kortet står med, når det er foldet sammen: hvad kortet viser, eller at det ikke kan bruges.
+      const kanIkke = !!spaerretSted || k.steder.some((s) => fordeling.get(s).dublet) || (!hele && !valgte.length);
+      const viser = kanIkke && (spaerretSted || k.steder.some((s) => fordeling.get(s).dublet))
+        ? this.t("kort_kan_ikke")
+        : hele || valgte.length === lamper.length
+        ? this.t("hele_rummet")
+        : valgte.length
+        ? valgte.map(lampeNavn).join(", ")
+        : this.t("kort_viser_ingen");
+      // Foldet ud fra start, hvis kortet skal ses efter: uden id, uden lamper, spærret eller en dublet.
+      const noegle = k.id || [f.panel, ...f.sti].join("/");
+      if (!this._kendteKort.has(noegle)) {
+        this._kendteKort.add(noegle);
+        if (kanIkke || !k.id) this._aabneKort.add(noegle);
+      }
+      const aaben = this._aabneKort.has(noegle);
+      const hoved = h(
+        "button",
+        {
+          class: "korthoved",
+          type: "button",
+          "aria-expanded": String(aaben),
+          onclick: () => {
+            if (aaben) this._aabneKort.delete(noegle);
+            else this._aabneKort.add(noegle);
+            this._genTegn("kort");
+          },
+        },
+        ikon("mdi:chevron-right", "chev"),
+        h(
+          "div",
+          { class: "kt" },
+          h(
+            "div",
+            { class: "kt1" },
+            h("b", {}, this.t("kort_nr", { n: nr(k) })),
+            k.id && this._nyeKort.has(k.id) ? h("span", { class: "pille ny" }, this.t("nyt")) : null,
+            h("span", { class: "hvad" + (kanIkke ? " advarsel" : "") }, viser)
+          ),
+          h("small", {}, steder + " · " + stoerrelse)
+        )
+      );
+      if (!aaben) return h("div", { class: "kortboks" }, hoved);
       if (!k.id) {
         if (f.skrivbar) dele.push(hint(this.t("kort_uden_id")), h("button", { class: "knap", type: "button", onclick: () => this._nytIdTilKort(f, false) }, this.t("giv_id")));
         else dele.push(hint(this.t("kort_uden_id_yaml", { linje: "kort: " + forslag(f) })));
         // To ens kort uden id på en fane kan kortene ikke skelne; ingen af dem virker, til det ene har fået et id.
         if (fordeling.get(f).dublet) dele.push(hint(this.t("kort_dublet")));
         if (spaerring) dele.push(spaerring);
-        return h("div", { class: "kortboks" }, dele);
+        return h("div", { class: "kortboks" }, hoved, dele);
       }
       // Kopieret med «Duplikér» eller sat ind to steder. På samme fane virker ingen af gangene, til kortene er skilt
       // ad — så er det den sidste kopi på den fane, der skilles ad. På forskellige faner viser de det samme.
@@ -658,11 +715,6 @@ class RumlysPanel extends HTMLElement {
         }
       }
       if (spaerring) dele.push(spaerring);
-      // Kladdens valg: en tom liste er hele rummet, null er ingen lamper. Et kort, der ikke er nået at blive
-      // registreret, viser hele rummet.
-      const valg = k.id in d.kort ? d.kort[k.id] : [];
-      const hele = valg !== null && valg.length === 0;
-      const valgte = valg === null ? [] : valg.filter((l) => lamper.indexOf(l) >= 0);
       // Har et andet kort på fanen lamper, kan dette kort ikke vise hele rummet. Har andre kort dem alle, kan det
       // slet ikke bruges, og så siges kun det.
       const andres = lamper.map((l) => andenHar(k, l)).filter(Boolean);
@@ -689,7 +741,7 @@ class RumlysPanel extends HTMLElement {
         )
       );
       if (heleLukket && !alleHosAndre) dele.push(hint(this.t("hele_optaget", { n: nr(andres[0].kort) })));
-      if (hele) return h("div", { class: "kortboks" }, dele);
+      if (hele) return h("div", { class: "kortboks" }, hoved, dele);
       lamper.forEach((lampe) => {
         const valgt = valgte.indexOf(lampe) >= 0;
         // Valgt både her og på et andet kort på fanen — et kort fra før, eller et kort flyttet hertil fra en anden
@@ -723,14 +775,14 @@ class RumlysPanel extends HTMLElement {
           : null;
         let under = null;
         if (andet) under = andet.hele ? this.t("paa_hele_kort", { n: nr(andet.kort) }) : this.t(valgt ? "ogsaa_paa_kort" : "paa_kort", { n: nr(andet.kort) });
-        dele.push(h("div", { class: "raekke" }, flueben, h("div", { class: "tx" }, h("b", {}, navn), under ? h("small", {}, under) : null), flyt));
+        dele.push(h("div", { class: "raekke" }, flueben, h("div", { class: "tx" }, h("b", {}, lampeNavn(lampe)), under ? h("small", {}, under) : null), flyt));
       });
       if (alleHosAndre) {
         const heleKort = andres.find((a) => a.hele);
         dele.push(hint(heleKort ? this.t("alle_taget_hele", { n: nr(heleKort.kort) }) : this.t("alle_taget")));
       } else if (!valgte.length) dele.push(hint(this.t("ingen_lamper_valgt")));
       else if (valgte.length === lamper.length) dele.push(hint(this.t("alle_valgt")));
-      return h("div", { class: "kortboks" }, dele);
+      return h("div", { class: "kortboks" }, hoved, dele);
     };
 
     // Et kort, der er fjernet fra betjeningspanelet, står ikke her. Dets valg bliver i Rumlys, så et kort, der

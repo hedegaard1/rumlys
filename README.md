@@ -56,7 +56,9 @@ vælges.
 - **Når ingen er i rummet** — hvornår lys tændt af sensoren, og lys nogen selv har valgt, slukker.
 - **Hold lys tændt** — hvor længe.
 - **Scener på kortet** — de samme på alle kort for rummet.
-- **Kort** — rummets kort på alle betjeningspaneler, i den rækkefølge de står, og hvor de står. Et kort viser
+- **Kort** — rummets kort på alle betjeningspaneler, i den rækkefølge de står, og hvor de står. Hvert kort står
+  som én linje med, hvad det viser; tryk på linjen for at vælge lamper. Et kort, der ikke kan bruges, er foldet ud
+  med det samme. Et kort viser
   hele rummet eller de lamper, der er valgt til det. På en fane kan en lampe kun stå på ét kort, og et kort for
   hele rummet optager dem alle: på de andre kort står en lampe som «På kort N» — med «Flyt hertil», når kort N
   kun har nogle af lamperne. Et nyt kort dukker op af sig selv som «Nyt»; det viser hele rummet, hvis det er

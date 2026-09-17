@@ -4,7 +4,7 @@
   ha-martin: hvidt lys tegnes som i Hue-appen, og en hvid scene genkendes på pærerne.
 */
 
-export const VERSION = "0.4.13";
+export const VERSION = "0.4.14";
 // Mappen, filen selv ligger i — i Home Assistant med versionen i stien, på testsiden repoets egen.
 export const FILER = new URL("./", import.meta.url).href;
 // Scenerne ligger i Rumlys selv. I Home Assistant har de en fast adresse uden version, så et kort,
@@ -72,6 +72,8 @@ const TEKSTER = {
     kort_sektion_hint: "Rummets kort på dine betjeningspaneler, i den rækkefølge de står. Et kort viser hele rummet eller de lamper, du vælger. På en fane kan en lampe kun stå på ét kort, og et kort for hele rummet optager dem alle.",
     kort_nr: "Kort {n}",
     nyt: "Nyt",
+    kort_viser_ingen: "Ingen lamper",
+    kort_kan_ikke: "Kan ikke bruges",
     hele_rummet: "Hele rummet",
     valgte_lamper: "Valgte lamper",
     paa_kort: "På kort {n}",
@@ -306,6 +308,8 @@ const TEKSTER = {
     kort_sektion_hint: "The room's cards on your dashboards, in the order they appear. A card shows the whole room or the lights you choose. On a tab a light can only be on one card, and a card for the whole room takes them all.",
     kort_nr: "Card {n}",
     nyt: "New",
+    kort_viser_ingen: "No lights",
+    kort_kan_ikke: "Cannot be used",
     hele_rummet: "Whole room",
     valgte_lamper: "Chosen lights",
     paa_kort: "On card {n}",
@@ -822,6 +826,15 @@ export function nytKortId() {
 // Er kortets opsætning for rummet? Kortet peger på området; kort fra før 0.4.8 har rummets id i `rum`.
 export function erRummetsKort(config, rum) {
   return config.omraade ? config.omraade === rum.omraade : !!config.rum && config.rum === rum.id;
+}
+
+// Pærens navn uden de første ord, den deler med rummet: «Kontor Loftspots» i Kontor bliver «Loftspots».
+export function kortNavn(navn, rumNavn) {
+  const ord = String(navn).split(" ");
+  const rumOrd = String(rumNavn || "").toLowerCase().split(" ");
+  let i = 0;
+  while (i < ord.length - 1 && i < rumOrd.length && ord[i].toLowerCase() === rumOrd[i]) i += 1;
+  return ord.slice(i).join(" ");
 }
 
 // Rumlys-kortene i en fanes opsætning, i den rækkefølge de står — også inde i stakke, betingede kort og pop-ups.

@@ -22,6 +22,7 @@ import {
   kanFarve,
   kanHvid,
   kelvinGraenser,
+  kortNavn,
   luminans,
   lysFarve,
   meldOpdateret,
@@ -133,15 +134,6 @@ function lampeStatus(hass, st) {
   if (st.state === "unavailable" || st.state === "unknown") return tekst(hass, "utilgaengelig");
   if (st.state !== "on") return tekst(hass, "slukket");
   return daempbar(st) ? tekst(hass, "taendt") + " · " + pct(st) + " %" : tekst(hass, "taendt");
-}
-
-// Pærens navn uden de første ord, den deler med rummet: «Kontor Loftspots» i Kontor bliver «Loftspots».
-function kortNavn(navn, rumNavn) {
-  const ord = String(navn).split(" ");
-  const rumOrd = String(rumNavn || "").toLowerCase().split(" ");
-  let i = 0;
-  while (i < ord.length - 1 && i < rumOrd.length && ord[i].toLowerCase() === rumOrd[i]) i += 1;
-  return ord.slice(i).join(" ");
 }
 
 function kelvinOmraade(a) {
