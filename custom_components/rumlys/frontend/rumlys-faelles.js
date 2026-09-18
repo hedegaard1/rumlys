@@ -4,7 +4,7 @@
   ha-martin: hvidt lys tegnes som i Hue-appen, og en hvid scene genkendes på pærerne.
 */
 
-export const VERSION = "0.4.16";
+export const VERSION = "0.4.17";
 // Mappen, filen selv ligger i — i Home Assistant med versionen i stien, på testsiden repoets egen.
 export const FILER = new URL("./", import.meta.url).href;
 // Scenerne ligger i Rumlys selv. I Home Assistant har de en fast adresse uden version, så et kort,
@@ -125,6 +125,7 @@ const TEKSTER = {
     lamper: "Lamper",
     lamper_hint: "Vælg rummets lamper. Er en gruppe valgt, skjules dens pærer, så de ikke styres to gange.",
     taender_ved_bevaegelse: "Tænder ved bevægelse",
+    bevaegelse_uden_sensor: "Rummet har ingen sensor, så ingen af lamperne tændes af bevægelse. Vælg en sensor nedenfor, så kommer valget frem.",
     gruppe_med: "Gruppe med {n}",
     fra_omraade: "Fra {omraade}",
     uden_omraade: "Uden område",
@@ -190,9 +191,9 @@ const TEKSTER = {
     gem: "Gem",
     ingen_i_rummet: "Når ingen er i rummet",
     ingen_hint: "Hvor længe lyset bliver, efter at sensoren ikke ser nogen. Er nogen i rummet, slukker det aldrig.",
+    ingen_hint_uden_sensor: "Rummet har ingen sensor, så kun lys, du selv tænder, slukker af sig selv.",
     auto_lys: "Lys tændt af sensoren",
     auto_sub: "Slukker efter",
-    auto_uden_sensor: "Rummet har ingen sensor, så denne tid bruges ikke endnu.",
     valgt_lys: "Lys, som nogen selv har valgt",
     valgt_sub: "På kortet, med en scene, i appen eller på væggen. «Aldrig» betyder, at det ikke slukker af sig selv",
     hold: "Hold lys tændt",
@@ -379,6 +380,7 @@ const TEKSTER = {
     lamper: "Lights",
     lamper_hint: "Choose the room's lights. When a group is chosen, its bulbs are hidden so they are not controlled twice.",
     taender_ved_bevaegelse: "Turns on with motion",
+    bevaegelse_uden_sensor: "The room has no sensor, so none of the lights turn on with motion. Choose a sensor below and the option appears.",
     gruppe_med: "Group of {n}",
     fra_omraade: "From {omraade}",
     uden_omraade: "No area",
@@ -444,9 +446,9 @@ const TEKSTER = {
     gem: "Save",
     ingen_i_rummet: "When nobody is in the room",
     ingen_hint: "How long the light stays on after the sensor no longer sees anyone. While someone is in the room, it never turns off.",
+    ingen_hint_uden_sensor: "The room has no sensor, so only light you turn on yourself switches off by itself.",
     auto_lys: "Light turned on by the sensor",
     auto_sub: "Turns off after",
-    auto_uden_sensor: "The room has no sensor, so this time is not used yet.",
     valgt_lys: "Light someone has chosen",
     valgt_sub: "On the card, with a scene, in the app or on the wall. «Never» means it does not turn off by itself",
     hold: "Keep light on",

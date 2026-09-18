@@ -1449,6 +1449,7 @@ class RumlysPanel extends HTMLElement {
 
   _sekLamper() {
     const d = this._kladde.data;
+    const udenSensor = !d.sensorer.length;
     const omraade = this._omraade(d.omraade);
     const valgte = new Map(d.lamper.map((l) => [l.entity_id, l]));
     const kendte = new Map(omraade.lamper.map((l) => [l.entity_id, l]));
@@ -1476,7 +1477,9 @@ class RumlysPanel extends HTMLElement {
           lampe.bevaegelse = !lampe.bevaegelse;
           this._genTegn("lamper");
         });
-        foelger = h("label", { class: "kontaktfelt" }, this.t("taender_ved_bevaegelse"), kontakt);
+        // Uden en sensor er der intet, der tænder ved bevægelse, så kontakten står der ikke. Valget er gemt og
+        // kommer frem igen, den dag rummet får en sensor — vi slår det ikke fra, for så tændte lyset ikke.
+        foelger = udenSensor ? null : h("label", { class: "kontaktfelt" }, this.t("taender_ved_bevaegelse"), kontakt);
       }
       // Lampens eget ikon. Tryk skifter det i Home Assistant — kun for lamper i entitetsregistret.
       let vist = rummetsIkoner(this._hass, [entityId], null)[0];
@@ -1507,7 +1510,8 @@ class RumlysPanel extends HTMLElement {
     });
     if (!liste.children.length) liste.appendChild(h("p", { class: "hint" }, this.t("ingen_lamper")));
     const andre = h("button", { class: "knap t", onclick: () => this._andreLamper() }, ikon("mdi:plus"), this.t("vis_andre"));
-    return this._sektion(RUMLYS_IKON, this.t("lamper"), this.t("lamper_hint"), liste, andre, this._blodFelt());
+    const udenSensorHint = udenSensor && d.lamper.length ? h("p", { class: "hint advarsel" }, this.t("bevaegelse_uden_sensor")) : null;
+    return this._sektion(RUMLYS_IKON, this.t("lamper"), this.t("lamper_hint"), liste, udenSensorHint, andre, this._blodFelt());
   }
 
   // Lampens ikon hører til lampen, ikke til rummet: det gemmes med det samme i Home Assistants
@@ -1919,18 +1923,17 @@ class RumlysPanel extends HTMLElement {
   _sekIngen() {
     const ind = this._kladde.indstillinger;
     const anbefalet = this._anbefaletTid();
+    // Uden sensor er der intet, der tænder lyset, så tiden for automatisk lys står der ikke. Den er gemt og
+    // kommer frem igen med sin værdi, den dag rummet får en sensor.
     const udenSensor = !this._kladde.data.sensorer.length;
-    // Uden sensor er der intet, der tænder lyset, så tiden for automatisk lys bruges ikke — den kan stadig sættes.
-    const anbefaling = udenSensor
-      ? h("small", { class: "advarsel", style: { display: "block" } }, this.t("auto_uden_sensor"))
-      : h("small", { style: { display: "block" } }, this.t(anbefalet === ANBEFALET_TILSTEDE ? "anb_tilstede" : "anb_bevaegelse", { tid: this._sekunder(anbefalet) }));
+    const anbefaling = h("small", { style: { display: "block" } }, this.t(anbefalet === ANBEFALET_TILSTEDE ? "anb_tilstede" : "anb_bevaegelse", { tid: this._sekunder(anbefalet) }));
     const auto = trinvalg([0, 10, 20, 30, 45, 60, 90, 120, 180, 300, 600, 900, 1800], ind.sluk_efter_bevaegelse, (v) => this._sekunder(v), (v) => { ind.sluk_efter_bevaegelse = v; this._aendret(); });
     const valgt = trinvalg([0, 1, 2, 3, 5, 10, 15, 20, 30, 45, 60, 90, 120], ind.sluk_efter_tryk, (v) => (v === 0 ? this.t("aldrig") : v >= 60 && v % 60 === 0 ? this.t("timer", { n: v / 60 }) : this.t("min", { n: v })), (v) => { ind.sluk_efter_tryk = v; this._aendret(); });
     return this._sektion(
       "mdi:motion-sensor-off",
       this.t("ingen_i_rummet"),
-      this.t("ingen_hint"),
-      h("div", { class: "naar" + (udenSensor ? " ubrugt" : "") }, h("div", { class: "tx" }, h("b", {}, this.t("auto_lys")), h("small", {}, this.t("auto_sub")), anbefaling), auto),
+      this.t(udenSensor ? "ingen_hint_uden_sensor" : "ingen_hint"),
+      udenSensor ? null : h("div", { class: "naar" }, h("div", { class: "tx" }, h("b", {}, this.t("auto_lys")), h("small", {}, this.t("auto_sub")), anbefaling), auto),
       h("div", { class: "naar" }, h("div", { class: "tx" }, h("b", {}, this.t("valgt_lys")), h("small", {}, this.t("valgt_sub"))), valgt)
     );
   }
