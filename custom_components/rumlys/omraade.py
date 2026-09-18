@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from homeassistant.const import ATTR_ENTITY_ID
+from homeassistant.components.light import LightEntityFeature
+from homeassistant.const import ATTR_ENTITY_ID, ATTR_SUPPORTED_FEATURES
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import (
     area_registry as ar,
@@ -23,6 +24,7 @@ from .const import (
     CONF_SENSORER,
     CONF_TIDSRUM,
     STANDARD_LYS,
+    STANDARD_OVERGANG,
 )
 
 SENSORKLASSER = ("motion", "occupancy", "presence")
@@ -75,6 +77,16 @@ def lamper_og_sensorer(hass: HomeAssistant, omraade: str) -> tuple[list[str], li
 
 
 @callback
+def _kan_blodt(hass: HomeAssistant, lamper: list[str]) -> bool:
+    """Kan mindst én af lamperne tænde og slukke blødt? Et IHC-relæ kan ikke."""
+    return any(
+        (tilstand := hass.states.get(entity_id)) is not None
+        and tilstand.attributes.get(ATTR_SUPPORTED_FEATURES, 0) & LightEntityFeature.TRANSITION
+        for entity_id in lamper
+    )
+
+
+@callback
 def nyt_rum(hass: HomeAssistant, omraade: str) -> dict[str, Any]:
     """Et nyt rum med områdets lamper og sensorer valgt på forhånd."""
     lamper, sensorer = lamper_og_sensorer(hass, omraade)
@@ -83,7 +95,9 @@ def nyt_rum(hass: HomeAssistant, omraade: str) -> dict[str, Any]:
         CONF_LAMPER: [{CONF_ENTITY_ID: e, CONF_BEVAEGELSE: True} for e in lamper],
         CONF_SENSORER: sensorer,
         CONF_LYS: dict(STANDARD_LYS),
-        CONF_OVERGANG: 0,
+        # Blød tænd og sluk i 3 sekunder, som Kontor og Træningsrum blev sat op med. Kan ingen af lamperne
+        # det, står feltet slet ikke på rummets side, og så skal tallet være 0.
+        CONF_OVERGANG: STANDARD_OVERGANG if _kan_blodt(hass, lamper) else 0,
         CONF_TIDSRUM: [],
         CONF_SCENER: [],
     }

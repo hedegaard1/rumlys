@@ -145,6 +145,28 @@ async def test_tilfoej_rum_vaelger_omraadet(hass: HomeAssistant) -> None:
     assert enhed.configuration_url == f"homeassistant://rumlys/{rum.subentry_id}"
 
 
+async def test_nyt_rum_faar_blod_taend_og_sluk_naar_lamperne_kan_det(hass: HomeAssistant) -> None:
+    """Blød tænd og sluk står på 3 sekunder i et nyt rum — men kun når en lampe kan det."""
+    await gangen(hass)
+    # Gruppen melder, at den kan tænde og slukke blødt (LightEntityFeature.TRANSITION).
+    hass.states.async_set(
+        "light.gang_loftspots",
+        "off",
+        {"group_entities": ["light.gang_spot_1", "light.gang_spot_2"], "supported_features": 32},
+    )
+    entry = MockConfigEntry(domain=DOMAIN, title="Rumlys", minor_version=2)
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    flow = hass.config_entries.subentries
+
+    result = await flow.async_init((entry.entry_id, RUM), context={"source": SOURCE_USER})
+    result = await flow.async_configure(result["flow_id"], {"omraade": "gang"})
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    await hass.async_block_till_done()
+    rum = next(r for r in entry.subentries.values() if r.unique_id == "gang")
+    assert rum.data["overgang"] == 3
+
+
 async def test_alle_omraader_har_et_rum(hass: HomeAssistant) -> None:
     ar.async_get(hass).async_create("Kontor")
     entry = MockConfigEntry(

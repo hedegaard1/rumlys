@@ -15,6 +15,8 @@ CONF_TILSTEDE = "tilstede"  # sensorerne, der ser tilstedeværelse; de andre ser
 CONF_SENSOR_LAMPER = "sensor_lamper"  # hvilke af rummets lamper hver sensor tænder; tom = alle
 CONF_LYS = "lys"  # rummets eget lys
 CONF_OVERGANG = "overgang"
+# Blød tænd og sluk i et nyt rum, når lamperne kan det.
+STANDARD_OVERGANG = 3
 CONF_TIDSRUM = "tidsrum"
 CONF_SCENER = "scener"  # scenerne på kortet
 CONF_IKON = "ikon"  # kortets ikon; uden ikon viser kortet lampernes egne
