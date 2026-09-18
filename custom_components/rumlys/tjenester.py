@@ -24,6 +24,7 @@ DAEMP = vol.Schema(
     {**RUM_VALG, vol.Required("lysstyrke"): vol.All(vol.Coerce(int), vol.Range(min=0, max=100))}
 )
 ANVEND_LYS = vol.Schema({**RUM_VALG, vol.Required("lys"): LYSVALG})
+HOLD = vol.Schema({**RUM_VALG, vol.Required("til"): cv.boolean})
 ANVEND_SCENE = vol.Schema(
     {
         **RUM_VALG,
@@ -38,6 +39,7 @@ def async_register(hass: HomeAssistant) -> None:
     hass.services.async_register(DOMAIN, "daemp", _daemp, schema=DAEMP)
     hass.services.async_register(DOMAIN, "anvend_lys", _anvend_lys, schema=ANVEND_LYS)
     hass.services.async_register(DOMAIN, "anvend_scene", _anvend_scene, schema=ANVEND_SCENE)
+    hass.services.async_register(DOMAIN, "hold", _hold, schema=HOLD)
 
 
 def _rummet(call: ServiceCall) -> Rum:
@@ -77,6 +79,15 @@ async def _daemp(call: ServiceCall) -> None:
 async def _anvend_lys(call: ServiceCall) -> None:
     rum = _rummet(call)
     rum.anvend_lys(hele_tal(call.data["lys"]), _lamper(call, rum))
+
+
+async def _hold(call: ServiceCall) -> None:
+    """Slå «hold lys» til eller fra. Holdet gælder rummet; `lamper` er dem, der tændes, hvis lyset er slukket."""
+    rum = _rummet(call)
+    if call.data["til"]:
+        rum.hold_til(_lamper(call, rum))
+    else:
+        rum.hold_fra()
 
 
 async def _anvend_scene(call: ServiceCall) -> None:

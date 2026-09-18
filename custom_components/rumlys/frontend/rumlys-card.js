@@ -280,8 +280,6 @@ const STYLE = KONTROL_STYLE + `
   /* Uden et rum i Rumlys er der intet at styre — kun knappen, der sætter rummet op. */
   ha-card.uden-rum { cursor:default; }
   ha-card.uden-rum .skyder, ha-card.uden-rum .hold, ha-card.uden-rum .kontakt, ha-card.uden-rum .scener { display:none; }
-  /* «Hold lys» hører til hele rummet og står ikke på et kort for nogle af lamperne. */
-  ha-card.delvis .hold { display:none; }
   .saet-op {
     flex:none; height:var(--rl-knap); padding:0 16px; border:none; border-radius:calc(var(--rl-knap) / 2); cursor:pointer;
     background:var(--rl-fyld); color:var(--rl-paa-fyld); font-size:var(--rl-status); font-weight:var(--ha-font-weight-medium, 500); white-space:nowrap;
@@ -811,11 +809,13 @@ class RumlysCard extends HTMLElement {
     this._hass.callService("light", taendt ? "turn_off" : "turn_on", { entity_id: lamper });
   }
 
+  // «Hold lys» gælder hele rummet — det har én tilstand og én nedtælling — men fra et kort for nogle af
+  // lamperne er det kun dem, der tændes, hvis lyset er slukket.
   _skiftHold() {
     const rum = this._rum();
-    if (!this._hass || !rum || this._spaerret() || this._delvis()) return;
+    if (!this._hass || !rum || this._spaerret()) return;
     const hold = this._hass.states[rum.entiteter.hold];
-    this._hass.callService("switch", hold && hold.state === "on" ? "turn_off" : "turn_on", { entity_id: rum.entiteter.hold });
+    this._hass.callService("rumlys", "hold", Object.assign({ rum: rum.id, til: !(hold && hold.state === "on") }, this._valg()));
   }
 
   _daemp(vaerdi) {
@@ -1240,8 +1240,8 @@ class RumlysMenu extends HTMLElement {
       }
     }
 
-    // «Hold lys», scener og lamper hører til rummet og vises kun på forsiden af menuen.
-    const hold = k._delvis() ? null : hass.states[rum.entiteter.hold];
+    // Scener og lamper hører til rummet og vises kun på forsiden af menuen.
+    const hold = hass.states[rum.entiteter.hold];
     e.hold.classList.toggle("skjult", !rummet || !hold);
     if (rummet && hold) {
       const aktiv = hold.state === "on";

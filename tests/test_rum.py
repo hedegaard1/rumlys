@@ -235,6 +235,25 @@ async def test_sensor_uden_egne_lamper_taender_dem_alle(hus: Hus) -> None:
     assert [k.data["entity_id"] for k in hus.taend] == [[SPOTS, STENLAMPE]]
 
 
+async def test_hold_fra_et_kort_taender_kun_kortets_lamper(hus: Hus) -> None:
+    """«Hold lys» gælder hele rummet, men fra et kort for nogle af lamperne tændes kun dem."""
+    rummet = RUMMET | {
+        "lamper": [
+            {"entity_id": SPOTS, "bevaegelse": True},
+            {"entity_id": STENLAMPE, "bevaegelse": True},
+        ]
+    }
+    await hus.saet_op(rummet)
+
+    await hus.tjeneste("rumlys", "hold", rum="traeningsrum", til=True, lamper=[SPOTS])
+    # Kun kortets lampe tændes — stenlampen bliver slukket, selvom den hører til rummet.
+    assert [k.data["entity_id"] for k in hus.taend] == [[SPOTS]]
+    assert hus.tilstand() == "hold"
+
+    await hus.tjeneste("rumlys", "hold", rum="traeningsrum", til=False)
+    assert hus.tilstand() != "hold"
+
+
 async def test_ny_bevaegelse_stopper_nedtaellingen(hus: Hus) -> None:
     await hus.saet_op()
     await hus.bevaegelse("on")

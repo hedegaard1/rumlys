@@ -265,17 +265,19 @@ class Rum:
         self._opdater()
 
     @callback
-    def hold_til(self) -> None:
-        """Hold lyset tændt i hold-tiden. Slukket lys tændes med det sidst brugte lys."""
+    def hold_til(self, lamper: list[str] | None = None) -> None:
+        """Hold lyset tændt i hold-tiden. Holdet gælder hele rummet — rummet har én tilstand — men er lyset
+        slukket, tændes kun `lamper`, når det kommer fra et kort for nogle af lamperne."""
         self.hold_slutter = dt_util.utcnow() + timedelta(
             hours=self.indstillinger[HOLD_TID]
         )
         self.slukker = None
         if self.kilde is None:
             self.kilde = HAAND
+            maal = self.lamperne(lamper) if lamper else self.foelger
             husket = self._husket_lys()
-            if husket is None or not self._gendan(husket, self.foelger):
-                self._kald("turn_on", {}, self.foelger)
+            if husket is None or not self._gendan(husket, maal):
+                self._kald("turn_on", {}, maal)
         self._log("hold_til")
         self._opdater()
 

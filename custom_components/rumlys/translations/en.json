@@ -49,31 +49,92 @@
       "name": "Dim room",
       "description": "Dims all the room's lights in the same proportion: the brightest gets the brightness and the others follow. 0 turns the room off.",
       "fields": {
-        "rum": { "name": "Room", "description": "The room's id in Rumlys." },
-        "omraade": { "name": "Area", "description": "Or the room's area." },
-        "lamper": { "name": "Lights", "description": "Only these of the room's lights. Empty: the whole room." },
-        "lysstyrke": { "name": "Brightness", "description": "The brightest light's brightness." }
+        "rum": {
+          "name": "Room",
+          "description": "The room's id in Rumlys."
+        },
+        "omraade": {
+          "name": "Area",
+          "description": "Or the room's area."
+        },
+        "lamper": {
+          "name": "Lights",
+          "description": "Only these of the room's lights. Empty: the whole room."
+        },
+        "lysstyrke": {
+          "name": "Brightness",
+          "description": "The brightest light's brightness."
+        }
       }
     },
     "anvend_lys": {
       "name": "Choose light for room",
       "description": "Turns the room's lights on with a light choice: white light, colour, scene or brightness only. The room remembers it as the chosen light.",
       "fields": {
-        "rum": { "name": "Room", "description": "The room's id in Rumlys." },
-        "omraade": { "name": "Area", "description": "Or the room's area." },
-        "lamper": { "name": "Lights", "description": "Only these of the room's lights. Empty: the whole room." },
-        "lys": { "name": "Light", "description": "For example {\"type\": \"hvid\", \"lysstyrke\": 80, \"kelvin\": 2700}." }
+        "rum": {
+          "name": "Room",
+          "description": "The room's id in Rumlys."
+        },
+        "omraade": {
+          "name": "Area",
+          "description": "Or the room's area."
+        },
+        "lamper": {
+          "name": "Lights",
+          "description": "Only these of the room's lights. Empty: the whole room."
+        },
+        "lys": {
+          "name": "Light",
+          "description": "For example {\"type\": \"hvid\", \"lysstyrke\": 80, \"kelvin\": 2700}."
+        }
       }
     },
     "anvend_scene": {
       "name": "Choose scene for room",
       "description": "Turns the room's lights on with a scene. The room remembers it as the chosen light.",
       "fields": {
-        "rum": { "name": "Room", "description": "The room's id in Rumlys." },
-        "omraade": { "name": "Area", "description": "Or the room's area." },
-        "lamper": { "name": "Lights", "description": "Only these of the room's lights. Empty: the whole room." },
-        "scene": { "name": "Scene", "description": "The scene's id." },
-        "lysstyrke": { "name": "Brightness", "description": "Empty: the scene's own brightness." }
+        "rum": {
+          "name": "Room",
+          "description": "The room's id in Rumlys."
+        },
+        "omraade": {
+          "name": "Area",
+          "description": "Or the room's area."
+        },
+        "lamper": {
+          "name": "Lights",
+          "description": "Only these of the room's lights. Empty: the whole room."
+        },
+        "scene": {
+          "name": "Scene",
+          "description": "The scene's id."
+        },
+        "lysstyrke": {
+          "name": "Brightness",
+          "description": "Empty: the scene's own brightness."
+        }
+      }
+    },
+    "hold": {
+      "name": "Keep the light on",
+      "description": "Keeps the room's light on for the hold time and suspends the sensor and the countdowns. If the light is off, it is turned on.",
+      "fields": {
+        "rum": {
+          "name": "Room",
+          "description": "The room's id from Rumlys."
+        },
+        "omraade": {
+          "name": "Area",
+          "description": "Or the room's area."
+        },
+        "lamper": {
+          "name": "Lights",
+          "description": "Only these of the room's lights are turned on if the light is off. The hold applies to the whole room."
+        },
+        "til": {
+          "name": "On",
+          "description": "Turn the hold on or off."
+        }
       }
     }
   },

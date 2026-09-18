@@ -49,31 +49,92 @@
       "name": "Dæmp rummet",
       "description": "Dæmper alle rummets lamper i samme forhold: den lyseste får lysstyrken, og de andre følger med. 0 slukker rummet.",
       "fields": {
-        "rum": { "name": "Rum", "description": "Rummets id fra Rumlys." },
-        "omraade": { "name": "Område", "description": "Eller rummets område." },
-        "lamper": { "name": "Lamper", "description": "Kun disse af rummets lamper. Tom: hele rummet." },
-        "lysstyrke": { "name": "Lysstyrke", "description": "Den lyseste lampes lysstyrke." }
+        "rum": {
+          "name": "Rum",
+          "description": "Rummets id fra Rumlys."
+        },
+        "omraade": {
+          "name": "Område",
+          "description": "Eller rummets område."
+        },
+        "lamper": {
+          "name": "Lamper",
+          "description": "Kun disse af rummets lamper. Tom: hele rummet."
+        },
+        "lysstyrke": {
+          "name": "Lysstyrke",
+          "description": "Den lyseste lampes lysstyrke."
+        }
       }
     },
     "anvend_lys": {
       "name": "Vælg lys til rummet",
       "description": "Tænder rummets lamper med et lysvalg: hvidt lys, farve, scene eller kun lysstyrke. Rummet husker det som valgt lys.",
       "fields": {
-        "rum": { "name": "Rum", "description": "Rummets id fra Rumlys." },
-        "omraade": { "name": "Område", "description": "Eller rummets område." },
-        "lamper": { "name": "Lamper", "description": "Kun disse af rummets lamper. Tom: hele rummet." },
-        "lys": { "name": "Lys", "description": "Fx {\"type\": \"hvid\", \"lysstyrke\": 80, \"kelvin\": 2700}." }
+        "rum": {
+          "name": "Rum",
+          "description": "Rummets id fra Rumlys."
+        },
+        "omraade": {
+          "name": "Område",
+          "description": "Eller rummets område."
+        },
+        "lamper": {
+          "name": "Lamper",
+          "description": "Kun disse af rummets lamper. Tom: hele rummet."
+        },
+        "lys": {
+          "name": "Lys",
+          "description": "Fx {\"type\": \"hvid\", \"lysstyrke\": 80, \"kelvin\": 2700}."
+        }
       }
     },
     "anvend_scene": {
       "name": "Vælg scene til rummet",
       "description": "Tænder rummets lamper med en scene. Rummet husker den som valgt lys.",
       "fields": {
-        "rum": { "name": "Rum", "description": "Rummets id fra Rumlys." },
-        "omraade": { "name": "Område", "description": "Eller rummets område." },
-        "lamper": { "name": "Lamper", "description": "Kun disse af rummets lamper. Tom: hele rummet." },
-        "scene": { "name": "Scene", "description": "Scenens id." },
-        "lysstyrke": { "name": "Lysstyrke", "description": "Tom: scenens egen lysstyrke." }
+        "rum": {
+          "name": "Rum",
+          "description": "Rummets id fra Rumlys."
+        },
+        "omraade": {
+          "name": "Område",
+          "description": "Eller rummets område."
+        },
+        "lamper": {
+          "name": "Lamper",
+          "description": "Kun disse af rummets lamper. Tom: hele rummet."
+        },
+        "scene": {
+          "name": "Scene",
+          "description": "Scenens id."
+        },
+        "lysstyrke": {
+          "name": "Lysstyrke",
+          "description": "Tom: scenens egen lysstyrke."
+        }
+      }
+    },
+    "hold": {
+      "name": "Hold lyset tændt",
+      "description": "Holder rummets lys tændt i hold-tiden og sætter sensoren og nedtællingerne ud af spil. Er lyset slukket, tændes det.",
+      "fields": {
+        "rum": {
+          "name": "Rum",
+          "description": "Rummets id fra Rumlys."
+        },
+        "omraade": {
+          "name": "Område",
+          "description": "Eller rummets område."
+        },
+        "lamper": {
+          "name": "Lamper",
+          "description": "Kun disse af rummets lamper tændes, hvis lyset er slukket. Holdet gælder hele rummet."
+        },
+        "til": {
+          "name": "Til",
+          "description": "Slå hold til eller fra."
+        }
       }
     }
   },

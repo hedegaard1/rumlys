@@ -89,7 +89,8 @@ scene_size: small                  # small eller large (med navn)
 
 Hvilke lamper kortet viser, vælges i sidepanelet under rummets **Kort**, efter kortets id. Viser kortet nogle
 af lamperne, gælder tænd og sluk, skyder, scener og menuen dem, og et kort for én lampe hedder som lampen.
-«Hold lys» hører til hele rummet og står kun på et kort for hele rummet. Tændes en lampe fra kortet, tæller
+«Hold lys» står på alle rummets kort. Holdet gælder hele rummet — det har én tilstand og én nedtælling — men
+fra et kort for nogle af lamperne er det kun dem, der tændes, hvis lyset er slukket. Tændes en lampe fra kortet, tæller
 det som valgt lys i rummet, så rummets nedtælling stadig slukker den.
 
 Kortet ser selv efter på sin fane, så reglen også holder for et kort, der sættes direkte ind på et
