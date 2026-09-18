@@ -98,6 +98,10 @@ forhåndsvisningen, mens det sættes ind — «Lamperne står på et andet kort 
 Rumlys kender, går altid forud for et nyt, og et nyt kort styrer først noget, når det har læst sin fane; indtil da
 står det med «…». En administrator får knappen «Vælg lamper i Rumlys».
 
+**Efter en opdatering siger Rumlys til.** En fane, der stod åben under opdateringen, bruger stadig den
+forrige udgave af kortet og sidepanelet — så kan kortene stå tomme. Rumlys lægger derfor en besked i Home
+Assistant om at genindlæse fanen med Ctrl+F5. Den kommer ikke, første gang Rumlys sættes op.
+
 **Kortet sættes ind fra Rumlys**, under rummets «Kort», og står derfor ikke i Home Assistants «Tilføj kort»-liste.
 Det er sat ind, flyttet og fjernet ét sted, og Rumlys kender det fra første sekund. Et kort, der alligevel kommer
 ind — skrevet i YAML, kopieret med «Duplikér» eller gendannet fra en backup — virker stadig; så gælder fanens
