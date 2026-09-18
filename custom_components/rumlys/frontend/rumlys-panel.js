@@ -1607,7 +1607,8 @@ class RumlysPanel extends HTMLElement {
       flueben.addEventListener("click", () => {
         d.sensorer = valgt ? d.sensorer.filter((s) => s !== entityId) : d.sensorer.concat([entityId]);
         if (valgt) d.tilstede = (d.tilstede || []).filter((s) => s !== entityId);
-        this._genTegn("sensorer", "ingen");
+        // Lamperne og tidsplanen viser også, om rummet har en sensor, så de skal med.
+        this._genTegn("lamper", "sensorer", "tidsplan", "ingen");
       });
       const pille = h("span", { class: "pille", style: { display: "none" } }, h("i", {}), this.t("ser_nogen"));
       this._levende.push((hass) => {
