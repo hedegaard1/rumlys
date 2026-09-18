@@ -17,8 +17,18 @@ from homeassistant.helpers import (
     entity_registry as er,
 )
 
-from .const import CONF_ENTITY_ID, CONF_IKON, CONF_LAMPER, CONF_OMRAADE, DOMAIN, RUM
-from .omraade import entiteter_i_omraade, gruppens_lamper, nyt_rum
+from .const import (
+    CONF_ENTITY_ID,
+    CONF_IKON,
+    CONF_KNAP_MAAL,
+    CONF_KORT,
+    CONF_LAMPER,
+    CONF_OMRAADE,
+    DOMAIN,
+    RUM,
+)
+from .omraade import entiteter_i_omraade, er_knap, gruppens_lamper, nyt_rum
+from .rum import Rum
 from .skema import INDSTILLINGER, RUM_DATA, hele_tal
 
 # Rummets entiteter efter nøgle, som kortet og sidepanelet slår op i.
@@ -41,6 +51,7 @@ def async_register(hass: HomeAssistant) -> None:
         ws_opret,
         ws_slet,
         ws_omraader,
+        ws_knapper,
         ws_lamper,
     ):
         websocket_api.async_register_command(hass, kommando)
@@ -186,12 +197,30 @@ def ws_gem(
     for noegle, vaerdi in indstillinger.items():
         rum.saet(noegle, vaerdi)
     if "kort" in msg:
+        data = _frys_knapper(rum, data, msg["kort"])
         # Mod lamperne, som de gemmes nu: en lampe, der lige er valgt i rummet, kan også vælges til et kort.
         rum.saet_kort(msg["kort"], [lampe[CONF_ENTITY_ID] for lampe in data[CONF_LAMPER]])
     hass.config_entries.async_update_subentry(
         entry, subentry, data=data, title=omraade.name, unique_id=omraade.id
     )
     connection.send_result(msg["id"], {"id": subentry.subentry_id})
+
+
+def _frys_knapper(
+    rum: Rum, data: dict[str, Any], kort: dict[str, Any]
+) -> dict[str, Any]:
+    """Fjernes et kort, en knap følger, overtager knappen kortets lamper.
+
+    Ellers holdt knappen på væggen op med at gøre det, den plejer, fordi nogen ryddede op på
+    et betjeningspanel. Er kortet hele rummet, styrer knappen hele rummet — og så er valget væk."""
+    maal = {}
+    for knap, hvad in data.get(CONF_KNAP_MAAL, {}).items():
+        if CONF_KORT in hvad and hvad[CONF_KORT] not in kort:
+            if lamper := rum.kort.get(hvad[CONF_KORT]):
+                maal[knap] = {CONF_LAMPER: lamper}
+            continue
+        maal[knap] = hvad
+    return data | {CONF_KNAP_MAAL: maal}
 
 
 @websocket_api.require_admin
@@ -293,6 +322,11 @@ def ws_omraader(
             if e.domain == "binary_sensor"
             and (e.device_class or e.original_device_class) in ("motion", "occupancy", "presence")
         ]
+        knapper = [
+            {"entity_id": e.entity_id, "navn": _navn(hass, e.entity_id)}
+            for e in sorted(entiteter, key=lambda e: e.entity_id)
+            if er_knap(e)
+        ]
         svar.append(
             {
                 "id": omraade.id,
@@ -300,6 +334,36 @@ def ws_omraader(
                 "rum": optaget.get(omraade.id),
                 "lamper": lamper,
                 "sensorer": sensorer,
+                "knapper": knapper,
+            }
+        )
+    connection.send_result(msg["id"], svar)
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({vol.Required("type"): "rumlys/knapper"})
+@callback
+def ws_knapper(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Alle husets vægknapper — til en knap, der står i et andet område end rummet."""
+    register = er.async_get(hass)
+    enheder = dr.async_get(hass)
+    omraader = ar.async_get(hass)
+    svar = []
+    for entitet in sorted(register.entities.values(), key=lambda e: e.entity_id):
+        if entitet.disabled_by or entitet.hidden_by or not er_knap(entitet):
+            continue
+        omraade_id = entitet.area_id
+        if omraade_id is None and entitet.device_id:
+            enhed = enheder.async_get(entitet.device_id)
+            omraade_id = enhed.area_id if enhed else None
+        omraade = omraader.async_get_area(omraade_id) if omraade_id else None
+        svar.append(
+            {
+                "entity_id": entitet.entity_id,
+                "navn": _navn(hass, entitet.entity_id),
+                "omraade": omraade.name if omraade else None,
             }
         )
     connection.send_result(msg["id"], svar)

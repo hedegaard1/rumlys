@@ -17,6 +17,9 @@ from .const import (
     CONF_FARVE,
     CONF_IKON,
     CONF_KELVIN,
+    CONF_KNAP_MAAL,
+    CONF_KNAPPER,
+    CONF_KORT,
     CONF_LAMPER,
     CONF_LYS,
     CONF_LYSSTYRKE,
@@ -96,18 +99,34 @@ TIDSRUM = vol.Schema(
     }
 )
 
-def _kun_rummets_sensorer(rum: dict[str, Any]) -> dict[str, Any]:
-    """En tilstedeværelsessensor skal være valgt i rummet, og en sensors lamper skal være rummets."""
+
+def _kun_rummets(rum: dict[str, Any]) -> dict[str, Any]:
+    """Sensorer, knapper og deres lamper skal være rummets egne."""
     rummets = {lampe[CONF_ENTITY_ID] for lampe in rum[CONF_LAMPER]}
     valgte = {
         sensor: [lampe for lampe in lamper if lampe in rummets]
         for sensor, lamper in rum.get(CONF_SENSOR_LAMPER, {}).items()
         if sensor in rum[CONF_SENSORER]
     }
+    knapper = {
+        knap: maal
+        for knap, maal in rum.get(CONF_KNAP_MAAL, {}).items()
+        if knap in rum[CONF_KNAPPER]
+    }
+    for knap, maal in list(knapper.items()):
+        if CONF_LAMPER not in maal:
+            continue
+        # En knap, der styrer bestemte lamper, må kun styre rummets. Er ingen af dem tilbage,
+        # styrer den hele rummet — som en knap uden valg.
+        if lamper := [lampe for lampe in maal[CONF_LAMPER] if lampe in rummets]:
+            knapper[knap] = {CONF_LAMPER: lamper}
+        else:
+            del knapper[knap]
     return rum | {
         CONF_TILSTEDE: [s for s in rum[CONF_TILSTEDE] if s in rum[CONF_SENSORER]],
         # En sensor uden lamper tilbage tænder alle rummets bevægelseslamper — som en sensor uden valg.
         CONF_SENSOR_LAMPER: {s: l for s, l in valgte.items() if l},
+        CONF_KNAP_MAAL: knapper,
     }
 
 
@@ -128,6 +147,17 @@ RUM_DATA = vol.All(
             vol.Optional(CONF_SENSOR_LAMPER, default={}): {
                 cv.entity_domain("binary_sensor"): [cv.entity_domain("light")]
             },
+            # En vægknap er en binary_sensor, der melder «on», mens den er nede — sådan giver
+            # IHC dem. Andre slags knapper melder hændelser og kan ikke bruges endnu.
+            vol.Optional(CONF_KNAPPER, default=[]): [cv.entity_domain("binary_sensor")],
+            vol.Optional(CONF_KNAP_MAAL, default={}): {
+                cv.entity_domain("binary_sensor"): vol.Schema(
+                    {
+                        vol.Exclusive(CONF_KORT, "maal"): cv.string,
+                        vol.Exclusive(CONF_LAMPER, "maal"): [cv.entity_domain("light")],
+                    }
+                )
+            },
             vol.Required(CONF_LYS): LYSVALG,
             vol.Optional(CONF_OVERGANG, default=0): vol.All(
                 vol.Coerce(float), vol.Range(min=0, max=10)
@@ -137,7 +167,7 @@ RUM_DATA = vol.All(
             vol.Optional(CONF_IKON): cv.icon,
         }
     ),
-    _kun_rummets_sensorer,
+    _kun_rummets,
 )
 
 INDSTILLINGER = vol.Schema(

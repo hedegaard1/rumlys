@@ -220,6 +220,13 @@ select, input[type=text], input[type=time], input[type=search] {
 }
 `;
 
+// Et opslag uden én nøgle. Kladden får et nyt objekt, så «Gem rum» ser ændringen.
+function uden(opslag, noegle) {
+  const nyt = Object.assign({}, opslag);
+  delete nyt[noegle];
+  return nyt;
+}
+
 function kopi(v) {
   return JSON.parse(JSON.stringify(v));
 }
@@ -1220,6 +1227,7 @@ class RumlysPanel extends HTMLElement {
       ["hold", () => this._sekHold()],
       ["scener", () => this._sekScener()],
       ["kort", () => this._sekKort()],
+      ["knapper", () => this._sekKnapper()],
       ["haendelser", () => this._sekHaendelser()],
     ].forEach(([noegle, bygger]) => {
       const el = bygger();
@@ -1232,6 +1240,8 @@ class RumlysPanel extends HTMLElement {
   }
 
   _genTegn(...noegler) {
+    // Knapperne viser kortenes navne, så de skal tegnes om, når kortene ændrer sig.
+    if (noegler.indexOf("kort") >= 0) noegler = noegler.concat(["knapper"]);
     noegler.forEach((noegle) => {
       const sek = this._sektioner[noegle];
       if (!sek) return;
@@ -1322,7 +1332,7 @@ class RumlysPanel extends HTMLElement {
   }
 
   _omraade(id) {
-    return (this._omraader || []).find((o) => o.id === id) || { lamper: [], sensorer: [], navn: "" };
+    return (this._omraader || []).find((o) => o.id === id) || { lamper: [], sensorer: [], knapper: [], navn: "" };
   }
 
   _sekRummet() {
@@ -1594,6 +1604,101 @@ class RumlysPanel extends HTMLElement {
       titel: this.t("lamper_andre"),
       indhold: [soeg, liste],
       knapper: [{ tekst: this.t("faerdig"), primaer: true, handling: () => this._lamperAendret() }],
+    });
+  }
+
+  // Vægknapperne. En knap følger et af rummets kort og styrer præcis de lamper, kortet viser —
+  // eller hele rummet, som er standarden. Hvad et tryk gør, er det samme for alle knapper.
+  _sekKnapper() {
+    const d = this._kladde.data;
+    const knapper = d.knapper || [];
+    const maal = d.knap_maal || {};
+    const omraadets = this._omraade(d.omraade).knapper || [];
+    // Kortene, en knap kan følge. Et kort for hele rummet er det samme som intet valg, og et
+    // kort uden lamper er der intet at styre i.
+    const kortene = this._kladde.kort || {};
+    const kort = Object.keys(kortene).filter((id) => (kortene[id] || []).length);
+    const liste = h("div", {});
+    const raekke = (entityId, navn, under) => {
+      const valgt = knapper.indexOf(entityId) >= 0;
+      const flueben = h("button", { class: "flueben" + (valgt ? " til" : ""), type: "button", "aria-pressed": String(valgt), "aria-label": navn }, valgt ? ikon("mdi:check") : null);
+      flueben.addEventListener("click", () => {
+        if (valgt) {
+          d.knapper = knapper.filter((k) => k !== entityId);
+          d.knap_maal = uden(maal, entityId);
+        } else d.knapper = knapper.concat([entityId]);
+        this._genTegn("knapper");
+      });
+      // Tryk på knappen i rummet for at se, hvilken række den er. Navnene siger det sjældent selv.
+      const pille = h("span", { class: "pille", style: { display: "none" } }, h("i", {}), this.t("knap_nede"));
+      this._levende.push((hass) => {
+        const st = hass.states[entityId];
+        pille.style.display = st && st.state === "on" ? "" : "none";
+      });
+      let styrer = null;
+      const egne = maal[entityId] && maal[entityId].lamper;
+      if (valgt && (kort.length || egne)) {
+        const vaelger = h("select", {});
+        const tilfoejValg = (vaerdi, tekst) => vaelger.appendChild(h("option", { value: vaerdi }, tekst));
+        tilfoejValg("", this.t("hele_rummet"));
+        kort.forEach((id) => tilfoejValg(id, kortene[id].map((l) => this._lampeNavn(l)).join(", ")));
+        // Kortet, knappen fulgte, er fjernet, og knappen har overtaget dets lamper.
+        if (egne) tilfoejValg("egne", egne.map((l) => this._lampeNavn(l)).join(", "));
+        vaelger.value = egne ? "egne" : (maal[entityId] && maal[entityId].kort) || "";
+        vaelger.addEventListener("change", () => {
+          if (!vaelger.value) d.knap_maal = uden(maal, entityId);
+          else if (vaelger.value !== "egne") d.knap_maal = Object.assign({}, maal, { [entityId]: { kort: vaelger.value } });
+          this._genTegn("knapper");
+        });
+        styrer = h("div", { class: "felt", style: { marginTop: "4px", width: "100%" } }, h("label", {}, this.t("styrer")), vaelger);
+      }
+      return h("div", { class: "raekke", style: { flexWrap: "wrap" } }, flueben, h("div", { class: "tx", style: { minWidth: "140px" } }, h("b", {}, navn), under ? h("small", {}, under) : null), pille, styrer);
+    };
+    omraadets.forEach((k) => liste.appendChild(raekke(k.entity_id, k.navn)));
+    knapper.forEach((k) => {
+      if (omraadets.some((o) => o.entity_id === k)) return;
+      const st = this._hass.states[k];
+      liste.appendChild(raekke(k, st ? st.attributes.friendly_name || k : k, this.t("uden_omraade")));
+    });
+    if (!liste.children.length) liste.appendChild(h("p", { class: "hint" }, this.t("ingen_knapper")));
+    const advarsel = knapper.length ? h("p", { class: "hint advarsel" }, this.t("knap_overtaget")) : null;
+    const andre = h("button", { class: "knap t", onclick: () => this._andreKnapper() }, ikon("mdi:plus"), this.t("vis_andre_knapper"));
+    return this._sektion("mdi:gesture-tap-button", this.t("knapper"), this.t("knapper_hint"), liste, advarsel, andre);
+  }
+
+  async _andreKnapper() {
+    if (!this._knapper) this._knapper = await this._hass.callWS({ type: "rumlys/knapper" });
+    const d = this._kladde.data;
+    const iOmraadet = new Set((this._omraade(d.omraade).knapper || []).map((k) => k.entity_id));
+    const soeg = h("input", { type: "search", placeholder: this.t("soeg") });
+    const liste = h("div", { style: { marginTop: "8px" } });
+    const tegn = () => {
+      const q = soeg.value.trim().toLowerCase();
+      liste.textContent = "";
+      this._knapper
+        .filter((k) => !iOmraadet.has(k.entity_id))
+        .filter((k) => !q || (k.navn + " " + (k.omraade || "") + " " + k.entity_id).toLowerCase().indexOf(q) >= 0)
+        .slice(0, 150)
+        .forEach((k) => {
+          const valgt = (d.knapper || []).indexOf(k.entity_id) >= 0;
+          const flueben = h("span", { class: "flueben" + (valgt ? " til" : "") }, valgt ? ikon("mdi:check") : null);
+          const raekke = h("div", { class: "raekke", style: { cursor: "pointer" } }, flueben, h("div", { class: "tx" }, h("b", {}, k.navn), h("small", {}, k.omraade || this.t("uden_omraade"))));
+          raekke.addEventListener("click", () => {
+            if (valgt) {
+              d.knapper = (d.knapper || []).filter((v) => v !== k.entity_id);
+              d.knap_maal = uden(d.knap_maal || {}, k.entity_id);
+            } else d.knapper = (d.knapper || []).concat([k.entity_id]);
+            tegn();
+          });
+          liste.appendChild(raekke);
+        });
+    };
+    soeg.addEventListener("input", tegn);
+    tegn();
+    this._dialog({
+      titel: this.t("knapper_andre"),
+      indhold: [soeg, liste],
+      knapper: [{ tekst: this.t("faerdig"), primaer: true, handling: () => { this._genTegn("knapper"); this._aendret(); } }],
     });
   }
 

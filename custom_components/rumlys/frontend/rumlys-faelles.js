@@ -4,7 +4,7 @@
   ha-martin: hvidt lys tegnes som i Hue-appen, og en hvid scene genkendes på pærerne.
 */
 
-export const VERSION = "0.4.19";
+export const VERSION = "0.5.0";
 // Mappen, filen selv ligger i — i Home Assistant med versionen i stien, på testsiden repoets egen.
 export const FILER = new URL("./", import.meta.url).href;
 // Scenerne ligger i Rumlys selv. I Home Assistant har de en fast adresse uden version, så et kort,
@@ -143,6 +143,14 @@ const TEKSTER = {
     taender: "Tænder",
     alle_bevaegelseslamper: "Alle bevægelseslamper",
     ingen_sensorer: "Området har ingen bevægelsessensorer.",
+    knapper: "Knapper",
+    knapper_hint: "Vægknapper, Rumlys skal styre lyset med. Et tryk tænder og slukker, to hurtige tryk holder lyset tændt, og holder du knappen nede, dæmpes lyset op eller ned.",
+    knap_nede: "Nede nu",
+    styrer: "Styrer",
+    knap_overtaget: "Rumlys styrer knapperne, så snart rummet er gemt. Slå den gamle automatisering på knappen fra — ellers gør de to ting på én gang.",
+    ingen_knapper: "Området har ingen vægknapper.",
+    vis_andre_knapper: "Vis knapper fra andre områder",
+    knapper_andre: "Knapper fra andre områder",
     blod: "Blød tænd og sluk",
     blod_ingen: "Lamperne i rummet kan ikke tænde og slukke blødt.",
     virker_ikke: "Virker ikke på {lamper}.",
@@ -398,6 +406,14 @@ const TEKSTER = {
     taender: "Turns on",
     alle_bevaegelseslamper: "All motion lights",
     ingen_sensorer: "The area has no motion sensors.",
+    knapper: "Buttons",
+    knapper_hint: "Wall buttons for Rumlys to control the light with. One press turns the light on and off, two quick presses keep it on, and holding the button dims up or down.",
+    knap_nede: "Pressed now",
+    styrer: "Controls",
+    knap_overtaget: "Rumlys takes over the buttons as soon as the room is saved. Turn off the old automation on the button — otherwise both act at once.",
+    ingen_knapper: "The area has no wall buttons.",
+    vis_andre_knapper: "Show buttons from other areas",
+    knapper_andre: "Buttons from other areas",
     blod: "Soft on and off",
     blod_ingen: "The lights in the room can't turn on and off softly.",
     virker_ikke: "Doesn't work on {lamper}.",

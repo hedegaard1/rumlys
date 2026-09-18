@@ -13,6 +13,10 @@ CONF_LAMPER = "lamper"
 CONF_SENSORER = "sensorer"
 CONF_TILSTEDE = "tilstede"  # sensorerne, der ser tilstedeværelse; de andre ser kun bevægelse
 CONF_SENSOR_LAMPER = "sensor_lamper"  # hvilke af rummets lamper hver sensor tænder; tom = alle
+CONF_KNAPPER = "knapper"  # rummets vægknapper
+# Hvad hver knap styrer: {"kort": id} eller {"lamper": [...]}. Uden valg hele rummet.
+CONF_KNAP_MAAL = "knap_maal"
+CONF_KORT = "kort"
 CONF_LYS = "lys"  # rummets eget lys
 CONF_OVERGANG = "overgang"
 # Blød tænd og sluk i et nyt rum, når lamperne kan det.
@@ -73,3 +77,13 @@ HUSK_EFTER = timedelta(seconds=4)
 
 # Så mange hændelser gemmer hvert rum til sidepanelet.
 HAENDELSER = 50
+
+# Vægknapperne. Tallene er dem, Martins bbcontrol-automatiseringer er sat op med, så en knap
+# føles ens, før og efter Rumlys overtager den. Dobbeltklikket er nyt: hans egne tryk varede
+# 0,14–0,26 sek. (målt 13-09-2026), så 0,3 sek. rummer to tryk i træk.
+KNAP_HOLD = 0.8  # sekunder nede, før trykket er et hold, der dæmper
+KNAP_DOBBELT = 0.3  # sekunder efter et slip, hvor et nyt tryk er et dobbeltklik
+DAEMP_SKRIDT = 10  # procent pr. skridt, mens knappen holdes nede
+DAEMP_PAUSE = 0.1  # sekunder mellem skridtene
+DAEMP_OVERGANG = 0.05  # sekunder pr. skridt; rummets egen bløde overgang er for lang her
+DAEMP_VEND = 51  # er lyset lysere end det, dæmper et hold ned; ellers op

@@ -24,6 +24,7 @@ from custom_components.rumlys.const import DOMAIN, RUM
 SPOTS = "light.traeningsrum_spots"
 STENLAMPE = "light.traeningsrum_stenlampe"
 SENSOR = "binary_sensor.bevaegelse_traeningsrum"
+KNAP = "binary_sensor.knap_traeningsrum"
 HOLD = "switch.traeningsrum_hold_lys"
 TILSTAND = "sensor.traeningsrum_tilstand"
 SLUK_BEVAEGELSE = "number.traeningsrum_sluk_efter_bevaegelse"
@@ -129,6 +130,19 @@ class Hus:
         self.hass.states.async_set(SENSOR, tilstand)
         await self.hass.async_block_till_done()
 
+    async def knap(self, tilstand: str, knap: str = KNAP) -> None:
+        """Vægknappen melder «on», mens den er nede."""
+        self.hass.states.async_set(knap, tilstand)
+        await self.hass.async_block_till_done()
+
+    async def tryk(self, knap: str = KNAP) -> None:
+        """Et kort tryk: ned og op igen, hurtigere end hold-grænsen.
+
+        Uret skrues ikke frem undervejs. `async_fire_time_changed` lægger selv et halvt sekund
+        til, så enhver vent() ville fyre både hold-grænsen på 0,8 og dobbeltklik-vinduet på 0,3."""
+        await self.knap("on", knap)
+        await self.knap("off", knap)
+
     async def tjeneste(self, domaene: str, tjeneste: str, **data: Any) -> None:
         await self.hass.services.async_call(domaene, tjeneste, data, blocking=True)
         await self.hass.async_block_till_done()
@@ -147,6 +161,7 @@ async def hus(
     freezer.move_to("2026-09-14 12:00:00+00:00")
     hass.states.async_set(SPOTS, "off")
     hass.states.async_set(SENSOR, "off")
+    hass.states.async_set(KNAP, "off")
     hus = Hus(hass, freezer)
     hus.hass_storage = hass_storage
     return hus
@@ -252,6 +267,88 @@ async def test_hold_fra_et_kort_taender_kun_kortets_lamper(hus: Hus) -> None:
 
     await hus.tjeneste("rumlys", "hold", rum="traeningsrum", til=False)
     assert hus.tilstand() != "hold"
+
+
+KNAPRUMMET = RUMMET | {"knapper": [KNAP]}
+
+
+async def test_et_tryk_paa_vaegknappen_taender_og_slukker(hus: Hus) -> None:
+    """Et kort tryk tænder med rummets eget lys. Trykket virker først, når dobbeltklik-vinduet er forbi."""
+    await hus.saet_op(KNAPRUMMET)
+
+    await hus.tryk()
+    assert not hus.taend
+    await hus.vent(0.4)
+    assert [k.data for k in hus.taend] == [
+        {
+            "entity_id": [SPOTS],
+            "brightness_pct": 100,
+            "color_temp_kelvin": 3500,
+            "transition": 3,
+        }
+    ]
+    await hus.lampen_svarer()
+    assert hus.tilstand() == "haand"
+
+    await hus.tryk()
+    await hus.vent(0.4)
+    assert [k.data["entity_id"] for k in hus.sluk] == [[SPOTS]]
+
+
+async def test_dobbeltklik_slaar_hold_lys_til_og_fra(hus: Hus) -> None:
+    """To tryk inden for vinduet er et dobbeltklik. Det enkelte tryk må ikke virke bagefter."""
+    await hus.saet_op(KNAPRUMMET)
+    await hus.tryk()
+    await hus.tryk()
+    assert hus.tilstand() == "hold"
+    assert len(hus.taend) == 1
+
+    await hus.vent(1)
+    # Det andet tryk er brugt på dobbeltklikket og tænder ikke noget mere.
+    assert len(hus.taend) == 1
+
+    await hus.lampen_svarer()
+    await hus.tryk()
+    await hus.tryk()
+    assert hus.tilstand() == "haand"
+
+
+async def test_knappen_holdt_nede_daemper(hus: Hus) -> None:
+    """Over hold-grænsen dæmpes lyset i skridt — ned, fordi lampen lyser kraftigt."""
+    await hus.saet_op(KNAPRUMMET)
+    await hus.lys("on", brightness=204)
+
+    await hus.knap("on")
+    await hus.vent(0.9)
+    assert len(hus.taend) == 1
+    assert hus.taend[-1].data["entity_id"] == [SPOTS]
+    assert hus.taend[-1].data["brightness"] < 204
+    assert hus.taend[-1].data["transition"] == 0.05
+
+    await hus.vent(0.1)
+    assert len(hus.taend) == 2
+
+    await hus.knap("off")
+    await hus.vent(0.5)
+    assert len(hus.taend) == 2
+    # Slippet efter en dæmpning må ikke også tælle som et tryk: så ville lyset slukke bagefter.
+    assert not hus.sluk
+
+
+async def test_knappen_styrer_kortets_lamper(hus: Hus) -> None:
+    """En knap kan følge et kort og styre præcis de lamper, kortet viser."""
+    rummet = KNAPRUMMET | {
+        "lamper": [
+            {"entity_id": SPOTS, "bevaegelse": True},
+            {"entity_id": STENLAMPE, "bevaegelse": True},
+        ],
+        "knap_maal": {KNAP: {"kort": "kort1"}},
+    }
+    await hus.saet_op(rummet, gemt={"kort": {"kort1": [STENLAMPE]}})
+
+    await hus.tryk()
+    await hus.vent(0.4)
+    assert [k.data["entity_id"] for k in hus.taend] == [[STENLAMPE]]
 
 
 async def test_ny_bevaegelse_stopper_nedtaellingen(hus: Hus) -> None:

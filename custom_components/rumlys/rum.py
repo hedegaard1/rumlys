@@ -12,12 +12,16 @@ from __future__ import annotations
 
 from collections import deque
 from collections.abc import Callable
+from dataclasses import dataclass
+from functools import partial
 from datetime import datetime, time, timedelta
 from typing import Any
 
+from homeassistant.components.light import LightEntityFeature
 from homeassistant.config_entries import ConfigSubentry
 from homeassistant.const import (
     ATTR_ENTITY_ID,
+    ATTR_SUPPORTED_FEATURES,
     STATE_ON,
     STATE_UNAVAILABLE,
     STATE_UNKNOWN,
@@ -47,6 +51,9 @@ from .const import (
     CONF_ENTITY_ID,
     CONF_FARVE,
     CONF_KELVIN,
+    CONF_KNAP_MAAL,
+    CONF_KNAPPER,
+    CONF_KORT,
     CONF_LAMPER,
     CONF_LYS,
     CONF_LYSSTYRKE,
@@ -62,12 +69,18 @@ from .const import (
     CONF_START,
     CONF_TIDSRUM,
     CONF_TYPE,
+    DAEMP_OVERGANG,
+    DAEMP_PAUSE,
+    DAEMP_SKRIDT,
+    DAEMP_VEND,
     EKKO_VINDUE,
     HAAND,
     HAENDELSER,
     HOLD,
     HOLD_TID,
     HUSK_EFTER,
+    KNAP_DOBBELT,
+    KNAP_HOLD,
     LYS_FARVE,
     LYS_HVID,
     LYS_SCENE,
@@ -91,6 +104,25 @@ FARVEATTRIBUT = {
     "rgbw": "rgbw_color",
     "rgbww": "rgbww_color",
 }
+
+
+@dataclass
+class _Tryk:
+    """Hvad der er i gang på én vægknap. En IHC-knap melder «on», mens den er nede."""
+
+    hold: CALLBACK_TYPE | None = None  # timeren, der gør trykket til et hold
+    vent: CALLBACK_TYPE | None = None  # timeren, der venter på et dobbeltklik
+    skridt: CALLBACK_TYPE | None = None  # timeren til næste skridt i dæmpningen
+    daemper: int | None = None  # lysstyrken i procent, mens knappen dæmper
+    retning: int = 0
+    brugt: bool = False  # trykket er gået til et dobbeltklik eller en dæmpning; slippet gør intet
+
+    def stop(self) -> None:
+        for timer in (self.hold, self.vent, self.skridt):
+            if timer is not None:
+                timer()
+        self.hold = self.vent = self.skridt = None
+        self.daemper = None
 
 
 class Rum:
@@ -123,6 +155,14 @@ class Rum:
             for sensor, lamper in (data.get(CONF_SENSOR_LAMPER) or {}).items()
             if sensor in self.sensorer and (valgte := [l for l in lamper if l in self.foelger])
         }
+        # Vægknapperne og hvad hver af dem styrer: et kort eller bestemte lamper. Uden valg hele rummet.
+        self.knapper: list[str] = list(data.get(CONF_KNAPPER, []))
+        self.knap_maal: dict[str, dict[str, Any]] = {
+            knap: maal
+            for knap, maal in (data.get(CONF_KNAP_MAAL) or {}).items()
+            if knap in self.knapper
+        }
+        self._knaptryk: dict[str, _Tryk] = {}
         # Lamperne, bevægelse sidst tændte — dem gælder et skift af tidsrum.
         self._sidst_taendt: list[str] | None = None
         self.overgang: float = data.get(CONF_OVERGANG, 0)
@@ -198,6 +238,10 @@ class Rum:
                     self.hass, self.sensorer, self._sensor_aendret
                 )
             )
+        if self.knapper:
+            self._afmeld.append(
+                async_track_state_change_event(self.hass, self.knapper, self._knap_aendret)
+            )
         skift = {t[k] for t in self.tidsrum for k in (CONF_START, CONF_SLUT)}
         for tid in skift:
             self._afmeld.append(
@@ -215,6 +259,9 @@ class Rum:
             afmeld()
         self._afmeld.clear()
         self._timere.clear()
+        for tryk in self._knaptryk.values():
+            tryk.stop()
+        self._knaptryk.clear()
         if self._husk_senere is not None:
             self._husk_senere()
             self._husk_senere = None
@@ -376,6 +423,162 @@ class Rum:
         else:
             self._log("taendt", lys="rummet")
 
+    # Vægknapperne. Et kort tryk tænder og slukker, et dobbeltklik slår «hold lys» til og fra, og
+    # holdes knappen nede, dæmpes lyset op eller ned. Et enkelt tryk kan derfor først virke, når
+    # dobbeltklik-vinduet er forbi — ellers ville første klik i et dobbeltklik nå at slukke lyset.
+
+    def _knappens_lamper(self, knap: str) -> list[str] | None:
+        """Lamperne, en knap styrer. None er hele rummet — også når kortet er væk eller står tomt:
+        en knap på væggen skal altid gøre noget."""
+        maal = self.knap_maal.get(knap)
+        if not maal:
+            return None
+        if CONF_LAMPER in maal:
+            return self.lamperne(maal[CONF_LAMPER]) or None
+        return self.kort.get(maal[CONF_KORT]) or None
+
+    @callback
+    def _knap_aendret(self, event: Event[EventStateChangedData]) -> None:
+        ny = event.data["new_state"]
+        gammel = event.data["old_state"]
+        if ny is None or gammel is None or ny.state in UKENDT or gammel.state in UKENDT:
+            # Knappen dukker op eller forsvinder. Det er ikke et tryk.
+            return
+        if ny.state == gammel.state:
+            return
+        knap = event.data["entity_id"]
+        tryk = self._knaptryk.setdefault(knap, _Tryk())
+        if ny.state == STATE_ON:
+            self._knap_ned(knap, tryk)
+        else:
+            self._knap_op(knap, tryk)
+
+    @callback
+    def _knap_ned(self, knap: str, tryk: _Tryk) -> None:
+        if tryk.vent is not None:
+            tryk.vent()
+            tryk.vent = None
+            tryk.brugt = True
+            self._knap_dobbelt(knap)
+            return
+        tryk.brugt = False
+        tryk.hold = async_call_later(
+            self.hass, KNAP_HOLD, partial(self._knap_holdes, knap, tryk)
+        )
+
+    @callback
+    def _knap_op(self, knap: str, tryk: _Tryk) -> None:
+        if tryk.hold is not None:
+            tryk.hold()
+            tryk.hold = None
+        if tryk.daemper is not None:
+            tryk.daemper = None
+            if tryk.skridt is not None:
+                tryk.skridt()
+                tryk.skridt = None
+            self.valgt_i_haanden()
+        if tryk.brugt:
+            tryk.brugt = False
+            return
+        tryk.vent = async_call_later(
+            self.hass, KNAP_DOBBELT, partial(self._knap_enkelt, knap, tryk)
+        )
+
+    @callback
+    def _knap_enkelt(self, knap: str, tryk: _Tryk, _nu: datetime | None = None) -> None:
+        tryk.vent = None
+        self.tryk(self._knappens_lamper(knap))
+
+    @callback
+    def tryk(self, lamper: list[str] | None = None) -> None:
+        """Tænd lyset, eller sluk det igen. Lyser en af lamperne, slukker trykket dem alle."""
+        maal = self.lamperne(lamper)
+        if any(
+            (tilstand := self.hass.states.get(entity_id)) is not None
+            and tilstand.state == STATE_ON
+            for entity_id in maal
+        ):
+            self.daemp(0, lamper)
+            return
+        husket = self._husket_lys()
+        if husket is None or not self._gendan(husket, maal):
+            self._anvend(self._scenarie(), maal)
+        self._log("taendt", lys="knap")
+        self.valgt_i_haanden()
+
+    @callback
+    def _knap_dobbelt(self, knap: str) -> None:
+        """Dobbeltklik slår «hold lys» til og fra."""
+        lamper = self._knappens_lamper(knap)
+        if self.hold_slutter is None:
+            self.hold_til(lamper)
+        else:
+            self.hold_fra()
+        self._blink(self.lamperne(lamper))
+
+    @callback
+    def _knap_holdes(self, knap: str, tryk: _Tryk, _nu: datetime | None = None) -> None:
+        """Knappen har været nede længe nok: dæmp ned fra lyst lys, op fra dæmpet eller slukket."""
+        tryk.hold = None
+        # Trykket er gået til dæmpningen. Slippet må ikke også tælle som et enkelt tryk — så ville
+        # en dæmpning helt ned til slukket tænde lyset igen, så snart knappen blev sluppet.
+        tryk.brugt = True
+        procent = self._lysstyrke(self.lamperne(self._knappens_lamper(knap)))
+        tryk.retning = -1 if procent > DAEMP_VEND else 1
+        tryk.daemper = procent
+        self._daemp_skridt(knap, tryk)
+
+    @callback
+    def _daemp_skridt(self, knap: str, tryk: _Tryk, _nu: datetime | None = None) -> None:
+        tryk.skridt = None
+        if tryk.daemper is None:
+            return
+        tilstand = self.hass.states.get(knap)
+        if tilstand is None or tilstand.state != STATE_ON:
+            tryk.daemper = None
+            self.valgt_i_haanden()
+            return
+        lamper = self._knappens_lamper(knap)
+        procent = tryk.daemper + tryk.retning * DAEMP_SKRIDT
+        if procent <= 0:
+            # Det sidste skridt ned slukker, som knapperne gør det i dag.
+            tryk.daemper = None
+            self.daemp(0, lamper)
+            return
+        tryk.daemper = procent = min(100, procent)
+        self.daemp(procent, lamper, overgang=DAEMP_OVERGANG, haand=False)
+        if procent == 100:
+            tryk.daemper = None
+            self.valgt_i_haanden()
+            return
+        tryk.skridt = async_call_later(
+            self.hass, DAEMP_PAUSE, partial(self._daemp_skridt, knap, tryk)
+        )
+
+    def _lysstyrke(self, lamper: list[str]) -> int:
+        """Den lyseste lampes lysstyrke i procent. 0, hvis de alle er slukkede."""
+        vaerdier = [
+            tilstand.attributes.get("brightness") or 0
+            for entity_id in lamper
+            if (tilstand := self.hass.states.get(entity_id)) is not None
+            and tilstand.state == STATE_ON
+        ]
+        return round(max(vaerdier, default=0) * 100 / 255)
+
+    @callback
+    def _blink(self, lamper: list[str]) -> None:
+        """Kvittering for et dobbeltklik. Kun lamper, der lyser og kan blinke — ellers ville
+        kvitteringen tænde lys, ingen har bedt om."""
+        blinker = [
+            entity_id
+            for entity_id in lamper
+            if (tilstand := self.hass.states.get(entity_id)) is not None
+            and tilstand.state == STATE_ON
+            and tilstand.attributes.get(ATTR_SUPPORTED_FEATURES, 0) & LightEntityFeature.FLASH
+        ]
+        if blinker:
+            self._kald("turn_on", {"flash": "short"}, blinker, overgang=0)
+
     @callback
     def _lys_aendret(self, event: Event[EventStateChangedData]) -> None:
         gammel = event.data["old_state"]
@@ -411,8 +614,17 @@ class Rum:
         self.valgt_i_haanden()
 
     @callback
-    def daemp(self, procent: int, lamper: list[str] | None = None) -> None:
-        """Lamperne i samme forhold: den lyseste lampe får procenten, og de andre følger med."""
+    def daemp(
+        self,
+        procent: int,
+        lamper: list[str] | None = None,
+        overgang: float | None = None,
+        haand: bool = True,
+    ) -> None:
+        """Lamperne i samme forhold: den lyseste lampe får procenten, og de andre følger med.
+
+        Et skridt i en vægknaps dæmpning sætter sin egen korte overgang og lader være med at
+        regne sig for et valg — ellers ville hvert skridt logge og sætte nedtællingen forfra."""
         valgte = self.lamperne(lamper)
         if procent <= 0:
             self._kald("turn_off", {}, valgte)
@@ -431,7 +643,12 @@ class Rum:
         }
         if not taendte:
             # Slukket: lamperne tænder med deres egen farve, ved den valgte lysstyrke.
-            self._kald("turn_on", {"brightness_pct": procent}, self.foelger if not lamper else valgte)
+            self._kald(
+                "turn_on",
+                {"brightness_pct": procent},
+                self.foelger if not lamper else valgte,
+                overgang=overgang,
+            )
         else:
             faktor = procent * 255 / 100 / max(taendte.values())
             kontekst: Context | None = None
@@ -441,8 +658,10 @@ class Rum:
                     {"brightness": max(1, min(255, round(lysstyrke * faktor)))},
                     [entity_id],
                     kontekst,
+                    overgang,
                 )
-        self.valgt_i_haanden()
+        if haand:
+            self.valgt_i_haanden()
 
     def status(self) -> dict[str, Any]:
         """Hvad rummet gør lige nu — til sidepanelet."""
@@ -653,6 +872,7 @@ class Rum:
         data: dict[str, Any],
         lamper: list[str],
         kontekst: Context | None = None,
+        overgang: float | None = None,
     ) -> Context:
         if kontekst is None:
             kontekst = Context()
@@ -660,8 +880,8 @@ class Rum:
         self._sidste_kommando = dt_util.utcnow()
         data = dict(data)
         data[ATTR_ENTITY_ID] = list(lamper)
-        if self.overgang:
-            data["transition"] = self.overgang
+        if (valgt := self.overgang if overgang is None else overgang):
+            data["transition"] = valgt
         self.hass.async_create_task(
             self.hass.services.async_call("light", tjeneste, data, context=kontekst),
             f"rumlys {self.navn} {tjeneste}",

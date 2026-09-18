@@ -70,6 +70,13 @@ vælges.
   eget id. Listen følger selv
   med, når et betjeningspanel gemmes. Et kort, der fjernes, forsvinder fra listen, men Rumlys husker dets valg,
   så et kort, der kommer igen — fx med Fortryd — stadig viser sine lamper.
+- **Knapper** — rummets vægknapper. Et tryk tænder og slukker, to hurtige tryk holder lyset tændt, og
+  holdes knappen nede, dæmpes lyset — ned, hvis det lyser kraftigt, ellers op, i 10 %-skridt hvert
+  tiendedels sekund. Under **«Styrer»** vælger du, hvad knappen gælder: hele rummet, eller ét af rummets
+  kort — så styrer knappen præcis de lamper, kortet viser. Fjernes kortet, overtager knappen dets lamper,
+  så knappen på væggen bliver ved med at gøre det samme. Ingen knapper er valgt på forhånd: Rumlys skal
+  først overtage knappen, når den gamle automatisering på den er slået fra.
+  Rækken siger **«Nede nu»**, mens knappen er trykket — tryk på den i rummet for at se, hvilken række den er.
 - **Seneste hændelser** — fx «Slukket: ingen i rummet, valgt lys».
 
 ### Kortet

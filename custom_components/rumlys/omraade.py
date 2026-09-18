@@ -28,6 +28,16 @@ from .const import (
 )
 
 SENSORKLASSER = ("motion", "occupancy", "presence")
+# En vægknap melder sig som «opening»: IHC giver alle sine indgange den klasse, og en rigtig
+# dør- eller vinduessensor siger «door» eller «window». Det er det nærmeste, der findes.
+KNAPKLASSER = ("opening",)
+
+
+@callback
+def er_knap(entitet: er.RegistryEntry) -> bool:
+    return entitet.domain == "binary_sensor" and (
+        entitet.device_class or entitet.original_device_class
+    ) in KNAPKLASSER
 
 
 @callback

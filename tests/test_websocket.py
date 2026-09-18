@@ -248,6 +248,7 @@ async def test_omraader_og_lamper(hass: HomeAssistant, hass_ws_client: WebSocket
         "rum": "gang",
         "lamper": [{"entity_id": SPOTS, "navn": "Gang Spots", "gruppe": []}],
         "sensorer": [{"entity_id": "binary_sensor.gang_pir", "navn": "binary_sensor.gang_pir"}],
+        "knapper": [],
     }
     assert kontor["rum"] == "kontor"
     assert stue["rum"] is None
