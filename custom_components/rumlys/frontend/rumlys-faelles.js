@@ -9,7 +9,7 @@
 // relativt, så Rumlys' egne ikoner også virker på testsiden og i node-testen.
 import "./ikoner/rumlys-ikoner.js";
 
-export const VERSION = "0.7.1";
+export const VERSION = "0.7.2";
 // Mappen, filen selv ligger i — i Home Assistant med versionen i stien, på testsiden repoets egen.
 export const FILER = new URL("./", import.meta.url).href;
 // Scenerne ligger i Rumlys selv. I Home Assistant har de en fast adresse uden version, så et kort,
@@ -966,14 +966,32 @@ export function kortetsValg(kortConfig, rumLamper, valg, rumScener) {
 //
 // «duration: -1» er det, der gør, at den bliver stående — 0 ville lukke en besked i stedet for at
 // vise en (set i notification-manager.ts).
-let versionTjekket = false;
+let versionLytter = false;
+let meldtVersion = null;
 
 export function tjekVersion(hass) {
-  if (versionTjekket || !hass || !hass.connection || typeof document === "undefined") return;
-  versionTjekket = true;
+  if (!hass || !hass.connection || typeof document === "undefined") return;
+  if (!versionLytter) {
+    versionLytter = true;
+    // Og igen, hver gang browseren forbinder: en opdatering kommer med en genstart, og det er
+    // netop dér, den her side bliver forældet. Uden det blev der kun tjekket, da siden blev
+    // indlæst — og da passede versionerne jo (0.7.1 var for sent ude til sin egen besked).
+    try {
+      hass.connection.addEventListener("ready", () => _spoergVersion(hass));
+    } catch (_fejl) {
+      // Et websocket-bibliotek uden addEventListener. Så bliver det ved tjekket ved indlæsningen.
+    }
+  }
+  _spoergVersion(hass);
+}
+
+function _spoergVersion(hass) {
   hass.connection.sendMessagePromise({ type: "rumlys/version" }).then(
     (svar) => {
       if (!svar || !svar.version || svar.version === VERSION) return;
+      // Samme udgave meldt før: beskeden står der allerede, eller den er lukket med vilje.
+      if (meldtVersion === svar.version) return;
+      meldtVersion = svar.version;
       const rod = document.querySelector("home-assistant");
       if (!rod) return;
       rod.dispatchEvent(

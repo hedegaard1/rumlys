@@ -39,6 +39,7 @@ import {
   sceneNavn,
   sprog,
   statusTekst,
+  tjekVersion,
   tekst,
   css,
 } from "./rumlys-faelles.js";
@@ -383,8 +384,11 @@ class RumlysPanel extends HTMLElement {
     const foerste = !this._hass;
     this._hass = hass;
     if (this._menuknap) this._menuknap.hass = hass;
-    if (foerste) this._start();
-    else this._opdaterLevende();
+    if (foerste) {
+      // Man står tit netop i sidepanelet, når man lige har opdateret.
+      tjekVersion(hass);
+      this._start();
+    } else this._opdaterLevende();
   }
 
   set narrow(v) {
