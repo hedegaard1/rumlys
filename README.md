@@ -46,6 +46,12 @@ bevægelsessensorer er valgt på forhånd. Er en gruppe med, er dens pærer det 
 En lampe, der er skjult i Home Assistant — fx et relæ, der kun giver strøm til smarte pærer — kan ikke
 vælges.
 
+### Rumlisten
+
+Forsiden viser hvert rum som en flise. Øverst står **områdets eget ikon** — det, der er valgt på området i
+Home Assistant — og rummets navn, på lampernes farver, så man kan se på afstand, hvad der lyser. Nedenunder
+står, hvad rummet gør lige nu, og hvor mange lamper, sensorer og kort det har.
+
 ### Rummets side i sidepanelet
 
 Siden har to halvdele. **Automatik** er det, der sker af sig selv, og **Kort** er ren betjening.

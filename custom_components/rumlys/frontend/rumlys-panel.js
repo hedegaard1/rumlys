@@ -1189,11 +1189,12 @@ class RumlysPanel extends HTMLElement {
       const farver = rummetsFarver(hass, rum.lamper.map((l) => l.entity_id));
       farve.style.background = farver.length ? overgang(farver, "135deg") : "";
       status.textContent = statusTekst(hass, rum.entiteter);
-      // Rummets ikon i bjælken: det, et af rummets kort har valgt, ellers lampernes egne — præcis
-      // som kortet selv viser det. Uden det er bjælken kun en farve, og fliserne ligner hinanden.
-      const valgt = Object.values(rum.kort || {}).map((k) => k && k.ikon).find(Boolean) || null;
-      const ikoner = rummetsIkoner(hass, rum.lamper.map((l) => l.entity_id), valgt);
-      farve.replaceChildren(...[...ikonStak(ikoner).children], h("b", {}, rum.navn));
+      // Rummets ikon i bjælken: områdets eget, som det står i Home Assistant. Ikke lampernes —
+      // dem viser kortet, og her er det rummet, man skal kunne kende. Har området intet ikon,
+      // står Rumlys' egen lampe.
+      const omraade = (hass.areas || {})[rum.omraade];
+      const ikonNavn = (omraade && omraade.icon) || RUMLYS_IKON;
+      farve.replaceChildren(h("span", { class: "ikon" }, ikon(ikonNavn)), h("b", {}, rum.navn));
       // Navnet står oven på lampernes farver, så det skal skifte med dem: hvid tekst på mørkt lys.
       const lyst = !farver.length || farver.some((f) => luminans(lysFarve(f)) > 0.179);
       farve.style.color = lyst ? "rgba(0, 0, 0, .82)" : "#fff";

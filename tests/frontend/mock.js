@@ -87,13 +87,14 @@ export const hass = {
   language: "da",
   locale: { language: "da" },
   user: { is_admin: true },
+  // Områderne har deres eget ikon i Home Assistant - det er dét, rumlisten viser.
   areas: {
-    entryway: { area_id: "entryway", name: "Entre" },
-    hallway: { area_id: "hallway", name: "Gang" },
-    kitchen: { area_id: "kitchen", name: "Køkken" },
-    office: { area_id: "office", name: "Kontor" },
-    living_room: { area_id: "living_room", name: "Stue" },
-    training_room: { area_id: "training_room", name: "Træningsrum" },
+    entryway: { area_id: "entryway", name: "Entre", icon: "mdi:coat-rack" },
+    hallway: { area_id: "hallway", name: "Gang", icon: "mdi:walk" },
+    kitchen: { area_id: "kitchen", name: "Køkken", icon: "mdi:countertop" },
+    office: { area_id: "office", name: "Kontor", icon: "mdi:chair-rolling" },
+    living_room: { area_id: "living_room", name: "Stue", icon: "mdi:sofa" },
+    training_room: { area_id: "training_room", name: "Træningsrum", icon: "mdi:run" },
   },
   // Betjeningspanelerne, som frontenden ser dem: navn og om de er i YAML.
   panels: {
