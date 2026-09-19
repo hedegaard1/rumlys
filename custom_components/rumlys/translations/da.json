@@ -156,6 +156,15 @@
       },
       "hold_tid": {
         "name": "Hold lys i"
+      },
+      "automatik_sluk_efter_bevaegelse": {
+        "name": "Automatik {nr} · automatisk lys slukker efter"
+      },
+      "automatik_sluk_efter_tryk": {
+        "name": "Automatik {nr} · valgt lys slukker efter"
+      },
+      "automatik_hold_tid": {
+        "name": "Automatik {nr} · hold lys i"
       }
     },
     "sensor": {
@@ -172,11 +181,33 @@
             "name": "Slukker"
           }
         }
+      },
+      "automatik_tilstand": {
+        "name": "Automatik {nr} · tilstand",
+        "state": {
+          "slukket": "Slukket",
+          "bevaegelse": "Tændt af sensor",
+          "haand": "Valgt lys",
+          "hold": "Holdes tændt"
+        },
+        "state_attributes": {
+          "slukker": {
+            "name": "Slukker"
+          }
+        }
       }
     },
     "switch": {
       "hold": {
         "name": "Hold lys",
+        "state_attributes": {
+          "slutter": {
+            "name": "Slutter"
+          }
+        }
+      },
+      "automatik_hold": {
+        "name": "Automatik {nr} · hold lys",
         "state_attributes": {
           "slutter": {
             "name": "Slutter"

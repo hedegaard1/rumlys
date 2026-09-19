@@ -81,12 +81,33 @@ async def test_liste_til_kortet(hass: HomeAssistant, hass_ws_client: WebSocketGe
         "tidsrum": [],
         "scener": ["a", "b"],
         "ikon": None,
+        # Rummet er fra før 0.7.0 og folder til én automatik med alle lamperne.
+        "automatik": [
+            {
+                "id": 1,
+                "lamper": [SPOTS],
+                "sensorer": [],
+                "lys": {"type": "hvid", "lysstyrke": 100, "kelvin": 3000},
+                "overgang": 0,
+                "tidsrum": [],
+            }
+        ],
         "entiteter": {
             "hold": "switch.gang_hold_lys",
             "tilstand": "sensor.gang_tilstand",
-            "sluk_efter_bevaegelse": "number.gang_sluk_efter_bevaegelse",
-            "sluk_efter_tryk": "number.gang_sluk_efter_tryk",
-            "hold_tid": "number.gang_hold_tid",
+            # Tiderne hører til automatikken nu; rummets egne findes ikke længere.
+            "sluk_efter_bevaegelse": None,
+            "sluk_efter_tryk": None,
+            "hold_tid": None,
+            "automatik": {
+                "1": {
+                    "hold": "switch.gang_automatik_1_hold_lys",
+                    "tilstand": "sensor.gang_automatik_1_tilstand",
+                    "sluk_efter_bevaegelse": "number.gang_automatik_1_sluk_efter_bevaegelse",
+                    "sluk_efter_tryk": "number.gang_automatik_1_sluk_efter_tryk",
+                    "hold_tid": "number.gang_automatik_1_hold_tid",
+                }
+            },
         },
         "kort": {},
     }
@@ -111,7 +132,11 @@ async def test_hent_og_gem(hass: HomeAssistant, hass_ws_client: WebSocketGenerat
     assert svar["result"]["data"]["lamper"] == [{"entity_id": SPOTS, "bevaegelse": True}]
     status = svar["result"]["status"]
     assert status["tilstand"] == "slukket"
-    assert status["indstillinger"] == {"sluk_efter_bevaegelse": 30, "sluk_efter_tryk": 5, "hold_tid": 4}
+    assert status["automatik"][0]["indstillinger"] == {
+        "sluk_efter_bevaegelse": 30,
+        "sluk_efter_tryk": 5,
+        "hold_tid": 4,
+    }
 
     data = svar["result"]["data"] | {
         "overgang": 2.0,
@@ -126,7 +151,12 @@ async def test_hent_og_gem(hass: HomeAssistant, hass_ws_client: WebSocketGenerat
         ],
     }
     svar = await kommando(
-        klient, type="rumlys/rum/gem", rum_id="gang", data=data, indstillinger={"sluk_efter_tryk": 10}
+        klient,
+        type="rumlys/rum/gem",
+        rum_id="gang",
+        data=data,
+        # Tiderne gemmes pr. automatik fra 0.7.0.
+        indstillinger={"1": {"sluk_efter_tryk": 10}},
     )
     assert svar["success"], svar
     await hass.async_block_till_done()
@@ -146,7 +176,7 @@ async def test_hent_og_gem(hass: HomeAssistant, hass_ws_client: WebSocketGenerat
         },
         {"navn": "Weekend", "start": "00:00:00", "slut": "00:00:00", "dage": [5, 6], "lys": STANDARD_LYS},
     ]
-    assert hass.states.get("number.gang_sluk_efter_tryk").state == "10"
+    assert hass.states.get("number.gang_automatik_1_sluk_efter_tryk").state == "10"
 
 
 async def test_kortenes_lamper(hass: HomeAssistant, hass_ws_client: WebSocketGenerator) -> None:

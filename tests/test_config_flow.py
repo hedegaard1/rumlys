@@ -293,9 +293,9 @@ async def test_migrering_fra_0_1_0(hass: HomeAssistant) -> None:
     for entity_id in (
         "switch.kontor_hold_lys",
         "sensor.kontor_tilstand",
-        "number.kontor_sluk_efter_bevaegelse",
-        "number.kontor_sluk_efter_tryk",
-        "number.kontor_hold_tid",
+        "number.kontor_automatik_1_sluk_efter_bevaegelse",
+        "number.kontor_automatik_1_sluk_efter_tryk",
+        "number.kontor_automatik_1_hold_tid",
     ):
         assert hass.states.get(entity_id) is not None, entity_id
     enhed = dr.async_get(hass).async_get_device_by_identifier((DOMAIN, "kontor01"), entry.entry_id)

@@ -27,9 +27,10 @@ SENSOR = "binary_sensor.bevaegelse_traeningsrum"
 KNAP = "binary_sensor.knap_traeningsrum"
 HOLD = "switch.traeningsrum_hold_lys"
 TILSTAND = "sensor.traeningsrum_tilstand"
-SLUK_BEVAEGELSE = "number.traeningsrum_sluk_efter_bevaegelse"
-SLUK_TRYK = "number.traeningsrum_sluk_efter_tryk"
-HOLD_TID = "number.traeningsrum_hold_tid"
+# Tiderne hører til automatikken fra 0.7.0, og nummeret står i id'et.
+SLUK_BEVAEGELSE = "number.traeningsrum_automatik_1_sluk_efter_bevaegelse"
+SLUK_TRYK = "number.traeningsrum_automatik_1_sluk_efter_tryk"
+HOLD_TID = "number.traeningsrum_automatik_1_hold_tid"
 
 RUMMET = {
     "omraade": None,
@@ -206,8 +207,12 @@ async def test_bevaegelse_taender_og_slukker_efter_tiden(hus: Hus) -> None:
     assert len(hus.taend) == 1
 
 
-async def test_sensoren_taender_kun_sine_egne_lamper(hus: Hus) -> None:
-    """Hver sensor kan have sine egne af rummets lamper. Rummet slukker stadig samlet."""
+async def test_hver_automatik_taendes_af_sine_egne_sensorer(hus: Hus) -> None:
+    """To automatikker i samme rum: hver sensor tænder sine egne lamper, og de tæller hver for sig.
+
+    Det, `sensor_lamper` gjorde indtil 0.6.x, er nu en automatik pr. gruppe — og nu har hver
+    gruppe også sin egen nedtælling, hvilket den ikke havde før.
+    """
     sensor2 = "binary_sensor.bevaegelse_traeningsrum_2"
     rummet = RUMMET | {
         "lamper": [
@@ -215,26 +220,37 @@ async def test_sensoren_taender_kun_sine_egne_lamper(hus: Hus) -> None:
             {"entity_id": STENLAMPE, "bevaegelse": True},
         ],
         "sensorer": [SENSOR, sensor2],
-        "sensor_lamper": {SENSOR: [SPOTS], sensor2: [STENLAMPE]},
+        "automatik": [
+            {"id": 1, "lamper": [SPOTS], "sensorer": [SENSOR], "lys": RUMMET["lys"]},
+            {"id": 2, "lamper": [STENLAMPE], "sensorer": [sensor2], "lys": RUMMET["lys"]},
+        ],
     }
-    await hus.saet_op(rummet)
+    entry = await hus.saet_op(rummet)
     hus.hass.states.async_set(sensor2, "off")
     await hus.hass.async_block_till_done()
 
     await hus.bevaegelse("on")
     assert [k.data["entity_id"] for k in hus.taend] == [[SPOTS]]
 
-    # Den anden sensor ser nogen, mens lyset er tændt: dens egen lampe tændes med.
+    # Den anden sensor ser nogen: kun dens egen automatik tænder.
     hus.hass.states.async_set(sensor2, "on")
     await hus.hass.async_block_till_done()
     assert [k.data["entity_id"] for k in hus.taend] == [[SPOTS], [STENLAMPE]]
 
-    # Ingen ser nogen: hele rummet slukker efter tiden.
+    rum = entry.runtime_data.rum["traeningsrum"]
+    assert [a.tilstand for a in rum.automatik] == ["bevaegelse", "bevaegelse"]
+
+    # Den første sensor holder op med at se nogen. Kun dens egen automatik tæller ned.
     await hus.bevaegelse("off")
+    assert rum.automatik[0].slukker is not None
+    assert rum.automatik[1].slukker is None
+
+    # Ingen ser nogen: hver automatik slukker sine egne lamper, hver for sig. Før 0.7.0 slukkede
+    # rummet som én blok, og det er netop dét, der ikke længere er sandt.
     hus.hass.states.async_set(sensor2, "off")
     await hus.hass.async_block_till_done()
     await hus.vent(31)
-    assert hus.sluk[-1].data["entity_id"] == [SPOTS, STENLAMPE]
+    assert [k.data["entity_id"] for k in hus.sluk] == [[SPOTS], [STENLAMPE]]
 
 
 async def test_sensor_uden_egne_lamper_taender_dem_alle(hus: Hus) -> None:
@@ -596,25 +612,25 @@ async def test_tidsrummet_gaelder_kun_paa_sine_dage(hus: Hus) -> None:
     await hus.bevaegelse("on")
     assert hus.taend[-1].data["color_temp_kelvin"] == 3500  # lyset for hele døgnet
     rum = entry.runtime_data.rum["traeningsrum"]
-    assert rum.tidsrum_ved(lokal("2026-09-16 10:00:00"))["navn"] == "Arbejde"  # onsdag
+    assert rum.automatik[0].tidsrum_ved(lokal("2026-09-16 10:00:00"))["navn"] == "Arbejde"  # onsdag
 
 
 async def test_over_midnat_hoerer_til_dagen_det_begynder(hus: Hus) -> None:
     entry = await hus.saet_op(RUMMET | {"tidsrum": [NAT | {"dage": [4]}]})  # fredag
     rum = entry.runtime_data.rum["traeningsrum"]
-    assert rum.tidsrum_ved(lokal("2026-09-18 23:00:00"))["navn"] == "Nat"  # fredag aften
-    assert rum.tidsrum_ved(lokal("2026-09-19 03:00:00"))["navn"] == "Nat"  # natten til lørdag
-    assert rum.tidsrum_ved(lokal("2026-09-17 23:00:00")) is None  # torsdag aften
-    assert rum.tidsrum_ved(lokal("2026-09-18 03:00:00")) is None  # natten til fredag
+    assert rum.automatik[0].tidsrum_ved(lokal("2026-09-18 23:00:00"))["navn"] == "Nat"  # fredag aften
+    assert rum.automatik[0].tidsrum_ved(lokal("2026-09-19 03:00:00"))["navn"] == "Nat"  # natten til lørdag
+    assert rum.automatik[0].tidsrum_ved(lokal("2026-09-17 23:00:00")) is None  # torsdag aften
+    assert rum.automatik[0].tidsrum_ved(lokal("2026-09-18 03:00:00")) is None  # natten til fredag
 
 
 async def test_samme_klokkeslaet_er_et_helt_doegn(hus: Hus) -> None:
     entry = await hus.saet_op(RUMMET | {"tidsrum": [WEEKEND]})
     rum = entry.runtime_data.rum["traeningsrum"]
-    assert rum.tidsrum_ved(lokal("2026-09-19 00:00:00"))["navn"] == "Weekend"
-    assert rum.tidsrum_ved(lokal("2026-09-20 23:59:59"))["navn"] == "Weekend"
-    assert rum.tidsrum_ved(lokal("2026-09-18 23:59:59")) is None
-    assert rum.tidsrum_ved(lokal("2026-09-21 00:00:00")) is None
+    assert rum.automatik[0].tidsrum_ved(lokal("2026-09-19 00:00:00"))["navn"] == "Weekend"
+    assert rum.automatik[0].tidsrum_ved(lokal("2026-09-20 23:59:59"))["navn"] == "Weekend"
+    assert rum.automatik[0].tidsrum_ved(lokal("2026-09-18 23:59:59")) is None
+    assert rum.automatik[0].tidsrum_ved(lokal("2026-09-21 00:00:00")) is None
 
 
 async def test_skift_paa_en_dag_uden_tidsrummet_roerer_ikke_lyset(hus: Hus) -> None:
@@ -635,7 +651,7 @@ async def test_valgt_lys_huskes_over_midnat_i_samme_tidsrum(hus: Hus) -> None:
     await hus.vent(4)
     rum = entry.runtime_data.rum["traeningsrum"]
     # Søndag er stadig weekend; først mandag tager hele døgnets lys over.
-    assert dt_util.parse_datetime(rum.husket["til"]) == lokal("2026-09-21 00:00:00")
+    assert dt_util.parse_datetime(rum.automatik[0].husket["til"]) == lokal("2026-09-21 00:00:00")
     await hus.lys("off", Context(user_id="martin"))
 
     hus.freezer.move_to(lokal("2026-09-20 10:00:00"))
@@ -917,12 +933,12 @@ async def test_haendelser_til_sidepanelet(hus: Hus) -> None:
 
     rum = entry.runtime_data.rum["traeningsrum"]
     assert [{k: v for k, v in h.items() if k != "tid"} for h in rum.haendelser] == [
-        {"hvad": "taendt", "lys": "rummet"},
-        {"hvad": "tidsrum", "navn": "Nat"},
-        {"hvad": "valgt"},
-        {"hvad": "hold_til"},
-        {"hvad": "hold_fra"},
-        {"hvad": "slukket_i_haanden"},
+        {"hvad": "taendt", "lys": "automatik", "automatik": 1},
+        {"hvad": "tidsrum", "navn": "Nat", "automatik": 1},
+        {"hvad": "valgt", "automatik": 1},
+        {"hvad": "hold_til", "automatik": 1},
+        {"hvad": "hold_fra", "automatik": 1},
+        {"hvad": "slukket_i_haanden", "automatik": 1},
     ]
 
 

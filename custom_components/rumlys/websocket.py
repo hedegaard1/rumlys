@@ -28,7 +28,7 @@ from .const import (
     RUM,
 )
 from .omraade import entiteter_i_omraade, er_knap, gruppens_lamper, nyt_rum
-from .rum import Rum
+from .rum import Rum, automatikkerne
 from .skema import INDSTILLINGER, KORT, RUM_DATA, hele_tal
 
 # Rummets entiteter efter nøgle, som kortet og sidepanelet slår op i.
@@ -85,12 +85,28 @@ def _rum_eller_fejl(
 
 
 @callback
-def _entiteter(hass: HomeAssistant, rum_id: str) -> dict[str, str | None]:
+def _entiteter(hass: HomeAssistant, rum_id: str, automatik: list[int] | None = None) -> dict[str, Any]:
+    """Rummets egne entiteter, og under «automatik» hver automatiks egne efter nummer.
+
+    Tiderne og «hold lys» hører til automatikken fra 0.7.0; rummets tilstandssensor og hold-kontakt
+    bliver stående som opsummering og som den, der tager hele rummet på én gang.
+    """
     register = er.async_get(hass)
-    return {
-        noegle: register.async_get_entity_id(domaene, DOMAIN, f"{rum_id}_{noegle}")
-        for noegle, domaene in ENTITETER.items()
+
+    def slaa_op(unik: str, domaene: str) -> str | None:
+        return register.async_get_entity_id(domaene, DOMAIN, unik)
+
+    ud: dict[str, Any] = {
+        noegle: slaa_op(f"{rum_id}_{noegle}", domaene) for noegle, domaene in ENTITETER.items()
     }
+    ud["automatik"] = {
+        str(nr): {
+            noegle: slaa_op(f"{rum_id}_automatik_{nr}_{noegle}", domaene)
+            for noegle, domaene in ENTITETER.items()
+        }
+        for nr in automatik or []
+    }
+    return ud
 
 
 @callback
@@ -102,10 +118,22 @@ def _rum_kort(hass: HomeAssistant, entry: ConfigEntry, subentry: ConfigSubentry)
         "omraade": subentry.data.get(CONF_OMRAADE),
         "lamper": subentry.data.get("lamper", []),
         "sensorer": subentry.data.get("sensorer", []),
-        "tidsrum": [tidsrum["navn"] for tidsrum in subentry.data.get("tidsrum", [])],
+        # Tidsrummene hører til automatikkerne fra 0.7.0. Oversigten viser dem samlet.
+        "tidsrum": [
+            tidsrum["navn"]
+            for aut in automatikkerne(subentry.data)
+            for tidsrum in aut.get("tidsrum", [])
+        ],
+        # Automatikkerne, som rummet ser dem: et rum fra før 0.7.0 har dem ikke i sin opsætning,
+        # men svarer til den ene, indlæsningen folder det til.
+        "automatik": automatikkerne(subentry.data),
         "scener": subentry.data.get("scener", []),
         "ikon": subentry.data.get(CONF_IKON),
-        "entiteter": _entiteter(hass, subentry.subentry_id),
+        "entiteter": _entiteter(
+            hass,
+            subentry.subentry_id,
+            [aut["id"] for aut in automatikkerne(subentry.data)],
+        ),
         "kort": dict(rum.kort) if rum else {},
     }
 
@@ -164,6 +192,8 @@ def ws_hent(
         vol.Required("type"): "rumlys/rum/gem",
         vol.Required("rum_id"): str,
         vol.Required("data"): dict,
+        # Tiderne pr. automatik: {"1": {...}, "2": {...}}. Et sidepanel fra før 0.7.0 sender dem
+        # fladt; de lægges så på den første automatik.
         vol.Optional("indstillinger"): dict,
         # Kortenes lamper efter kortets id: en tom liste er hele rummet, null ingen lamper. Gemmes i Rumlys'
         # egen tilstand, så de ikke genindlæser Rumlys.
@@ -181,7 +211,11 @@ def ws_gem(
         return
     try:
         data = hele_tal(RUM_DATA(msg["data"]))
-        indstillinger = hele_tal(INDSTILLINGER(msg.get("indstillinger", {})))
+        raa = msg.get("indstillinger") or {}
+        if raa and all(isinstance(v, dict) for v in raa.values()):
+            indstillinger = {str(k): hele_tal(INDSTILLINGER(v)) for k, v in raa.items()}
+        else:
+            indstillinger = {"1": hele_tal(INDSTILLINGER(raa))} if raa else {}
     except vol.Invalid as err:
         connection.send_error(msg["id"], "ugyldig", str(err))
         return
@@ -194,8 +228,11 @@ def ws_gem(
         return
     # Tiderne først: en genindlæsning gemmer rummets tilstand, mens den lukker det.
     rum = entry.runtime_data.rum[subentry.subentry_id]
-    for noegle, vaerdi in indstillinger.items():
-        rum.saet(noegle, vaerdi)
+    for aut_id, tider in indstillinger.items():
+        for aut in rum.automatik:
+            if str(aut.id) == aut_id:
+                for noegle, vaerdi in tider.items():
+                    aut.saet(noegle, vaerdi)
     if "kort" in msg:
         data = _frys_knapper(rum, data, msg["kort"])
         # Mod lamperne, som de gemmes nu: en lampe, der lige er valgt i rummet, kan også vælges til et kort.
