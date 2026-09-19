@@ -80,7 +80,10 @@ button { font: inherit; color: inherit; }
 .overskrift h1 { font-size: 26px; margin: 0; flex: 1; font-weight: 600; }
 .rumgitter { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
 .rumfelt { background: var(--rl-flade); border-radius: var(--rl-radius); box-shadow: var(--rl-skygge); overflow: hidden; cursor: pointer; border: 0; text-align: left; padding: 0; display: flex; flex-direction: column; }
-.rumfelt .farve { height: 56px; background: var(--rl-flade2); transition: background .3s; }
+.rumfelt .farve { height: 56px; background: var(--rl-flade2); transition: background .3s; display: flex; align-items: center; gap: 0; padding: 0 12px; --mdc-icon-size: 22px; }
+.rumfelt .farve .ikon { width: 34px; height: 34px; border-radius: 50%; box-sizing: border-box; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, .45); color: rgba(0, 0, 0, .7); flex: none; }
+.rumfelt .farve .ikon + .ikon { margin-left: -10px; box-shadow: -2px 0 0 0 rgba(255, 255, 255, .45); }
+.rumfelt .farve .ikon.flere { font-size: 13px; font-weight: 600; }
 .rumfelt .tekst { padding: 10px 12px 12px; }
 .rumfelt b { display: block; font-size: 15px; font-weight: 600; }
 .rumfelt .status { font-size: 13px; color: var(--rl-daempet); }
@@ -1184,6 +1187,11 @@ class RumlysPanel extends HTMLElement {
       const farver = rummetsFarver(hass, rum.lamper.map((l) => l.entity_id));
       farve.style.background = farver.length ? overgang(farver, "135deg") : "";
       status.textContent = statusTekst(hass, rum.entiteter);
+      // Rummets ikon i bjælken: det, et af rummets kort har valgt, ellers lampernes egne — præcis
+      // som kortet selv viser det. Uden det er bjælken kun en farve, og fliserne ligner hinanden.
+      const valgt = Object.values(rum.kort || {}).map((k) => k && k.ikon).find(Boolean) || null;
+      const ikoner = rummetsIkoner(hass, rum.lamper.map((l) => l.entity_id), valgt);
+      farve.replaceChildren(...[...ikonStak(ikoner).children]);
     });
     return felt;
   }
