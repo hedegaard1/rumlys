@@ -9,7 +9,7 @@
 // relativt, så Rumlys' egne ikoner også virker på testsiden og i node-testen.
 import "./ikoner/rumlys-ikoner.js";
 
-export const VERSION = "0.7.2";
+export const VERSION = "0.7.3";
 // Mappen, filen selv ligger i — i Home Assistant med versionen i stien, på testsiden repoets egen.
 export const FILER = new URL("./", import.meta.url).href;
 // Scenerne ligger i Rumlys selv. I Home Assistant har de en fast adresse uden version, så et kort,
@@ -77,7 +77,6 @@ const TEKSTER = {
     ikon_ikke_gemt: "Ikonet kunne ikke gemmes: {fejl}",
     kort_sektion: "Kort",
     kort_sektion_hint: "Rummets kort på dine betjeningspaneler, i den rækkefølge de står. Et kort viser hele rummet eller de lamper, du vælger. På en fane kan en lampe kun stå på ét kort, og et kort for hele rummet optager dem alle.",
-    kort_nr: "Kort {n}",
     nyt: "Nyt",
     hele_rummet: "Hele rummet",
     viser: "Viser",
@@ -137,7 +136,6 @@ const TEKSTER = {
     knapper: "Knapper",
     knapper_hint: "Vægknapper, Rumlys skal styre lyset med. Et tryk tænder og slukker, to hurtige tryk holder lyset tændt, og holder du knappen nede, dæmpes lyset op eller ned.",
     knap_nede: "Nede nu",
-    styrer: "Styrer",
     knap_overtaget: "Rumlys styrer knapperne, så snart rummet er gemt. Slå den gamle automatisering på knappen fra — ellers gør de to ting på én gang.",
     ingen_knapper: "Området har ingen vægknapper.",
     vis_andre_knapper: "Vis knapper fra andre områder",
@@ -198,9 +196,6 @@ const TEKSTER = {
     hold: "Hold lys tændt",
     hold_hint: "Slås til med «Hold lys» øverst på siden eller på kortet. Sensoren og nedtællingen er så ude af spil, til lyset slukkes i hånden, eller tiden er gået.",
     hold_i: "Holder lyset tændt i",
-    hold_lys: "Hold lys",
-    slaa_fra: "Slå fra",
-    sluk: "Sluk",
     scener_paa_kortet: "Scener på kortet",
     scener_ingen: "Rummet har ingen lamper, der kan vise scener. Det kræver lamper med farve eller hvidt lys.",
     tilfoej_scener: "Tilføj scener",
@@ -346,7 +341,6 @@ const TEKSTER = {
     ikon_ikke_gemt: "The icon could not be saved: {fejl}",
     kort_sektion: "Cards",
     kort_sektion_hint: "The room's cards on your dashboards, in the order they appear. A card shows the whole room or the lights you choose. On a tab a light can only be on one card, and a card for the whole room takes them all.",
-    kort_nr: "Card {n}",
     nyt: "New",
     hele_rummet: "Whole room",
     viser: "Shows",
@@ -406,7 +400,6 @@ const TEKSTER = {
     knapper: "Buttons",
     knapper_hint: "Wall buttons for Rumlys to control the light with. One press turns the light on and off, two quick presses keep it on, and holding the button dims up or down.",
     knap_nede: "Pressed now",
-    styrer: "Controls",
     knap_overtaget: "Rumlys takes over the buttons as soon as the room is saved. Turn off the old automation on the button — otherwise both act at once.",
     ingen_knapper: "The area has no wall buttons.",
     vis_andre_knapper: "Show buttons from other areas",
@@ -467,9 +460,6 @@ const TEKSTER = {
     hold: "Keep light on",
     hold_hint: "Turned on with «Keep on» at the top of the page or on the card. The sensor and the countdown are then out of play until the light is turned off by hand or the time is up.",
     hold_i: "Keeps the light on for",
-    hold_lys: "Keep on",
-    slaa_fra: "Turn off",
-    sluk: "Turn off",
     scener_paa_kortet: "Scenes on the card",
     scener_ingen: "The room has no lights that can show scenes. That takes lights with colour or white light.",
     tilfoej_scener: "Add scenes",
