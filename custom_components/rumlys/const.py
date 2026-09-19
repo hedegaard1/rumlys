@@ -22,6 +22,17 @@ CONF_KORT = "kort"
 KORT_LAMPER = "lamper"
 KORT_SCENER = "scener"
 KORT_IKON = "ikon"
+# Automatikken: en gruppe af rummets lamper, der opfører sig ens. Hver har sine egne sensorer,
+# sin egen tidsplan og sine egne tider — og sin egen nedtælling. En lampe hører til én automatik,
+# og det er dét, der gør, at to aldrig kan trække i den samme pære.
+CONF_AUTOMATIK = "automatik"
+AUT_ID = "id"
+AUT_LAMPER = "lamper"
+AUT_SENSORER = "sensorer"  # tom = ingen sensor tænder den
+AUT_LYS = "lys"  # automatikkens eget lys, «Hele døgnet»
+AUT_OVERGANG = "overgang"  # blød tænd og sluk
+AUT_TIDSRUM = "tidsrum"
+
 CONF_LYS = "lys"  # rummets eget lys
 CONF_OVERGANG = "overgang"
 # Blød tænd og sluk i et nyt rum, når lamperne kan det.
@@ -66,7 +77,8 @@ STANDARD_INDSTILLINGER = {
     HOLD_TID: 4,
 }
 
-# Rummets tilstand
+# Rummets tilstand. Med flere automatikker er rummets egen tilstand en opsummering: den
+# højeste af automatikkernes, i rækkefølgen herunder.
 SLUKKET = "slukket"
 BEVAEGELSE = "bevaegelse"
 HAAND = "haand"

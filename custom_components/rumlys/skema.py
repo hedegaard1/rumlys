@@ -11,6 +11,13 @@ from homeassistant.helpers import config_validation as cv
 
 from .const import (
     ALLE_DAGE,
+    AUT_ID,
+    AUT_LAMPER,
+    AUT_LYS,
+    AUT_OVERGANG,
+    AUT_SENSORER,
+    AUT_TIDSRUM,
+    CONF_AUTOMATIK,
     CONF_BEVAEGELSE,
     CONF_DAGE,
     CONF_ENTITY_ID,
@@ -46,6 +53,7 @@ from .const import (
     LYSTYPER,
     SLUK_EFTER_BEVAEGELSE,
     SLUK_EFTER_TRYK,
+    STANDARD_LYS,
 )
 
 
@@ -103,6 +111,41 @@ TIDSRUM = vol.Schema(
 )
 
 
+AUTOMATIK = vol.Schema(
+    {
+        vol.Required(AUT_ID): vol.All(vol.Coerce(int), vol.Range(min=1)),
+        vol.Optional(AUT_LAMPER, default=list): [cv.entity_domain("light")],
+        vol.Optional(AUT_SENSORER, default=list): [cv.entity_domain("binary_sensor")],
+        vol.Optional(AUT_LYS, default=lambda: dict(STANDARD_LYS)): LYSVALG,
+        vol.Optional(AUT_OVERGANG, default=0): vol.All(vol.Coerce(float), vol.Range(min=0, max=10)),
+        vol.Optional(AUT_TIDSRUM, default=list): [TIDSRUM],
+    }
+)
+
+
+def _med_automatik(rum: dict[str, Any]) -> dict[str, Any]:
+    """Et rum fra før 0.7.0 har sin opsætning liggende fladt. Den bliver til én automatik med
+    alle lamperne og alle sensorerne — præcis det, rummet gjorde før.
+
+    Havde sensorerne hver deres lamper (`sensor_lamper` fra 0.4.5), er det den samme tanke som en
+    automatik, men delingen følger ikke med: den skal laves om i sidepanelet, hvor den nu hører til.
+    """
+    if rum.get(CONF_AUTOMATIK):
+        return rum
+    return rum | {
+        CONF_AUTOMATIK: [
+            {
+                AUT_ID: 1,
+                AUT_LAMPER: [lampe[CONF_ENTITY_ID] for lampe in rum[CONF_LAMPER]],
+                AUT_SENSORER: list(rum.get(CONF_SENSORER, [])),
+                AUT_LYS: rum.get(CONF_LYS) or dict(STANDARD_LYS),
+                AUT_OVERGANG: rum.get(CONF_OVERGANG, 0),
+                AUT_TIDSRUM: rum.get(CONF_TIDSRUM, []),
+            }
+        ]
+    }
+
+
 def _kun_rummets(rum: dict[str, Any]) -> dict[str, Any]:
     """Sensorer, knapper og deres lamper skal være rummets egne."""
     rummets = {lampe[CONF_ENTITY_ID] for lampe in rum[CONF_LAMPER]}
@@ -125,11 +168,27 @@ def _kun_rummets(rum: dict[str, Any]) -> dict[str, Any]:
             knapper[knap] = {CONF_LAMPER: lamper}
         else:
             del knapper[knap]
+    # Automatikkernes lamper og sensorer skal være rummets egne, og **en lampe hører til én
+    # automatik**. Står den to steder, bliver den, hvor den står først — ellers kunne to
+    # automatikker trække i den samme pære, og hele modellen bygger på, at det ikke kan ske.
+    taget: set[str] = set()
+    automatik = []
+    for aut in rum.get(CONF_AUTOMATIK) or []:
+        lamper = [l for l in aut[AUT_LAMPER] if l in rummets and l not in taget]
+        taget.update(lamper)
+        automatik.append(
+            aut
+            | {
+                AUT_LAMPER: lamper,
+                AUT_SENSORER: [s for s in aut[AUT_SENSORER] if s in rum[CONF_SENSORER]],
+            }
+        )
     return rum | {
         CONF_TILSTEDE: [s for s in rum[CONF_TILSTEDE] if s in rum[CONF_SENSORER]],
         # En sensor uden lamper tilbage tænder alle rummets bevægelseslamper — som en sensor uden valg.
         CONF_SENSOR_LAMPER: {s: l for s, l in valgte.items() if l},
         CONF_KNAP_MAAL: knapper,
+        CONF_AUTOMATIK: automatik,
     }
 
 
@@ -175,7 +234,10 @@ RUM_DATA = vol.All(
                     }
                 )
             },
-            vol.Required(CONF_LYS): LYSVALG,
+            # Fra 0.7.0 ligger lys, overgang og tidsplan i automatikken. De tre herunder er
+            # rummets gamle form; de tages imod og foldes ind i én automatik ved indlæsningen.
+            vol.Optional(CONF_AUTOMATIK, default=list): [AUTOMATIK],
+            vol.Optional(CONF_LYS): LYSVALG,
             vol.Optional(CONF_OVERGANG, default=0): vol.All(
                 vol.Coerce(float), vol.Range(min=0, max=10)
             ),
@@ -184,6 +246,7 @@ RUM_DATA = vol.All(
             vol.Optional(CONF_IKON): cv.icon,
         }
     ),
+    _med_automatik,
     _kun_rummets,
 )
 
