@@ -351,6 +351,87 @@ async def test_knappen_holdt_nede_daemper(hus: Hus) -> None:
     assert not hus.sluk
 
 
+async def test_knappen_uden_dobbeltklik_virker_med_det_samme(hus: Hus) -> None:
+    """Holder et dobbeltklik ikke lyset, er der intet at vente på: trykket virker ved slippet."""
+    await hus.saet_op(KNAPRUMMET | {"knap_maal": {KNAP: {"hold": False}}})
+
+    await hus.tryk()
+    # Ingen ventetid — lyset er tændt, før vinduet på 0,3 sekunder ville være udløbet.
+    assert [k.data["entity_id"] for k in hus.taend] == [[SPOTS]]
+
+
+async def test_knappen_uden_daempning_daemper_ikke(hus: Hus) -> None:
+    """Må knappen ikke dæmpe, går et hold ikke til dæmpning — det bliver et almindeligt tryk."""
+    await hus.saet_op(KNAPRUMMET | {"knap_maal": {KNAP: {"daemp": False}}})
+    await hus.lys("on", brightness=204)
+
+    await hus.knap("on")
+    await hus.vent(1.2)  # længere end hold-grænsen på 0,8
+    assert not hus.taend, "knappen dæmpede, selvom den ikke må"
+
+    await hus.knap("off")
+    await hus.vent(0.5)
+    # Lyset var tændt, så trykket slukker det.
+    assert hus.sluk
+
+
+async def test_knappens_egen_hold_graense(hus: Hus) -> None:
+    """Hold-grænsen kan finindstilles pr. knap."""
+    await hus.saet_op(KNAPRUMMET | {"knap_maal": {KNAP: {"daempning": {"graense": 2.0}}}})
+    await hus.lys("on", brightness=204)
+
+    await hus.knap("on")
+    await hus.vent(1.2)  # forbi standardens 0,8, men ikke forbi knappens egne 2,0
+    assert not hus.taend, "knappen dæmpede før sin egen grænse"
+    await hus.vent(1.2)
+    assert hus.taend, "knappen dæmpede ikke efter sin egen grænse"
+    assert hus.taend[-1].data["brightness"] < 204
+
+
+async def test_knappens_egne_daempningstal(hus: Hus) -> None:
+    """Skridt, pause og overgang er knappens egne."""
+    await hus.saet_op(
+        KNAPRUMMET
+        | {"knap_maal": {KNAP: {"daempning": {"skridt": 25, "pause": 0.5, "overgang": 0.2}}}}
+    )
+    await hus.lys("on", brightness=255)
+
+    await hus.knap("on")
+    await hus.vent(0.9)
+    assert len(hus.taend) == 1
+    assert hus.taend[-1].data["transition"] == 0.2
+    # 100 % - 25 % = 75 %, altså 191 af 255. Standardens skridt ville give 90 %.
+    assert hus.taend[-1].data["brightness"] == round(75 * 2.55)
+
+    # Næste skridt er 25 % længere nede, ikke 10. (Afrundingen til 0-255 giver en enkelt pixel
+    # i slør, så der sammenlignes med en tolerance frem for på et eksakt byte.)
+    await hus.vent(0.6)
+    assert abs(hus.taend[-1].data["brightness"] - 50 * 2.55) <= 1
+
+
+async def test_knap_der_melder_haendelser(hus: Hus) -> None:
+    """En event-entitet med klassen «button» er også en vægknap (fra 0.9.0).
+
+    Den har ingen «nede»-tilstand: hver melding ER et tryk, og hvilken slags står i event_type.
+    Sådan modellerer Home Assistant selv en knap — IHC's egne kommer som binary_sensors.
+    """
+    knap = "event.fjernbetjening"
+    await hus.saet_op(KNAPRUMMET | {"knapper": [knap]})
+
+    async def melder(slags: str, tid: str) -> None:
+        hus.hass.states.async_set(knap, tid, {"event_type": slags, "device_class": "button"})
+        await hus.hass.async_block_till_done()
+
+    await melder("initial_press", "2026-09-19T21:00:00.000+00:00")
+    await melder("single_press", "2026-09-19T21:00:01.000+00:00")
+    # Et enkelt tryk virker med det samme — der er ingen varighed at vente på.
+    assert [k.data["entity_id"] for k in hus.taend] == [[SPOTS]]
+
+    hus.taend.clear()
+    await melder("double_press", "2026-09-19T21:00:02.000+00:00")
+    assert hus.tilstand() == "hold"
+
+
 async def test_knappen_styrer_kortets_lamper(hus: Hus) -> None:
     """En knap kan følge et kort og styre præcis de lamper, kortet viser."""
     rummet = KNAPRUMMET | {

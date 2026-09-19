@@ -105,3 +105,18 @@ DAEMP_SKRIDT = 10  # procent pr. skridt, mens knappen holdes nede
 DAEMP_PAUSE = 0.1  # sekunder mellem skridtene
 DAEMP_OVERGANG = 0.05  # sekunder pr. skridt; rummets egen bløde overgang er for lang her
 DAEMP_VEND = 51  # er lyset lysere end det, dæmper et hold ned; ellers op
+
+# Knappens egne valg og finindstillinger. Værdierne ovenfor er standarden, så en knap, ingen har
+# rørt, opfører sig præcis som før 0.9.0.
+KNAP_DAEMP = "daemp"  # må et hold på knappen dæmme?
+KNAP_HOLDER = "hold"  # holder et dobbeltklik lyset tændt?
+KNAP_DAEMPNING = "daempning"  # {graense, skridt, pause, overgang, vend}
+KNAP_DOBBELTVALG = "dobbelt"  # {vindue}
+DAEMP_FELTER = {
+    "graense": (KNAP_HOLD, 0.1, 5),
+    "skridt": (DAEMP_SKRIDT, 1, 50),
+    "pause": (DAEMP_PAUSE, 0.05, 2),
+    "overgang": (DAEMP_OVERGANG, 0, 1),
+    "vend": (DAEMP_VEND, 1, 99),
+}
+DOBBELT_FELTER = {"vindue": (KNAP_DOBBELT, 0.1, 1)}

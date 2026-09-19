@@ -35,9 +35,17 @@ KNAPKLASSER = ("opening",)
 
 @callback
 def er_knap(entitet: er.RegistryEntry) -> bool:
-    return entitet.domain == "binary_sensor" and (
-        entitet.device_class or entitet.original_device_class
-    ) in KNAPKLASSER
+    """En vægknap, Rumlys kan overtage.
+
+    To slags: IHC giver hver indgang som en binary_sensor med klassen «opening» — der findes ingen
+    knap-klasse for en binary_sensor overhovedet — mens Home Assistants egen måde at modellere en
+    knap på er en event-entitet med klassen «button». Begge skal stå på listen (fra 0.9.0), så
+    længe IHC ikke melder sine som rigtige knapper.
+    """
+    klasse = entitet.device_class or entitet.original_device_class
+    if entitet.domain == "event":
+        return klasse == "button"
+    return entitet.domain == "binary_sensor" and klasse in KNAPKLASSER
 
 
 @callback

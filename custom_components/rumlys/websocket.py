@@ -406,7 +406,9 @@ def ws_omraader(
 def ws_knapper(
     hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
 ) -> None:
-    """Alle husets vægknapper — til en knap, der står i et andet område end rummet."""
+    """Alle husets vægknapper — til en knap, der står i et andet område end rummet.
+
+    Både IHC's binary_sensors og event-entiteter med klassen «button» — se er_knap()."""
     register = er.async_get(hass)
     enheder = dr.async_get(hass)
     omraader = ar.async_get(hass)

@@ -22,6 +22,8 @@ import {
   ikon,
   ikonStak,
   kanFarve,
+  DAEMP_FELTER,
+  DOBBELT_FELTER,
   lampensEvner,
   kanHvid,
   kategoriNavn,
@@ -119,6 +121,10 @@ button { font: inherit; color: inherit; }
 .evne.temp { background: linear-gradient(to bottom, #dcefff, #ffffff 48%, #ffd39b); }
 .evne.farve { background: conic-gradient(from .25turn, #ff2d2d, #ffe600, #2bd93a, #00d8d8, #2b5cff, #e42bff, #ff2d2d); }
 .evne.gul { background: #ffcf70; }
+/* Knappens egne valg: rykket ind under knappens egen række, så det er tydeligt, at de hører til den. */
+.knapvalg { border-left: 2px solid var(--rl-linje); margin: 0 0 10px 16px; }
+.knapvalg .naar { border-top: 0; }
+.knapvalg .hint { margin: 6px 0 10px; }
 .levende { display: flex; align-items: center; gap: 12px; margin-top: 10px; font-size: 14px; }
 .glod { width: 36px; height: 36px; border-radius: 50%; background: var(--rl-flade2); flex: none; transition: background .3s; }
 .levende small { display: block; color: var(--rl-daempet); font-size: 12px; }
@@ -1517,6 +1523,91 @@ class RumlysPanel extends HTMLElement {
   //
   // Et flueben både vælger knappen til rummet og peger den på dette kort. Følger den et andet kort,
   // siger rækken det, og et klik flytter den hertil — en knap på væggen kan kun gøre én ting.
+  // Hvad knappen må: et tryk tænder og slukker (altid), et hold dæmper, et dobbeltklik holder
+  // lyset. De to sidste kan slås fra, og hver har et tandhjul til sine egne tal. Standarden er
+  // dét, knapperne gjorde før 0.9.0, så en knap, ingen har rørt, opfører sig som før.
+  _knapvalg(entityId, kortId) {
+    const d = this._kladde.data;
+    const maal = (d.knap_maal || {})[entityId] || {};
+    const saet = (aendring) => {
+      d.knap_maal = Object.assign({}, d.knap_maal, { [entityId]: Object.assign({}, maal, aendring) });
+      this._genTegn("kort");
+    };
+    const kortet = (this._kladde.kort || {})[kortId] || {};
+    const lamper = (kortet.lamper || []).length ? kortet.lamper : d.lamper.map((l) => l.entity_id);
+    const kanDaempe = lamper.some((l) => lampensEvner(this._hass, l).daemp);
+    const haendelse = entityId.indexOf("event.") === 0;
+
+    const laast = h("div", { class: "naar" },
+      h("div", { class: "tx" }, h("b", {}, this.t("knap_tryk")), h("small", {}, this.t("knap_tryk_sub"))),
+      h("button", { class: "kontakt til", type: "button", disabled: true, "aria-pressed": "true" }));
+
+    const valgRaekke = (noegle, titel, felter, gemte, standardNavn) => {
+      const til = maal[noegle] !== false;
+      const kontakt = h("button", { class: "kontakt" + (til ? " til" : ""), type: "button", "aria-pressed": String(til) });
+      kontakt.addEventListener("click", () => saet({ [noegle]: !til }));
+      const afvig = this._afvigelser(felter, gemte);
+      const tandhjul = h("button", { class: "knap t", type: "button", title: this.t("finindstil") }, ikon("mdi:cog-outline"), this.t("finindstil"));
+      tandhjul.addEventListener("click", () => this._finindstil(titel + " · " + this._knapNavn(entityId), felter, gemte, (nye) => saet({ [standardNavn]: nye })));
+      return h("div", { class: "naar" },
+        h("div", { class: "tx" }, h("b", {}, titel), h("small", {}, afvig || this.t("standard"))),
+        til ? tandhjul : null, kontakt);
+    };
+
+    return h("div", { class: "knapvalg", style: { paddingLeft: "34px" } },
+      laast,
+      kanDaempe
+        ? valgRaekke("daemp", this.t("knap_daemp"), DAEMP_FELTER, maal.daempning, "daempning")
+        : h("p", { class: "hint" }, this.t("knap_uden_daempning")),
+      valgRaekke("hold", this.t("knap_hold"), DOBBELT_FELTER, maal.dobbelt, "dobbelt"),
+      haendelse ? h("p", { class: "hint" }, this.t("knap_haendelse")) : null);
+  }
+
+  _knapNavn(entityId) {
+    const st = this._hass.states[entityId];
+    return (st && st.attributes.friendly_name) || entityId;
+  }
+
+  // Hvad der er ændret fra standarden, som tekst. Tom, hvis alt står, som det plejer.
+  _afvigelser(felter, gemte) {
+    const dele = felter
+      .filter(([navn, standard]) => gemte && gemte[navn] != null && Number(gemte[navn]) !== standard)
+      .map(([navn, , , , , enhed]) => this.t("f_" + navn) + " " + this._tal(gemte[navn]) + " " + enhed);
+    return dele.join(" · ");
+  }
+
+  _tal(v) {
+    return String(Math.round(Number(v) * 100) / 100).replace(".", ",");
+  }
+
+  // Pop oppen under knappens funktion. Den samme form til dæmpning og dobbeltklik.
+  _finindstil(titel, felter, gemte, gem) {
+    const arbejde = {};
+    felter.forEach(([navn, standard]) => { arbejde[navn] = gemte && gemte[navn] != null ? Number(gemte[navn]) : standard; });
+    const indhold = felter.map(([navn, standard, mindst, mest, trin, enhed]) => {
+      const vis = h("b", {}, this._tal(arbejde[navn]) + " " + enhed);
+      const skyder = h("input", { type: "range", min: String(mindst), max: String(mest), step: String(trin), value: String(arbejde[navn]), style: { width: "100%" } });
+      skyder.addEventListener("input", () => {
+        arbejde[navn] = Number(skyder.value);
+        vis.textContent = this._tal(arbejde[navn]) + " " + enhed;
+      });
+      return h("div", { class: "felt" },
+        h("label", {}, this.t("f_" + navn), " — ", vis),
+        skyder,
+        // Standarden i parentes til sidst, så sætningen ikke løber sammen med den.
+        h("small", { class: "hint" }, this.t("f_" + navn + "_sub") + ". " + this.t("standard") + ": " + this._tal(standard) + " " + enhed));
+    });
+    this._dialog({
+      titel,
+      indhold,
+      knapper: [
+        { tekst: this.t("annuller"), handling: () => {} },
+        { tekst: this.t("nulstil"), handling: () => gem({}) },
+        { tekst: this.t("gem"), primaer: true, handling: () => gem(arbejde) },
+      ],
+    });
+  }
+
   _sekKortKnapper(kortId) {
     const d = this._kladde.data;
     const knapper = d.knapper || [];
@@ -1554,13 +1645,16 @@ class RumlysPanel extends HTMLElement {
         pille.style.display = st && st.state === "on" ? "" : "none";
       });
       const forklaring = andet ? this.t("foelger_kortet", { navn: kortNavn(andet) }) : under || "";
-      return h(
+      const selve = h(
         "div",
         { class: "raekke", style: { flexWrap: "wrap" } },
         flueben,
         h("div", { class: "tx", style: { minWidth: "140px" } }, h("b", {}, navn), forklaring ? h("small", {}, forklaring) : null),
         pille
       );
+      // Knappens egne valg står kun frem, når knappen faktisk er valgt til dette kort.
+      if (!valgt) return selve;
+      return h("div", {}, selve, this._knapvalg(entityId, kortId));
     };
     omraadets.forEach((k) => liste.appendChild(raekke(k.entity_id, k.navn)));
     knapper.forEach((k) => {

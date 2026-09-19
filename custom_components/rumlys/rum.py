@@ -94,7 +94,13 @@ from .const import (
     HOLD,
     HOLD_TID,
     HUSK_EFTER,
+    DAEMP_FELTER,
+    DOBBELT_FELTER,
+    KNAP_DAEMP,
+    KNAP_DAEMPNING,
     KNAP_DOBBELT,
+    KNAP_DOBBELTVALG,
+    KNAP_HOLDER,
     KNAP_HOLD,
     KORT_IKON,
     KORT_LAMPER,
@@ -135,6 +141,7 @@ class _Tryk:
     daemper: int | None = None  # lysstyrken i procent, mens knappen dæmper
     retning: int = 0
     brugt: bool = False  # trykket er gået til et dobbeltklik eller en dæmpning; slippet gør intet
+    haendelse: bool = False  # knappen melder hændelser og har ingen «nede»-tilstand at læse
 
     def stop(self) -> None:
         for timer in (self.hold, self.vent, self.skridt):
@@ -769,7 +776,29 @@ class Rum:
             return None
         if CONF_LAMPER in maal:
             return self.lamperne(maal[CONF_LAMPER]) or None
-        return self.kortets_lamper(maal[CONF_KORT])
+        # Fra 0.9.0 kan et mål være knappens egne valg alene, uden hverken kort eller lamper.
+        # Så styrer knappen hele rummet, præcis som en knap uden mål.
+        if kort := maal.get(CONF_KORT):
+            return self.kortets_lamper(kort)
+        return None
+
+    def _knapvalg(self, knap: str) -> dict[str, Any]:
+        """Knappens egne valg og finindstillinger, med standarden udfyldt.
+
+        Standarden er dét, knapperne gjorde før 0.9.0, så en knap, ingen har rørt, opfører sig
+        nøjagtig som før.
+        """
+        maal = self.knap_maal.get(knap) or {}
+        daempning = {navn: standard for navn, (standard, _, _) in DAEMP_FELTER.items()}
+        daempning.update(maal.get(KNAP_DAEMPNING) or {})
+        dobbelt = {navn: standard for navn, (standard, _, _) in DOBBELT_FELTER.items()}
+        dobbelt.update(maal.get(KNAP_DOBBELTVALG) or {})
+        return {
+            KNAP_DAEMP: maal.get(KNAP_DAEMP, True),
+            KNAP_HOLDER: maal.get(KNAP_HOLDER, True),
+            KNAP_DAEMPNING: daempning,
+            KNAP_DOBBELTVALG: dobbelt,
+        }
 
     @callback
     def _knap_aendret(self, event: Event[EventStateChangedData]) -> None:
@@ -782,13 +811,47 @@ class Rum:
             return
         knap = event.data["entity_id"]
         tryk = self._knaptryk.setdefault(knap, _Tryk())
+        # En event-entitet har ingen «nede»-tilstand: hver melding ER et tryk, og hvilken slags
+        # står i event_type. En binary_sensor melder «on», mens knappen er nede, og «off», når den
+        # slippes — det er dét, hold-grænsen og dæmpningen måler på.
+        if knap.startswith("event."):
+            tryk.haendelse = True
+            self._knap_haendelse(knap, tryk, str(ny.attributes.get("event_type") or ""))
+            return
         if ny.state == STATE_ON:
             self._knap_ned(knap, tryk)
         else:
             self._knap_op(knap, tryk)
 
     @callback
+    def _knap_haendelse(self, knap: str, tryk: _Tryk, slags: str) -> None:
+        """En knap, der melder hændelser. Navnene er producenternes egne, så vi ser efter ordene.
+
+        Der er ingen varighed at måle: melder knappen «hold», begynder dæmpningen, og den stopper
+        ved «release» eller når lyset er i bund eller top. En knap, der kun melder ét tryk, tænder
+        og slukker — og det er langt de fleste.
+        """
+        valg = self._knapvalg(knap)
+        ord = slags.lower()
+        if valg[KNAP_HOLDER] and ("double" in ord or "triple" in ord):
+            self._knap_dobbelt(knap)
+            return
+        if "release" in ord or ord.endswith("_up"):
+            if tryk.daemper is not None:
+                tryk.daemper = None
+                if tryk.skridt is not None:
+                    tryk.skridt()
+                    tryk.skridt = None
+                self.valgt_i_haanden()
+            return
+        if valg[KNAP_DAEMP] and ("hold" in ord or "long" in ord or ord.endswith("_down")):
+            self._knap_holdes(knap, tryk)
+            return
+        self.tryk(self._knappens_lamper(knap))
+
+    @callback
     def _knap_ned(self, knap: str, tryk: _Tryk) -> None:
+        valg = self._knapvalg(knap)
         if tryk.vent is not None:
             tryk.vent()
             tryk.vent = None
@@ -796,9 +859,13 @@ class Rum:
             self._knap_dobbelt(knap)
             return
         tryk.brugt = False
-        tryk.hold = async_call_later(
-            self.hass, KNAP_HOLD, partial(self._knap_holdes, knap, tryk)
-        )
+        # Må knappen ikke dæmpe, er der ingen grund til at vente på et hold.
+        if valg[KNAP_DAEMP]:
+            tryk.hold = async_call_later(
+                self.hass,
+                valg[KNAP_DAEMPNING]["graense"],
+                partial(self._knap_holdes, knap, tryk),
+            )
 
     @callback
     def _knap_op(self, knap: str, tryk: _Tryk) -> None:
@@ -814,8 +881,15 @@ class Rum:
         if tryk.brugt:
             tryk.brugt = False
             return
+        # Holder et dobbeltklik ikke lyset, er der intet at vente på: trykket virker med det samme.
+        valg = self._knapvalg(knap)
+        if not valg[KNAP_HOLDER]:
+            self._knap_enkelt(knap, tryk)
+            return
         tryk.vent = async_call_later(
-            self.hass, KNAP_DOBBELT, partial(self._knap_enkelt, knap, tryk)
+            self.hass,
+            valg[KNAP_DOBBELTVALG]["vindue"],
+            partial(self._knap_enkelt, knap, tryk),
         )
 
     @callback
@@ -868,7 +942,7 @@ class Rum:
         # en dæmpning helt ned til slukket tænde lyset igen, så snart knappen blev sluppet.
         tryk.brugt = True
         procent = self._lysstyrke(self.lamperne(self._knappens_lamper(knap)))
-        tryk.retning = -1 if procent > DAEMP_VEND else 1
+        tryk.retning = -1 if procent > self._knapvalg(knap)[KNAP_DAEMPNING]["vend"] else 1
         tryk.daemper = procent
         self._daemp_skridt(knap, tryk)
 
@@ -877,26 +951,29 @@ class Rum:
         tryk.skridt = None
         if tryk.daemper is None:
             return
+        # En knap, der melder hændelser, har ingen «nede»-tilstand at læse: den dæmper, til den
+        # melder «release», eller til lyset er i bund eller top.
         tilstand = self.hass.states.get(knap)
-        if tilstand is None or tilstand.state != STATE_ON:
+        if not tryk.haendelse and (tilstand is None or tilstand.state != STATE_ON):
             tryk.daemper = None
             self.valgt_i_haanden()
             return
+        valg = self._knapvalg(knap)[KNAP_DAEMPNING]
         lamper = self._knappens_lamper(knap)
-        procent = tryk.daemper + tryk.retning * DAEMP_SKRIDT
+        procent = tryk.daemper + tryk.retning * valg["skridt"]
         if procent <= 0:
             # Det sidste skridt ned slukker, som knapperne gør det i dag.
             tryk.daemper = None
             self.daemp(0, lamper)
             return
         tryk.daemper = procent = min(100, procent)
-        self.daemp(procent, lamper, overgang=DAEMP_OVERGANG, haand=False)
+        self.daemp(procent, lamper, overgang=valg["overgang"], haand=False)
         if procent == 100:
             tryk.daemper = None
             self.valgt_i_haanden()
             return
         tryk.skridt = async_call_later(
-            self.hass, DAEMP_PAUSE, partial(self._daemp_skridt, knap, tryk)
+            self.hass, valg["pause"], partial(self._daemp_skridt, knap, tryk)
         )
 
     def _lysstyrke(self, lamper: list[str]) -> int:

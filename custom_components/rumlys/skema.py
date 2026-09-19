@@ -26,6 +26,12 @@ from .const import (
     CONF_KELVIN,
     CONF_KNAP_MAAL,
     CONF_KNAPPER,
+    DAEMP_FELTER,
+    DOBBELT_FELTER,
+    KNAP_DAEMP,
+    KNAP_DAEMPNING,
+    KNAP_DOBBELTVALG,
+    KNAP_HOLDER,
     CONF_KORT,
     KORT_IKON,
     KORT_LAMPER,
@@ -166,7 +172,8 @@ def _kun_rummets(rum: dict[str, Any]) -> dict[str, Any]:
         # En knap, der styrer bestemte lamper, må kun styre rummets. Er ingen af dem tilbage,
         # styrer den hele rummet — som en knap uden valg.
         if lamper := [lampe for lampe in maal[CONF_LAMPER] if lampe in rummets]:
-            knapper[knap] = {CONF_LAMPER: lamper}
+            # Kun målet rettes — knappens egne valg og finindstillinger bliver, hvor de er.
+            knapper[knap] = maal | {CONF_LAMPER: lamper}
         else:
             del knapper[knap]
     # Automatikkernes lamper og sensorer skal være rummets egne, og **en lampe hører til én
@@ -195,6 +202,20 @@ def _kun_rummets(rum: dict[str, Any]) -> dict[str, Any]:
 
 # Et kort i Rumlys' lager: lamper (tom = hele rummet), scener og ikon. Den gamle form — bare
 # lampelisten, eller None for «ingen lamper» — tages stadig imod og bliver til hele rummet.
+def _finindstilling(felter: dict[str, tuple[float, float, float]]) -> vol.Schema:
+    """Et opslag med knappens finindstillinger. Hvert felt har sin standard og sine grænser.
+
+    Alt er valgfrit: en knap uden finindstilling kører på standarden, og en knap med én rettet
+    værdi arver resten. Grænserne er der, for at en knap ikke kan gøres umulig at ramme.
+    """
+    return vol.Schema(
+        {
+            vol.Optional(navn): vol.All(vol.Coerce(float), vol.Range(min=mindst, max=mest))
+            for navn, (_standard, mindst, mest) in felter.items()
+        }
+    )
+
+
 KORT = vol.Any(
     None,
     [cv.entity_domain("light")],
@@ -228,14 +249,25 @@ RUM_DATA = vol.All(
             vol.Optional(CONF_SENSOR_LAMPER, default={}): {
                 cv.entity_domain("binary_sensor"): [cv.entity_domain("light")]
             },
-            # En vægknap er en binary_sensor, der melder «on», mens den er nede — sådan giver
-            # IHC dem. Andre slags knapper melder hændelser og kan ikke bruges endnu.
-            vol.Optional(CONF_KNAPPER, default=[]): [cv.entity_domain("binary_sensor")],
+            # En vægknap er enten en binary_sensor, der melder «on», mens den er nede — sådan
+            # giver IHC dem — eller en event-entitet med enhedsklassen «button», som er den måde,
+            # Home Assistant selv modellerer en knap (fra 0.9.0).
+            vol.Optional(CONF_KNAPPER, default=[]): [
+                cv.entity_domain(["binary_sensor", "event"])
+            ],
             vol.Optional(CONF_KNAP_MAAL, default={}): {
-                cv.entity_domain("binary_sensor"): vol.Schema(
+                cv.entity_domain(["binary_sensor", "event"]): vol.Schema(
                     {
                         vol.Exclusive(CONF_KORT, "maal"): cv.string,
                         vol.Exclusive(CONF_LAMPER, "maal"): [cv.entity_domain("light")],
+                        # Knappens egne valg. Udeladt betyder standard, og standarden er dét,
+                        # knapperne gjorde før 0.9.0 — en knap, ingen har rørt, skifter ikke.
+                        vol.Optional(KNAP_DAEMP, default=True): cv.boolean,
+                        vol.Optional(KNAP_HOLDER, default=True): cv.boolean,
+                        vol.Optional(KNAP_DAEMPNING, default=dict): _finindstilling(DAEMP_FELTER),
+                        vol.Optional(KNAP_DOBBELTVALG, default=dict): _finindstilling(
+                            DOBBELT_FELTER
+                        ),
                     }
                 )
             },

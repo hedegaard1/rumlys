@@ -9,7 +9,7 @@
 // relativt, så Rumlys' egne ikoner også virker på testsiden og i node-testen.
 import "./ikoner/rumlys-ikoner.js";
 
-export const VERSION = "0.8.0";
+export const VERSION = "0.9.0";
 // Mappen, filen selv ligger i — i Home Assistant med versionen i stien, på testsiden repoets egen.
 export const FILER = new URL("./", import.meta.url).href;
 // Scenerne ligger i Rumlys selv. I Home Assistant har de en fast adresse uden version, så et kort,
@@ -121,6 +121,27 @@ const TEKSTER = {
     sensor_ikke_valgt: "Ingen sensor er valgt, så ingen af lamperne tændes af bevægelse. Sæt flueben ved en sensor under «Sensorer», så kommer valget frem.",
     gruppe_med: "Gruppe med {n}",
     fra_omraade: "Fra {omraade}",
+    knap_tryk: "Tryk tænder og slukker",
+    knap_tryk_sub: "Altid slået til — ellers var knappen valgt uden grund",
+    knap_daemp: "Hold nede dæmper",
+    knap_hold: "Dobbeltklik holder lyset tændt",
+    knap_uden_daempning: "Lamperne på kortet kan ikke dæmpes, så «hold nede dæmper» er udeladt.",
+    knap_haendelse: "Melder tryk som hændelser. «Hold nede dæmper» virker kun, hvis knappen selv melder både hold og slip.",
+    finindstil: "Finindstil",
+    standard: "Standard",
+    nulstil: "Nulstil",
+    f_graense: "Hold-grænse",
+    f_graense_sub: "Så længe skal knappen være nede, før det er et hold og ikke et tryk",
+    f_skridt: "Skridt",
+    f_skridt_sub: "Så meget flytter lysstyrken sig pr. skridt",
+    f_pause: "Pause",
+    f_pause_sub: "Så længe er der mellem to skridt — kortere er hurtigere",
+    f_overgang: "Overgang",
+    f_overgang_sub: "Pærens egen bløde overgang pr. skridt. Nogle pærer hakker, hvis den er 0",
+    f_vend: "Vendepunkt",
+    f_vend_sub: "Lyser lampen kraftigere end det, dæmper et hold ned; ellers op",
+    f_vindue: "Vindue",
+    f_vindue_sub: "Så lang tid må der gå mellem de to tryk. For kort, og dobbeltklikket bliver svært at ramme",
     undtagen: "Undtagen",
     undtagen_ingen: "Ingen — kortet viser alle rummets lamper",
     undtagen_hint: "Lamper, kortet ikke skal vise. Kortet er stadig «Alt lys», så en ny lampe i området kommer med af sig selv.",
@@ -398,6 +419,27 @@ const TEKSTER = {
     sensor_ikke_valgt: "No sensor is chosen, so none of the lights turn on with motion. Tick a sensor under «Sensors» and the option appears.",
     gruppe_med: "Group of {n}",
     fra_omraade: "From {omraade}",
+    knap_tryk: "A press turns on and off",
+    knap_tryk_sub: "Always on — otherwise the button would be chosen for nothing",
+    knap_daemp: "Hold down to dim",
+    knap_hold: "Double-click keeps the light on",
+    knap_uden_daempning: "The card's lights cannot be dimmed, so «hold down to dim» is left out.",
+    knap_haendelse: "Reports presses as events. «Hold down to dim» only works if the button itself reports both hold and release.",
+    finindstil: "Fine-tune",
+    standard: "Standard",
+    nulstil: "Reset",
+    f_graense: "Hold threshold",
+    f_graense_sub: "How long the button must be held before it is a hold and not a press",
+    f_skridt: "Step",
+    f_skridt_sub: "How far the brightness moves per step",
+    f_pause: "Pause",
+    f_pause_sub: "How long there is between two steps — shorter is faster",
+    f_overgang: "Transition",
+    f_overgang_sub: "The bulb's own soft transition per step. Some bulbs stutter if it is 0",
+    f_vend: "Turning point",
+    f_vend_sub: "If the light is brighter than this, a hold dims down; otherwise up",
+    f_vindue: "Window",
+    f_vindue_sub: "How long there may be between the two presses. Too short, and the double-click is hard to hit",
     undtagen: "Except",
     undtagen_ingen: "None — the card shows every light in the room",
     undtagen_hint: "Lights the card should not show. The card is still «All lights», so a new light in the area is included by itself.",
@@ -900,6 +942,17 @@ export function kanFarve(hass, lamper) {
 // selv. Kortfilen indlæses på alle sider, så ikonet er klar, før menuen tegnes.
 // En ny automatik starter med det samme lys og de samme tider, som et nyt rum altid har fået.
 export const STANDARD_LYS = { type: "hvid", lysstyrke: 100, kelvin: 3000 };
+// Knappens finindstillinger: standard, mindste og største værdi, trin og enhed. Standarden er
+// dét, knapperne gjorde før 0.9.0, så en knap, ingen har rørt, opfører sig som før.
+export const DAEMP_FELTER = [
+  ["graense", 0.8, 0.1, 5, 0.1, "sek."],
+  ["skridt", 10, 1, 50, 1, "%"],
+  ["pause", 0.1, 0.05, 2, 0.05, "sek."],
+  ["overgang", 0.05, 0, 1, 0.05, "sek."],
+  ["vend", 51, 1, 99, 1, "%"],
+];
+export const DOBBELT_FELTER = [["vindue", 0.3, 0.1, 1, 0.05, "sek."]];
+
 export const STANDARD_TIDER = { sluk_efter_bevaegelse: 30, sluk_efter_tryk: 5, hold_tid: 4 };
 
 export const RUMLYS_IKON = "rumlys:lampe";  // selve ikonet står i ikoner/rumlys-ikoner.js
