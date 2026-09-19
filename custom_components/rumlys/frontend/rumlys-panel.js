@@ -158,6 +158,9 @@ select, input[type=text], input[type=time], input[type=search] {
 .dagknap { min-height: 36px; padding: 0; border: 1px solid var(--rl-linje); border-radius: 10px; background: var(--rl-flade2); color: var(--rl-daempet); font-size: 13px; cursor: pointer; }
 .dagknap.til { background: var(--rl-p); border-color: var(--rl-p); color: var(--rl-paa-p); font-weight: 600; }
 .ikonvalg { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+/* Overskriften er et <b> og står derfor på linje med forklaringen, hvis den ikke gøres til en blok:
+   «Ikon på kortetLampernes egne ikoner …». Samme rulle som .raekke og .naar har. */
+.ikonvalg .tx b { display: block; font-weight: 500; font-size: 14px; }
 .ikoner { display: flex; align-items: center; }
 .ikoner .ikon { width: 40px; height: 40px; border-radius: 50%; background: var(--rl-flade2); display: grid; place-items: center; --mdc-icon-size: 22px; box-sizing: border-box; }
 .ikoner .ikon + .ikon { margin-left: -12px; box-shadow: -2px 0 0 0 var(--rl-flade); }
