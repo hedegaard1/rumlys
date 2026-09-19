@@ -1585,16 +1585,17 @@ class RumlysPanel extends HTMLElement {
     const arbejde = {};
     felter.forEach(([navn, standard]) => { arbejde[navn] = gemte && gemte[navn] != null ? Number(gemte[navn]) : standard; });
     const indhold = felter.map(([navn, standard, mindst, mest, trin, enhed]) => {
-      const vis = h("b", {}, this._tal(arbejde[navn]) + " " + enhed);
-      const skyder = h("input", { type: "range", min: String(mindst), max: String(mest), step: String(trin), value: String(arbejde[navn]), style: { width: "100%" } });
+      // Samme skyder som «Blød tænd og sluk» — .skyder giver den temaets farve og værdien til højre.
+      const vis = h("output", {}, this._tal(arbejde[navn]) + " " + enhed);
+      const skyder = h("input", { type: "range", min: String(mindst), max: String(mest), step: String(trin), value: String(arbejde[navn]), "aria-label": this.t("f_" + navn) });
       skyder.addEventListener("input", () => {
         arbejde[navn] = Number(skyder.value);
         vis.textContent = this._tal(arbejde[navn]) + " " + enhed;
       });
       return h("div", { class: "felt" },
-        h("label", {}, this.t("f_" + navn), " — ", vis),
-        skyder,
-        // Standarden i parentes til sidst, så sætningen ikke løber sammen med den.
+        h("label", {}, this.t("f_" + navn)),
+        h("div", { class: "skyder" }, skyder, vis),
+        // Standarden til sidst, så sætningen ikke løber sammen med den.
         h("small", { class: "hint" }, this.t("f_" + navn + "_sub") + ". " + this.t("standard") + ": " + this._tal(standard) + " " + enhed));
     });
     this._dialog({
