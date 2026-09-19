@@ -32,6 +32,8 @@ import {
   nytKortId,
   overgang,
   rummetsFarver,
+  luminans,
+  lysFarve,
   rummetsIkoner,
   sceneFarver,
   sceneNavn,
@@ -80,12 +82,12 @@ button { font: inherit; color: inherit; }
 .overskrift h1 { font-size: 26px; margin: 0; flex: 1; font-weight: 600; }
 .rumgitter { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
 .rumfelt { background: var(--rl-flade); border-radius: var(--rl-radius); box-shadow: var(--rl-skygge); overflow: hidden; cursor: pointer; border: 0; text-align: left; padding: 0; display: flex; flex-direction: column; }
-.rumfelt .farve { height: 56px; background: var(--rl-flade2); transition: background .3s; display: flex; align-items: center; gap: 0; padding: 0 12px; --mdc-icon-size: 22px; }
+.rumfelt .farve { height: 56px; background: var(--rl-flade2); transition: background .3s, color .3s; display: flex; align-items: center; gap: 0; padding: 0 12px; --mdc-icon-size: 22px; }
+.rumfelt .farve b { font-size: 15px; font-weight: 600; margin-left: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rumfelt .farve .ikon { width: 34px; height: 34px; border-radius: 50%; box-sizing: border-box; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, .45); color: rgba(0, 0, 0, .7); flex: none; }
 .rumfelt .farve .ikon + .ikon { margin-left: -10px; box-shadow: -2px 0 0 0 rgba(255, 255, 255, .45); }
 .rumfelt .farve .ikon.flere { font-size: 13px; font-weight: 600; }
 .rumfelt .tekst { padding: 10px 12px 12px; }
-.rumfelt b { display: block; font-size: 15px; font-weight: 600; }
 .rumfelt .status { font-size: 13px; color: var(--rl-daempet); }
 /* Den stiplede kant tegnes i temaets farve, ikke i stregfarven: i fx «Graphite Light» er stregfarven næsten hvid,
    og så forsvandt feltet. */
@@ -1181,7 +1183,7 @@ class RumlysPanel extends HTMLElement {
       "button",
       { class: "rumfelt", onclick: () => naviger("/rumlys/" + rum.id) },
       farve,
-      h("div", { class: "tekst" }, h("b", {}, rum.navn), status, h("div", { class: "meta" }, dele.join(" · ")), nye)
+      h("div", { class: "tekst" }, status, h("div", { class: "meta" }, dele.join(" · ")), nye)
     );
     this._levende.push((hass) => {
       const farver = rummetsFarver(hass, rum.lamper.map((l) => l.entity_id));
@@ -1191,7 +1193,10 @@ class RumlysPanel extends HTMLElement {
       // som kortet selv viser det. Uden det er bjælken kun en farve, og fliserne ligner hinanden.
       const valgt = Object.values(rum.kort || {}).map((k) => k && k.ikon).find(Boolean) || null;
       const ikoner = rummetsIkoner(hass, rum.lamper.map((l) => l.entity_id), valgt);
-      farve.replaceChildren(...[...ikonStak(ikoner).children]);
+      farve.replaceChildren(...[...ikonStak(ikoner).children], h("b", {}, rum.navn));
+      // Navnet står oven på lampernes farver, så det skal skifte med dem: hvid tekst på mørkt lys.
+      const lyst = !farver.length || farver.some((f) => luminans(lysFarve(f)) > 0.179);
+      farve.style.color = lyst ? "rgba(0, 0, 0, .82)" : "#fff";
     });
     return felt;
   }
