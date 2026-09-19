@@ -2107,43 +2107,7 @@ class RumlysPanel extends HTMLElement {
           )
         );
       }
-      // Sensorens egne lamper: uden valg tænder den alle, der tænder ved bevægelse. Vælges kun, når der er
-      // mere end én at vælge imellem.
-      let taender = null;
-      const bevaegelsesLamper = d.lamper.filter((l) => l.bevaegelse !== false).map((l) => l.entity_id);
-      if (valgt && bevaegelsesLamper.length > 1) {
-        const egne = ((d.sensor_lamper || {})[entityId] || []).filter((l) => bevaegelsesLamper.indexOf(l) >= 0);
-        const vaelger = h("select", {});
-        const tilfoejValg = (vaerdi, tekst) => vaelger.appendChild(h("option", { value: vaerdi }, tekst));
-        if (egne.length > 1) tilfoejValg("eget", egne.map((l) => this._lampeNavn(l)).join(", "));
-        tilfoejValg("alle", this.t("alle_bevaegelseslamper"));
-        bevaegelsesLamper.forEach((l) => tilfoejValg(l, this._lampeNavn(l)));
-        if (bevaegelsesLamper.length > 2) tilfoejValg("flere", this.t("vaelg_lamper") + " …");
-        vaelger.value = egne.length > 1 ? "eget" : egne.length === 1 ? egne[0] : "alle";
-        const saet = (nye) => {
-          const alle = Object.assign({}, d.sensor_lamper || {});
-          if (!nye.length || nye.length === bevaegelsesLamper.length) delete alle[entityId];
-          else alle[entityId] = nye;
-          d.sensor_lamper = alle;
-          this._genTegn("sensorer");
-        };
-        vaelger.addEventListener("change", () => {
-          const v = vaelger.value;
-          if (v === "flere") {
-            this._vaelgLamper({
-              titel: this.t("taender"),
-              lamper: bevaegelsesLamper,
-              valgte: egne.length ? egne : bevaegelsesLamper,
-              gem: saet,
-              fortryd: () => this._genTegn("sensorer"),
-            });
-            return;
-          }
-          saet(v === "alle" ? [] : [v]);
-        });
-        taender = h("div", { class: "felt", style: { marginTop: "4px", width: "100%" } }, h("label", {}, this.t("taender")), vaelger);
-      }
-      return h("div", { class: "raekke", style: { flexWrap: "wrap" } }, flueben, h("div", { class: "tx", style: { minWidth: "140px" } }, h("b", {}, navn), under ? h("small", {}, under) : null), pille, type, taender);
+      return h("div", { class: "raekke", style: { flexWrap: "wrap" } }, flueben, h("div", { class: "tx", style: { minWidth: "140px" } }, h("b", {}, navn), under ? h("small", {}, under) : null), pille, type);
     };
     omraade.sensorer.forEach((s) => liste.appendChild(raekke(s.entity_id, s.navn)));
     d.sensorer.forEach((s) => {

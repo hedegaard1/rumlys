@@ -156,11 +156,6 @@ def _med_automatik(rum: dict[str, Any]) -> dict[str, Any]:
 def _kun_rummets(rum: dict[str, Any]) -> dict[str, Any]:
     """Sensorer, knapper og deres lamper skal være rummets egne."""
     rummets = {lampe[CONF_ENTITY_ID] for lampe in rum[CONF_LAMPER]}
-    valgte = {
-        sensor: [lampe for lampe in lamper if lampe in rummets]
-        for sensor, lamper in rum.get(CONF_SENSOR_LAMPER, {}).items()
-        if sensor in rum[CONF_SENSORER]
-    }
     knapper = {
         knap: maal
         for knap, maal in rum.get(CONF_KNAP_MAAL, {}).items()
@@ -193,8 +188,10 @@ def _kun_rummets(rum: dict[str, Any]) -> dict[str, Any]:
         )
     return rum | {
         CONF_TILSTEDE: [s for s in rum[CONF_TILSTEDE] if s in rum[CONF_SENSORER]],
-        # En sensor uden lamper tilbage tænder alle rummets bevægelseslamper — som en sensor uden valg.
-        CONF_SENSOR_LAMPER: {s: l for s, l in valgte.items() if l},
+        # `sensor_lamper` er dødt fra 0.7.0: delingen af lamper pr. sensor blev til automatikker,
+        # og ingen læser feltet længere. Skemaet tager stadig imod det, så et rum fra 0.6.x kan
+        # læses ind — men det gemmes ikke videre, så det forsvinder ved første gem.
+        CONF_SENSOR_LAMPER: {},
         CONF_KNAP_MAAL: knapper,
         CONF_AUTOMATIK: automatik,
     }

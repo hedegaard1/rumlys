@@ -79,6 +79,12 @@ proev("et kort uden id og uden lamper viser hele rummet", () => {
   assert.equal(v.hele, true);
 });
 
+proev("et kort med flere af rummets lamper er ikke alt lys", () => {
+  const v = kortetsValg(kort("a"), LAMPER.concat(["light.tredje"]), { a: { lamper: LAMPER } });
+  assert.deepEqual(v.lamper, LAMPER);
+  assert.equal(v.hele, false);
+});
+
 proev("scener og ikon kommer fra kortet, ikke fra rummet", () => {
   const v = kortetsValg(kort("a"), LAMPER, { a: { lamper: [], scener: ["s1"], ikon: "mdi:lamp" } }, ["rummets"]);
   assert.deepEqual(v.scener, ["s1"]);

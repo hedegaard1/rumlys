@@ -9,7 +9,7 @@
 // relativt, så Rumlys' egne ikoner også virker på testsiden og i node-testen.
 import "./ikoner/rumlys-ikoner.js";
 
-export const VERSION = "0.9.1";
+export const VERSION = "0.9.2";
 // Mappen, filen selv ligger i — i Home Assistant med versionen i stien, på testsiden repoets egen.
 export const FILER = new URL("./", import.meta.url).href;
 // Scenerne ligger i Rumlys selv. I Home Assistant har de en fast adresse uden version, så et kort,
@@ -160,8 +160,6 @@ const TEKSTER = {
     tilstede_type: "Tilstedeværelse",
     anb_bevaegelse: "Anbefalet med bevægelsessensorer: {tid}",
     anb_tilstede: "Anbefalet med en tilstedeværelsessensor: {tid}",
-    taender: "Tænder",
-    alle_bevaegelseslamper: "Alle bevægelseslamper",
     ingen_sensorer: "Området har ingen bevægelsessensorer.",
     knapper: "Knapper",
     knapper_hint: "Vægknapper, Rumlys skal styre lyset med. Et tryk tænder og slukker, to hurtige tryk holder lyset tændt, og holder du knappen nede, dæmpes lyset op eller ned.",
@@ -458,8 +456,6 @@ const TEKSTER = {
     tilstede_type: "Presence",
     anb_bevaegelse: "Recommended with motion sensors: {tid}",
     anb_tilstede: "Recommended with a presence sensor: {tid}",
-    taender: "Turns on",
-    alle_bevaegelseslamper: "All motion lights",
     ingen_sensorer: "The area has no motion sensors.",
     knapper: "Buttons",
     knapper_hint: "Wall buttons for Rumlys to control the light with. One press turns the light on and off, two quick presses keep it on, and holding the button dims up or down.",

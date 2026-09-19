@@ -418,11 +418,18 @@ class RumlysCard extends HTMLElement {
     const rum = this._rum();
     if (this._config.name) return this._config.name;
     const lamper = this._lamper();
-    if (this._delvis() && lamper.length === 1) {
-      const st = this._hass && this._hass.states[lamper[0]];
-      return kortNavn((st && st.attributes.friendly_name) || lamper[0], rum.navn);
+    // Et kort for nogle af lamperne hedder lamperne — ikke rummet. Rummet står som overskrift over
+    // kortene, og siden kortet for hele rummet hedder «Alt lys», ville rummets navn på et delvist
+    // kort ligne noget andet, end det er.
+    if (this._delvis()) {
+      return lamper
+        .map((id) => {
+          const st = this._hass && this._hass.states[id];
+          return kortNavn((st && st.attributes.friendly_name) || id, rum.navn);
+        })
+        .join(", ");
     }
-    return this._delvis() ? rum.navn : this.t("alt_lys");
+    return this.t("alt_lys");
   }
 
   // Ikonerne tegnes kun forfra, når de har ændret sig.
