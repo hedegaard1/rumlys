@@ -77,6 +77,10 @@ button { font: inherit; color: inherit; }
 .knap { border: 0; border-radius: 999px; padding: 9px 16px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; font-weight: 500; font-size: 14px; background: var(--rl-flade2); }
 .knap.p { background: var(--rl-p); color: var(--rl-paa-p); }
 .knap.t { background: transparent; color: var(--rl-p); padding: 9px 8px; }
+/* En fyldt knap nederst i et afsnit — «Ny automatik», «Nyt kort» — skal have luft til listen over
+   sig. Som tekstlink havde den sin egen gennemsigtige polstring; som knap står den klods op ad
+   kassen uden (Martin 19-09-2026). */
+.sek > .knap:not(.t) { margin-top: 12px; }
 /* En handling, der afslutter et område — «Fjern kortet», «Ny automatik», «Slet rummet» — er en
    rigtig knap som «Gem rum» nederst på siden, ikke et tekstlink (Martins ønske 19-09-2026). De små
    tilføj-handlinger inde i et område bliver ved med at være links: de er ikke det, man går efter. */
