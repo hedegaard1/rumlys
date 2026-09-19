@@ -57,6 +57,9 @@ const SCENE_AUTO = [
 // kort i fem kolonner gav to felter med 34 px imellem sig og et kort, der var dobbelt så højt som
 // nødvendigt. Ti pixels er nok til, at der næsten altid findes et antal kolonner, der passer.
 const SCENE_SPIL = 10;
+// Så bred skal skyderen mindst være for at være værd at have på øverste række; ellers får den
+// hellere sin egen linje i hele bredden. Det er samme mål som skyderen ved hver lampe i menuen.
+const SKYDER_MIN = 120;
 // Under så bredt et kort står rummets første ikon alene i stedet for stakken. Det handler om
 // pladsen til navnet, ikke om scenefelterne, og har derfor sin egen grænse.
 const IKON_STAK_MIN = 300;
@@ -234,9 +237,14 @@ const STYLE = KONTROL_STYLE + `
     background:transparent; border:2px solid currentColor; opacity:0.5; transition:background .2s ease, opacity .2s ease;
   }
   .hold.aktiv { opacity:1; background:var(--rl-fyld); border-color:var(--rl-fyld); color:var(--rl-paa-fyld); }
-  /* Skyderen har altid hele bredden på sin egen linje (Martins ønske 19-09-2026). Så er den til
-     at ramme på ethvert kort, og navn og status får den øverste række til sig selv. */
+  /* Skyderen får sin egen linje i hele bredden, når den ikke kan stå på øverste række uden at
+     tage plads fra teksten. Så er den til at ramme på ethvert kort. */
   .top .skyder { flex:1 1 100%; order:5; }
+  /* Er der plads til navnet, den længste status OG en skyder på SKYDER_MIN, står den mellem
+     teksten og knapperne i stedet — så sparer kortet en hel linje i højden (Martins ønske
+     19-09-2026). Teksten tager da kun det, den har brug for, og skyderen resten. */
+  .top.skyder-inde .tekst { flex:0 1 auto; }
+  .top.skyder-inde .skyder { flex:1 1 120px; order:0; }
   /* Et smalt kort: navn og status får øverste række alene, knapperne den næste. */
   .brud { display:none; }
   .top.smal .brud { display:block; flex:0 0 100%; height:0; order:1; }
@@ -403,7 +411,9 @@ class RumlysCard extends HTMLElement {
     return this._delvis() ? { lamper: this._lamper() } : {};
   }
 
-  // Et kort for én lampe hedder som lampen, uden rummets navn foran.
+  // Et kort for én lampe hedder som lampen, uden rummets navn foran. Et kort for hele rummet
+  // hedder «Alt lys» og ikke rummets navn (Martins ønske 19-09-2026): rummet står allerede som
+  // overskrift over kortene, og ved siden af «Bord Lysbånd» siger «Kontor» ikke hvad kortet styrer.
   _navn() {
     const rum = this._rum();
     if (this._config.name) return this._config.name;
@@ -412,7 +422,7 @@ class RumlysCard extends HTMLElement {
       const st = this._hass && this._hass.states[lamper[0]];
       return kortNavn((st && st.attributes.friendly_name) || lamper[0], rum.navn);
     }
-    return rum.navn;
+    return this._delvis() ? rum.navn : this.t("alt_lys");
   }
 
   // Ikonerne tegnes kun forfra, når de har ændret sig.
@@ -528,11 +538,32 @@ class RumlysCard extends HTMLElement {
     const knapper = this._rum()
       ? e.hold.offsetWidth + e.kontakt.offsetWidth + 2 * gap
       : e.saetOp.offsetWidth + gap;
-    e.top.classList.toggle("smal", bredde - e.ikoner.offsetWidth - gap - knapper < TEKST_MIN);
+    const smal = bredde - e.ikoner.offsetWidth - gap - knapper < TEKST_MIN;
+    e.top.classList.toggle("smal", smal);
+    // Skyderen kommer kun op på øverste række, hvis der er plads til hele teksten ved siden af —
+    // også nedtællingen. Den må aldrig være det, der skubber informationen væk.
+    //
+    // Teksten måles med et Range over dens indhold, ikke med scrollWidth. Navnet er en blok i en
+    // kasse, flexboksen strækker, og for en blok er scrollWidth kassens bredde, så snart teksten er
+    // kortere end den — 788 px for «Alt lys» på et bredt kort. Et Range måler selve teksten, og
+    // svaret er det samme uanset hvor bred kassen omkring den er. Netop derfor kan målingen heller
+    // ikke komme til at svinge frem og tilbage med den klasse, den selv sætter.
+    if (this._statusLang != null) e.status.textContent = this._statusLang;
+    const tekstBehov = Math.max(this._tekstBredde(e.navn), this._tekstBredde(e.status));
+    const plads = bredde - e.ikoner.offsetWidth - tekstBehov - knapper - 2 * gap;
+    const kanDaempe = !e.skyder.classList.contains("skjult");
+    e.top.classList.toggle("skyder-inde", !smal && kanDaempe && plads >= SKYDER_MIN);
     // Målt på kortet, ikke på ikonet selv: gemmer man ikonet, bliver dets bredde nul, og så ville
     // en måling sige, at der er plads igen — og ikonet ville blinke frem og tilbage.
     e.top.classList.toggle("uden-ikon", bredde < IKON_MIN);
     this._visStatus();
+  }
+
+  // Selve tekstens bredde, ikke kassens omkring den.
+  _tekstBredde(el) {
+    if (!this._maal) this._maal = document.createRange();
+    this._maal.selectNodeContents(el);
+    return Math.ceil(this._maal.getBoundingClientRect().width);
   }
 
   // Nedtællingen er det første, der viger, når pladsen er knap: «Tændt · 100 %» helt er bedre end

@@ -9,7 +9,7 @@
 // relativt, så Rumlys' egne ikoner også virker på testsiden og i node-testen.
 import "./ikoner/rumlys-ikoner.js";
 
-export const VERSION = "0.7.5";
+export const VERSION = "0.7.6";
 // Mappen, filen selv ligger i — i Home Assistant med versionen i stien, på testsiden repoets egen.
 export const FILER = new URL("./", import.meta.url).href;
 // Scenerne ligger i Rumlys selv. I Home Assistant har de en fast adresse uden version, så et kort,
@@ -290,6 +290,7 @@ const TEKSTER = {
     detaljer: "Historik og indstillinger i Home Assistant",
     findes_ikke: "Findes ikke",
     kort_navn: "Rumlys",
+    alt_lys: "Alt lys",
     kort_beskrivelse: "Lyset i et rum fra Rumlys: lysstyrke, hold lys og rummets scener.",
   },
   en: {
@@ -554,6 +555,7 @@ const TEKSTER = {
     detaljer: "History and settings in Home Assistant",
     findes_ikke: "Does not exist",
     kort_navn: "Rumlys",
+    alt_lys: "All lights",
     kort_beskrivelse: "The light in a room from Rumlys: brightness, keep light on and the room's scenes.",
   },
 };
