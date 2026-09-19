@@ -41,23 +41,25 @@ vælges.
 
 ### Rummets side i sidepanelet
 
-- **Rummet** — området og kortets ikon: «Automatisk» viser lampernes egne ikoner i rummets rækkefølge
-  (op til tre, ellers to og «+N»; en gruppe uden eget ikon får sine pærers), eller et eget ikon.
-- **Lamper** — hver lampe kan sættes til ikke at tænde ved bevægelse; den hører stadig til rummet og
-  slukker med det. Tryk på lampens ikon for at skifte det i Home Assistant — det gælder overalt, også på
-  kortene. Her sættes også blød tænd og sluk.
+Siden har to halvdele. **Automatik** er det, der sker af sig selv, og **Kort** er ren betjening.
+
+- **Rummet** — området, rummet hører til.
 - **Sensorer** — med «ser nogen nu» og valget Bevægelse eller Tilstedeværelse. En bevægelsessensor ser ikke
   en, der står stille, så valget sætter den anbefalede tid for lys tændt af sensoren: 5 min med kun
   bevægelsessensorer, 30 sek. med en tilstedeværelsessensor. Tiden kan stadig sættes frit. **Hver sensor kan
   tænde sine egne af rummets lamper** — «Tænder: alle bevægelseslamper» som standard, eller fx kun loftspots
   ved døren. Rummet har stadig én tilstand og én nedtælling: når ingen sensor ser nogen, slukker det samlet.
-- **Tidsplan** — ugen med én række pr. dag. Nederst ligger **Hele døgnet**, rummets eget lys, som gælder,
+- **Automatik** — det, der sker af sig selv, samlet ét sted: rummets lamper, tidsplanen, sluk-tiderne
+  og «hold lys».
+- **Lamper** (i Automatik) — hver lampe kan sættes til ikke at tænde ved bevægelse; den hører stadig til
+  rummet og slukker med det. Tryk på lampens ikon for at skifte det i Home Assistant — det gælder overalt,
+  også på kortene. Her sættes også blød tænd og sluk.
+- **Tidsplan** (i Automatik) — ugen med én række pr. dag. Nederst ligger **Hele døgnet**, rummets eget lys, som gælder,
   når intet tidsrum gør; det kan ikke slettes. Tidsrummene ligger oven på det, fx *Nat* 22:00–06:30 med
   scenen Natlys, og hvert har sit eget lys, sine dage (Alle dage, Hverdage, Weekend eller enkelte dage) og
   eventuelt sin egen sluk-tid. Et lys kan være en scene, en farve, hvidt lys eller kun lysstyrke.
-- **Når ingen er i rummet** — hvornår lys tændt af sensoren, og lys nogen selv har valgt, slukker.
-- **Hold lys tændt** — hvor længe.
-- **Scener på kortet** — de samme på alle kort for rummet.
+- **Når ingen er i rummet** (i Automatik) — hvornår lys tændt af sensoren, og lys nogen selv har valgt, slukker.
+- **Hold lys tændt** (i Automatik) — hvor længe.
 - **Kort** — rummets kort på alle betjeningspaneler, i den rækkefølge de står, og hvor de står. **«Tilføj kort til
   en fane»** sætter kortet ind nederst på den fane, du vælger, og i kortets boks vælger du fanen igen for at flytte
   det — eller «Fjern kortet». Hvert kort står som én linje med, hvad det viser; tryk på linjen for at folde den ud.
@@ -94,17 +96,18 @@ size: medium                       # small, medium eller large
 scene_size: small                  # small eller large (med navn)
 ```
 
-Hvilke lamper kortet viser, vælges i sidepanelet under rummets **Kort**, efter kortets id. Viser kortet nogle
-af lamperne, gælder tænd og sluk, skyder, scener og menuen dem, og et kort for én lampe hedder som lampen.
-«Hold lys» står på alle rummets kort. Holdet gælder hele rummet — det har én tilstand og én nedtælling — men
-fra et kort for nogle af lamperne er det kun dem, der tændes, hvis lyset er slukket. Tændes en lampe fra kortet, tæller
-det som valgt lys i rummet, så rummets nedtælling stadig slukker den.
+**Kortet ejer sine lamper, sine scener og sit ikon**, og de vælges i sidepanelet under rummets **Kort**,
+efter kortets id. Viser kortet nogle af lamperne, gælder tænd og sluk, skyder, scener og menuen dem, og et
+kort for én lampe hedder som lampen. «Hold lys» står på alle rummets kort. Holdet gælder hele rummet — det
+har én tilstand og én nedtælling — men fra et kort for nogle af lamperne er det kun dem, der tændes, hvis
+lyset er slukket. Tændes en lampe fra kortet, tæller det som valgt lys i rummet, så rummets nedtælling
+stadig slukker den.
 
-Kortet ser selv efter på sin fane, så reglen også holder for et kort, der sættes direkte ind på et
-betjeningspanel, før nogen har åbnet Rumlys. Har rummet allerede et kort på fanen, viser det nye kort — også i
-forhåndsvisningen, mens det sættes ind — «Lamperne står på et andet kort på fanen» og styrer ingenting. Et kort,
-Rumlys kender, går altid forud for et nyt, og et nyt kort styrer først noget, når det har læst sin fane; indtil da
-står det med «…». En administrator får knappen «Vælg lamper i Rumlys».
+**To kort må gerne vise den samme lampe** (fra 0.6.0). Et kort er en betjeningsflade, ikke en ejer — som to
+afbrydere til samme pære — så du kan have ét kort med hele rummet og et kort pr. lampe på samme fane.
+Automatikken ligger ét sted for hele rummet og bliver ikke forvirret af det. Indtil 0.5.0 delte kortene
+rummets lamper mellem sig, og et kort, hvis lamper stod på et andet kort, kunne ikke bruges; den regel er
+væk, og med den også «Flyt hertil», «Adskil» og «Lamperne står på et andet kort».
 
 **Efter en opdatering siger Rumlys til.** En fane, der stod åben under opdateringen, bruger stadig den
 forrige udgave af kortet og sidepanelet — så kan kortene stå tomme. Rumlys lægger derfor en besked i Home

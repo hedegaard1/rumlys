@@ -154,15 +154,25 @@ const kontorData = {
 };
 // Kortenes lamper, som Rumlys kender dem: et kort for hele rummet, et der er fjernet fra betjeningspanelet
 // (k999…), og et med et lysbånd.
-const kortLager = { kontor: { k111111111111: [], k333333333333: ["light.kontor_bord_lysband"], k999999999999: ["light.kontor_loftspots"] } };
+// Et kort i Rumlys' lager fra 0.6.0: lamper, scener og ikon. To kort må gerne vise den samme lampe.
+const NI = STANDARD.map((s) => s[0]);
+const kortLager = {
+  kontor: {
+    k111111111111: { lamper: [], scener: NI.slice(), ikon: null },
+    k333333333333: { lamper: ["light.kontor_bord_lysband"], scener: NI.slice(0, 4), ikon: null },
+    k999999999999: { lamper: ["light.kontor_loftspots"], scener: NI.slice(), ikon: "mdi:spotlight" },
+  },
+};
 const kontorLamper = () => kontorData.lamper.map((l) => l.entity_id);
-// Som Rumlys selv: en tom liste er hele rummet, null ingen lamper, og lamper uden for rummet tæller ikke.
-const kortetsLamper = (lamper) => {
-  if (lamper === null) return null;
-  if (!lamper.length) return [];
-  const valgte = kontorLamper().filter((l) => lamper.indexOf(l) >= 0);
-  if (!valgte.length) return null;
-  return valgte.length === kontorLamper().length ? [] : valgte;
+// Som Rumlys selv: kun rummets lamper, i rummets rækkefølge, og alle af dem er hele rummet.
+const kortet = (vaerdi) => {
+  const k = vaerdi && !Array.isArray(vaerdi) ? vaerdi : { lamper: vaerdi || [], scener: [], ikon: null };
+  const valgte = kontorLamper().filter((l) => (k.lamper || []).indexOf(l) >= 0);
+  return {
+    lamper: valgte.length === kontorLamper().length ? [] : valgte,
+    scener: (k.scener || []).slice(),
+    ikon: k.ikon || null,
+  };
 };
 // Betjeningspanelerne, som i Home Assistant 2026.9: standardpanelet hedder «lovelace» og står på listen, og
 // et opslag uden navn giver det samme panel. Kontor-fanen har et kort for hele rummet, et nyt lille kort, det
@@ -245,11 +255,11 @@ const WS = {
     { entity_id: "light.udendors_lampe", navn: "Udendørs lampe", omraade: null, gruppe: [] },
   ],
   "rumlys/rum/gem": (msg) => {
-    if (msg.kort) kortLager.kontor = Object.fromEntries(Object.entries(msg.kort).map(([id, lamper]) => [id, kortetsLamper(lamper)]));
+    if (msg.kort) kortLager.kontor = Object.fromEntries(Object.entries(msg.kort).map(([id, v]) => [id, kortet(v)]));
     return { id: msg.rum_id };
   },
   "rumlys/kort/nye": (msg) => {
-    Object.entries(msg.kort).forEach(([id, lamper]) => { if (!(id in kortLager.kontor)) kortLager.kontor[id] = kortetsLamper(lamper); });
+    Object.entries(msg.kort).forEach(([id, v]) => { if (!(id in kortLager.kontor)) kortLager.kontor[id] = kortet(v); });
     return { kort: JSON.parse(JSON.stringify(kortLager.kontor)) };
   },
   "rumlys/rum/opret": () => ({ id: "kontor" }),

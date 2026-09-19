@@ -1,10 +1,13 @@
-// Reglen for kortene på en fane — den samme, sidepanelet og kortene bruger:
+// Reglen for et korts lamper, scener og ikon — den samme, sidepanelet og kortene bruger:
 //   node tests/frontend/fordel.test.mjs
 // Uden browser: den fælles fil sætter kun et ikonsæt på `window`.
+//
+// Fra 0.6.0 deler kortene ikke længere rummets lamper mellem sig. Et kort er en betjeningsflade,
+// ikke en ejer, så to kort må gerne vise den samme lampe — og så er der ikke noget at fordele.
 import assert from "node:assert/strict";
 
 globalThis.window = globalThis.window || {};
-const { fordelLamper, fanensKort, erRummetsKort } = await import("../../custom_components/rumlys/frontend/rumlys-faelles.js");
+const { kortetsValg, fanensKort, erRummetsKort } = await import("../../custom_components/rumlys/frontend/rumlys-faelles.js");
 
 const LOFT = "light.loft";
 const BAAND = "light.baand";
@@ -17,117 +20,58 @@ function proev(navn, fn) {
   console.log("ok  " + navn);
 }
 
-proev("et kort for hele rummet alene viser alle lamper", () => {
-  const [a] = fordelLamper([kort("a")], LAMPER, { a: [] });
-  assert.deepEqual(a.lamper, LAMPER);
-  assert.equal(a.hele, true);
-  assert.equal(a.spaerretAf, null);
+proev("et kort uden valgte lamper viser hele rummet", () => {
+  const v = kortetsValg(kort("a"), LAMPER, { a: { lamper: [], scener: [], ikon: null } });
+  assert.deepEqual(v.lamper, LAMPER);
+  assert.equal(v.hele, true);
+  assert.equal(v.kendt, true);
 });
 
-proev("et nyt kort på en fane, hvor hele rummet står, kan ikke bruges — også når det står øverst", () => {
-  const res = fordelLamper([kort("ny"), kort("a")], LAMPER, { a: [] });
-  assert.deepEqual(res[0].lamper, []);
-  assert.equal(res[0].spaerretAf, 1);
-  assert.deepEqual(res[1].lamper, LAMPER);
+proev("et kort for én lampe viser kun den", () => {
+  const v = kortetsValg(kort("a"), LAMPER, { a: { lamper: [LOFT] } });
+  assert.deepEqual(v.lamper, [LOFT]);
+  assert.equal(v.hele, false);
 });
 
-proev("to nye kort: det øverste får hele rummet, det næste ingen", () => {
-  const res = fordelLamper([kort("x"), kort("y")], LAMPER, {});
-  assert.equal(res[0].hele, true);
-  assert.equal(res[1].spaerretAf, 0);
+proev("to kort må vise den samme lampe", () => {
+  const valg = { a: { lamper: [LOFT] }, b: { lamper: [LOFT, BAAND] } };
+  assert.deepEqual(kortetsValg(kort("a"), LAMPER, valg).lamper, [LOFT]);
+  assert.deepEqual(kortetsValg(kort("b"), LAMPER, valg).lamper, LAMPER);
 });
 
-proev("kort for hver sin lampe deler fanen", () => {
-  const res = fordelLamper([kort("a"), kort("b")], LAMPER, { a: [LOFT], b: [BAAND] });
-  assert.deepEqual(res[0].lamper, [LOFT]);
-  assert.deepEqual(res[1].lamper, [BAAND]);
-  assert.equal(res[0].hele || res[1].hele, false);
+proev("lamperne står i rummets rækkefølge, ikke kortets", () => {
+  const v = kortetsValg(kort("a"), LAMPER, { a: { lamper: [BAAND, LOFT] } });
+  assert.deepEqual(v.lamper, LAMPER);
 });
 
-proev("et kort for hele rummet kan ikke stå ved siden af et lampekort", () => {
-  const res = fordelLamper([kort("a"), kort("b")], LAMPER, { a: [LOFT], b: [] });
-  assert.deepEqual(res[0].lamper, [LOFT]);
-  assert.equal(res[1].spaerretAf, 0);
-  assert.deepEqual(res[1].lamper, []);
+proev("lamper, der ikke er i rummet længere, giver hele rummet", () => {
+  const v = kortetsValg(kort("a"), LAMPER, { a: { lamper: ["light.vaek"] } });
+  assert.deepEqual(v.lamper, LAMPER);
+  assert.equal(v.hele, true);
 });
 
-proev("null er ingen lamper og optager ingen", () => {
-  const res = fordelLamper([kort("a"), kort("b")], LAMPER, { a: null, b: [] });
-  assert.equal(res[0].ingen, true);
-  assert.deepEqual(res[0].optager, []);
-  assert.equal(res[1].hele, true);
+proev("et kort, Rumlys ikke kender, bruger sin egen opsætning", () => {
+  const v = kortetsValg(kort(null, { lamper: [BAAND] }), LAMPER, {});
+  assert.deepEqual(v.lamper, [BAAND]);
+  assert.equal(v.kendt, false);
 });
 
-proev("alle lamper valgt er hele rummet", () => {
-  const [a] = fordelLamper([kort("a")], LAMPER, { a: [BAAND, LOFT] });
-  assert.equal(a.hele, true);
-  assert.deepEqual(a.lamper, LAMPER);
+proev("et kort uden id og uden lamper viser hele rummet", () => {
+  const v = kortetsValg(kort(null), LAMPER, {});
+  assert.deepEqual(v.lamper, LAMPER);
+  assert.equal(v.hele, true);
 });
 
-proev("lamper, der ikke er i rummet længere, er ingen lamper — ikke hele rummet", () => {
-  const [a] = fordelLamper([kort("a")], LAMPER, { a: ["light.fjernet"] });
-  assert.equal(a.ingen, true);
-  assert.deepEqual(a.lamper, []);
+proev("scener og ikon kommer fra kortet, ikke fra rummet", () => {
+  const v = kortetsValg(kort("a"), LAMPER, { a: { lamper: [], scener: ["s1"], ikon: "mdi:lamp" } }, ["rummets"]);
+  assert.deepEqual(v.scener, ["s1"]);
+  assert.equal(v.ikon, "mdi:lamp");
 });
 
-proev("samme kort to gange på fanen: ingen af gangene virker, men lamperne er optaget", () => {
-  const res = fordelLamper([kort("a"), kort("a"), kort("ny")], LAMPER, { a: [] });
-  assert.equal(res[0].dublet, true);
-  assert.equal(res[1].dublet, true);
-  assert.deepEqual(res[0].lamper, []);
-  assert.deepEqual(res[0].optager, LAMPER);
-  assert.equal(res[1].spaerretAf, null);
-  assert.equal(res[2].spaerretAf, 0);
-});
-
-proev("et kort uden id viser hele rummet, men går ikke forud for et nyt kort over det", () => {
-  const res = fordelLamper([kort("ny"), kort(null)], LAMPER, {});
-  assert.equal(res[0].hele, true);
-  assert.equal(res[1].spaerretAf, 0);
-});
-
-proev("et kort uden id beholder sin plads, når det får et id", () => {
-  const foer = fordelLamper([kort(null), kort(null, { size: "small" })], LAMPER, {});
-  const efter = fordelLamper([kort("nyt"), kort(null, { size: "small" })], LAMPER, {});
-  assert.equal(foer[0].hele, true);
-  assert.equal(efter[0].hele, true);
-  assert.equal(foer[1].spaerretAf, 0);
-  assert.equal(efter[1].spaerretAf, 0);
-});
-
-proev("et kort uden id med lamper fra 0.4.9 viser dem", () => {
-  const res = fordelLamper([kort(null, { lamper: [BAAND] }), kort("b")], LAMPER, { b: [LOFT] });
-  assert.deepEqual(res[0].lamper, [BAAND]);
-  assert.deepEqual(res[1].lamper, [LOFT]);
-});
-
-proev("lamperne fra 0.4.9 følger med, når kortet får et id, til Rumlys kender det", () => {
-  const res = fordelLamper([kort("b"), kort("nyt", { lamper: [BAAND] })], LAMPER, { b: [LOFT] });
-  assert.deepEqual(res[1].lamper, [BAAND]);
-  assert.equal(res[1].spaerretAf, null);
-  const [uden] = fordelLamper([kort("nyt", { lamper: ["light.fremmed"] })], LAMPER, {});
-  assert.equal(uden.ingen, true);
-});
-
-proev("Rumlys' valg går forud for kortets egne lamper fra 0.4.9", () => {
-  const [a] = fordelLamper([kort("a", { lamper: [LOFT] })], LAMPER, { a: [] });
-  assert.equal(a.hele, true);
-});
-
-proev("to ens kort uden id på fanen er samme kort to gange", () => {
-  const res = fordelLamper([kort(null), kort(null), kort(null, { size: "small" })], LAMPER, {});
-  assert.equal(res[0].dublet, true);
-  assert.equal(res[1].dublet, true);
-  assert.deepEqual(res[0].lamper, []);
-  assert.deepEqual(res[1].lamper, []);
-  assert.equal(res[2].dublet, false);
-  assert.equal(res[2].spaerretAf, 0);
-});
-
-proev("to kendte kort med samme lampe: det øverste vinder", () => {
-  const res = fordelLamper([kort("a"), kort("b")], LAMPER, { a: [LOFT], b: [LOFT, BAAND] });
-  assert.deepEqual(res[0].lamper, [LOFT]);
-  assert.equal(res[1].spaerretAf, 0);
+proev("et ukendt kort arver rummets gamle scener, til det er registreret", () => {
+  const v = kortetsValg(kort("nyt"), LAMPER, {}, ["rummets"]);
+  assert.deepEqual(v.scener, ["rummets"]);
+  assert.equal(v.ikon, null);
 });
 
 proev("fanensKort finder kort inde i andre kort, i rækkefølge", () => {

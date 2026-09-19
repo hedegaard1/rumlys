@@ -17,6 +17,11 @@ CONF_KNAPPER = "knapper"  # rummets vægknapper
 # Hvad hver knap styrer: {"kort": id} eller {"lamper": [...]}. Uden valg hele rummet.
 CONF_KNAP_MAAL = "knap_maal"
 CONF_KORT = "kort"
+# Kortets egne felter i Rumlys' lager. Fra 0.6.0 ejer kortet sine scener og sit ikon, og to
+# kort må frit vise den samme lampe: kortet er en betjeningsflade, ikke en ejer.
+KORT_LAMPER = "lamper"
+KORT_SCENER = "scener"
+KORT_IKON = "ikon"
 CONF_LYS = "lys"  # rummets eget lys
 CONF_OVERGANG = "overgang"
 # Blød tænd og sluk i et nyt rum, når lamperne kan det.

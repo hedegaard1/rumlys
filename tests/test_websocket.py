@@ -162,21 +162,35 @@ async def test_kortenes_lamper(hass: HomeAssistant, hass_ws_client: WebSocketGen
         type="rumlys/rum/gem",
         rum_id="gang",
         data=data,
-        kort={"k1": [bord, "light.fremmed"], "k2": [bord, SPOTS], "k3": [], "k5": None, "k6": ["light.fremmed"]},
+        kort={
+            "k1": {"lamper": [bord, "light.fremmed"], "scener": ["s1"]},
+            "k2": {"lamper": [bord, SPOTS]},
+            "k3": {"lamper": []},
+            "k5": None,
+            "k6": {"lamper": ["light.fremmed"], "ikon": "mdi:lamp"},
+        },
     )
     assert svar["success"], svar
     await hass.async_block_till_done()
     liste = (await kommando(klient, type="rumlys/rum/liste"))["result"]
-    # Lamper uden for rummet tæller ikke, og alle rummets lamper er hele rummet. None er ingen lamper, og et kort,
-    # hvis lamper alle er uden for rummet, viser heller ingen — ikke hele rummet.
-    assert liste[0]["kort"] == {"k1": [bord], "k2": [], "k3": [], "k5": None, "k6": None}
+    # Lamper uden for rummet tæller ikke, og alle rummets lamper er hele rummet. Et kort, hvis lamper
+    # alle er uden for rummet, viser hele rummet — to kort må gerne vise den samme lampe fra 0.6.0.
+    assert liste[0]["kort"] == {
+        "k1": {"lamper": [bord], "scener": ["s1"], "ikon": None},
+        "k2": {"lamper": [], "scener": [], "ikon": None},
+        "k3": {"lamper": [], "scener": [], "ikon": None},
+        "k5": {"lamper": [], "scener": [], "ikon": None},
+        "k6": {"lamper": [], "scener": [], "ikon": "mdi:lamp"},
+    }
 
     # Nye kort fra sidepanelet: et kort, rummet kender, røres ikke.
     foer = hass.states.get("sensor.gang_tilstand").attributes["kort_opdateret"]
     svar = await kommando(
-        klient, type="rumlys/kort/nye", rum_id="gang", kort={"k1": [SPOTS], "k4": [SPOTS], "k7": None}
+        klient, type="rumlys/kort/nye", rum_id="gang",
+        kort={"k1": {"lamper": [SPOTS]}, "k4": {"lamper": [SPOTS], "scener": ["s2"]}},
     )
-    assert svar["result"]["kort"] == {"k1": [bord], "k2": [], "k3": [], "k5": None, "k6": None, "k4": [SPOTS], "k7": None}
+    assert svar["result"]["kort"]["k1"]["lamper"] == [bord]
+    assert svar["result"]["kort"]["k4"] == {"lamper": [SPOTS], "scener": ["s2"], "ikon": None}
     # Tilstandssensoren viser, at kortene er ændret, så kort på andre skærme henter rummet igen.
     await hass.async_block_till_done()
     assert hass.states.get("sensor.gang_tilstand").attributes["kort_opdateret"] not in (None, foer)
@@ -185,15 +199,18 @@ async def test_kortenes_lamper(hass: HomeAssistant, hass_ws_client: WebSocketGen
     await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
     liste = (await kommando(klient, type="rumlys/rum/liste"))["result"]
-    assert liste[0]["kort"] == {"k1": [bord], "k2": [], "k3": [], "k5": None, "k6": None, "k4": [SPOTS], "k7": None}
+    assert sorted(liste[0]["kort"]) == ["k1", "k2", "k3", "k4", "k5", "k6"]
+    assert liste[0]["kort"]["k1"] == {"lamper": [bord], "scener": ["s1"], "ikon": None}
 
     # Et gem, hvor kun kortene er ændret, gemmer dem også — og et glemt kort er væk.
     data = (await kommando(klient, type="rumlys/rum/hent", rum_id="gang"))["result"]["data"]
-    svar = await kommando(klient, type="rumlys/rum/gem", rum_id="gang", data=data, kort={"k1": [SPOTS]})
+    svar = await kommando(klient, type="rumlys/rum/gem", rum_id="gang", data=data,
+                          kort={"k1": {"lamper": [SPOTS], "scener": ["s1"]}})
     assert svar["success"], svar
     await hass.async_block_till_done()
     liste = (await kommando(klient, type="rumlys/rum/liste"))["result"]
-    assert liste[0]["kort"] == {"k1": [SPOTS]}
+    # Rummet har to lamper, så loftspottene alene er ikke hele rummet.
+    assert liste[0]["kort"] == {"k1": {"lamper": [SPOTS], "scener": ["s1"], "ikon": None}}
 
 
 async def test_gem_afviser_det_ugyldige(hass: HomeAssistant, hass_ws_client: WebSocketGenerator) -> None:

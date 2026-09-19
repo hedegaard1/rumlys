@@ -62,6 +62,7 @@ from .const import (
     CONF_OVERGANG,
     CONF_SCENE,
     CONF_SCENER,
+    CONF_IKON,
     CONF_SENSORER,
     CONF_SENSOR_LAMPER,
     CONF_SLUK_EFTER,
@@ -81,6 +82,9 @@ from .const import (
     HUSK_EFTER,
     KNAP_DOBBELT,
     KNAP_HOLD,
+    KORT_IKON,
+    KORT_LAMPER,
+    KORT_SCENER,
     LYS_FARVE,
     LYS_HVID,
     LYS_SCENE,
@@ -178,6 +182,7 @@ class Rum:
         ]
         # Tidsrummet, der gjaldt ved sidste skift — et klokkeslæt er ikke et skift alle dage.
         self._aktivt: dict[str, Any] | None = None
+        # Rummets scener findes kun som det, gamle kort arver ved opgraderingen. Kortene ejer dem nu.
         self.scener: list[str] = list(data.get(CONF_SCENER, []))
         self.indstillinger = STANDARD_INDSTILLINGER | gemt.get("indstillinger", {})
         self.kilde: str | None = gemt.get("kilde")
@@ -188,11 +193,11 @@ class Rum:
         self.haendelser: deque[dict[str, Any]] = deque(
             gemt.get("haendelser", []), maxlen=HAENDELSER
         )
-        # Kortene på betjeningspanelerne efter id, og de lamper hvert kort viser. En tom liste er hele
-        # rummet, None ingen lamper. Et kort, rummet ikke kender endnu, er nyt i sidepanelet.
-        self.kort: dict[str, list[str] | None] = {
-            kort_id: None if lamper is None else list(lamper)
-            for kort_id, lamper in gemt.get("kort", {}).items()
+        # Kortene på betjeningspanelerne efter id. Hvert kort har sine lamper (tom liste = hele
+        # rummet), sine scener og sit ikon. Et kort, rummet ikke kender endnu, er nyt i sidepanelet.
+        self.kort: dict[str, dict[str, Any]] = {
+            kort_id: _kortet(vaerdi, data.get(CONF_SCENER, []), data.get(CONF_IKON))
+            for kort_id, vaerdi in gemt.get("kort", {}).items()
         }
         # Hvornår kortene sidst er ændret. Står på tilstandssensoren, så et kort på en anden skærm henter rummet igen.
         self.kort_opdateret: str | None = gemt.get("kort_opdateret")
@@ -284,20 +289,20 @@ class Rum:
         }
 
     @callback
-    def saet_kort(self, kort: dict[str, list[str] | None], lys: list[str]) -> None:
-        """Kortenes lamper, som sidepanelet gemmer dem — målt mod rummets lamper, som de gemmes samtidig."""
-        nye = {kort_id: _kortets_lamper(lamper, lys) for kort_id, lamper in kort.items()}
+    def saet_kort(self, kort: dict[str, Any], lys: list[str]) -> None:
+        """Kortene, som sidepanelet gemmer dem — målt mod rummets lamper, som de gemmes samtidig."""
+        nye = {kort_id: _kortet(vaerdi, [], None, lys) for kort_id, vaerdi in kort.items()}
         if nye != self.kort:
             self.kort = nye
             self.kort_opdateret = dt_util.utcnow().isoformat()
             self._opdater()
 
     @callback
-    def nye_kort(self, kort: dict[str, list[str] | None]) -> None:
+    def nye_kort(self, kort: dict[str, Any]) -> None:
         """Kort, sidepanelet har fundet for første gang. Et kort, rummet kender, røres ikke."""
         nye = {
-            kort_id: _kortets_lamper(lamper, self.lys)
-            for kort_id, lamper in kort.items()
+            kort_id: _kortet(vaerdi, [], None, self.lys)
+            for kort_id, vaerdi in kort.items()
             if kort_id not in self.kort
         }
         if nye:
@@ -427,6 +432,11 @@ class Rum:
     # holdes knappen nede, dæmpes lyset op eller ned. Et enkelt tryk kan derfor først virke, når
     # dobbeltklik-vinduet er forbi — ellers ville første klik i et dobbeltklik nå at slukke lyset.
 
+    def kortets_lamper(self, kort_id: str) -> list[str] | None:
+        """Lamperne, et kort viser. Tom liste er hele rummet, og så er svaret None — «alle»."""
+        kortet = self.kort.get(kort_id)
+        return (kortet or {}).get(KORT_LAMPER) or None
+
     def _knappens_lamper(self, knap: str) -> list[str] | None:
         """Lamperne, en knap styrer. None er hele rummet — også når kortet er væk eller står tomt:
         en knap på væggen skal altid gøre noget."""
@@ -435,7 +445,7 @@ class Rum:
             return None
         if CONF_LAMPER in maal:
             return self.lamperne(maal[CONF_LAMPER]) or None
-        return self.kort.get(maal[CONF_KORT]) or None
+        return self.kortets_lamper(maal[CONF_KORT])
 
     @callback
     def _knap_aendret(self, event: Event[EventStateChangedData]) -> None:
@@ -889,18 +899,36 @@ class Rum:
         return kontekst
 
 
-def _kortets_lamper(lamper: list[str] | None, lys: list[str]) -> list[str] | None:
-    """Rummets lamper blandt de valgte, i rummets rækkefølge. En tom liste er hele rummet — ligesom alle lamperne —
-    og None er ingen lamper: et kort, der deler fanen med et andet kort for rummet og ikke har fået lamper endnu.
-    Er ingen af de valgte lamper i rummet længere, viser kortet ingen, ikke hele rummet."""
-    if lamper is None:
-        return None
-    if not lamper:
-        return []
-    valgte = [entity_id for entity_id in lys if entity_id in lamper]
-    if not valgte:
-        return None
-    return [] if len(valgte) == len(lys) else valgte
+def _kortet(
+    vaerdi: Any,
+    scener: list[str],
+    ikon: str | None,
+    lys: list[str] | None = None,
+) -> dict[str, Any]:
+    """Et kort i lageret: lamper, scener og ikon.
+
+    Fra 0.6.0 er et kort et opslag. Før var det bare lampelisten, og `None` betød «ingen lamper»,
+    fordi to kort ikke måtte dele en lampe. Den regel er væk, så et gammelt kort bliver til hele
+    rummet, og det arver rummets scener og ikon, som lå på rummet indtil nu."""
+    if isinstance(vaerdi, dict):
+        lamper = vaerdi.get(KORT_LAMPER) or []
+        kortet = {
+            KORT_LAMPER: list(lamper),
+            KORT_SCENER: list(vaerdi.get(KORT_SCENER) or []),
+            KORT_IKON: vaerdi.get(KORT_IKON) or None,
+        }
+    else:
+        kortet = {
+            KORT_LAMPER: [] if vaerdi is None else list(vaerdi),
+            KORT_SCENER: list(scener),
+            KORT_IKON: ikon,
+        }
+    if lys is not None:
+        # Kun rummets lamper, i rummets rækkefølge. Er ingen af dem i rummet længere — eller er de
+        # der alle — viser kortet hele rummet.
+        valgte = [entity_id for entity_id in lys if entity_id in kortet[KORT_LAMPER]]
+        kortet[KORT_LAMPER] = [] if len(valgte) == len(lys) else valgte
+    return kortet
 
 
 def _lysdata(lys: dict[str, Any]) -> dict[str, Any]:

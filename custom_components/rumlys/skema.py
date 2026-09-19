@@ -20,6 +20,9 @@ from .const import (
     CONF_KNAP_MAAL,
     CONF_KNAPPER,
     CONF_KORT,
+    KORT_IKON,
+    KORT_LAMPER,
+    KORT_SCENER,
     CONF_LAMPER,
     CONF_LYS,
     CONF_LYSSTYRKE,
@@ -129,6 +132,20 @@ def _kun_rummets(rum: dict[str, Any]) -> dict[str, Any]:
         CONF_KNAP_MAAL: knapper,
     }
 
+
+# Et kort i Rumlys' lager: lamper (tom = hele rummet), scener og ikon. Den gamle form — bare
+# lampelisten, eller None for «ingen lamper» — tages stadig imod og bliver til hele rummet.
+KORT = vol.Any(
+    None,
+    [cv.entity_domain("light")],
+    vol.Schema(
+        {
+            vol.Optional(KORT_LAMPER, default=list): [cv.entity_domain("light")],
+            vol.Optional(KORT_SCENER, default=list): [cv.string],
+            vol.Optional(KORT_IKON, default=None): vol.Any(None, cv.icon),
+        }
+    ),
+)
 
 RUM_DATA = vol.All(
     vol.Schema(

@@ -29,7 +29,7 @@ from .const import (
 )
 from .omraade import entiteter_i_omraade, er_knap, gruppens_lamper, nyt_rum
 from .rum import Rum
-from .skema import INDSTILLINGER, RUM_DATA, hele_tal
+from .skema import INDSTILLINGER, KORT, RUM_DATA, hele_tal
 
 # Rummets entiteter efter nøgle, som kortet og sidepanelet slår op i.
 ENTITETER = {
@@ -167,7 +167,7 @@ def ws_hent(
         vol.Optional("indstillinger"): dict,
         # Kortenes lamper efter kortets id: en tom liste er hele rummet, null ingen lamper. Gemmes i Rumlys'
         # egen tilstand, så de ikke genindlæser Rumlys.
-        vol.Optional("kort"): vol.Schema({cv.string: vol.Any(None, [cv.entity_id])}),
+        vol.Optional("kort"): vol.Schema({cv.string: KORT}),
     }
 )
 @callback
@@ -216,7 +216,7 @@ def _frys_knapper(
     maal = {}
     for knap, hvad in data.get(CONF_KNAP_MAAL, {}).items():
         if CONF_KORT in hvad and hvad[CONF_KORT] not in kort:
-            if lamper := rum.kort.get(hvad[CONF_KORT]):
+            if lamper := rum.kortets_lamper(hvad[CONF_KORT]):
                 maal[knap] = {CONF_LAMPER: lamper}
             continue
         maal[knap] = hvad
@@ -228,7 +228,7 @@ def _frys_knapper(
     {
         vol.Required("type"): "rumlys/kort/nye",
         vol.Required("rum_id"): str,
-        vol.Required("kort"): vol.Schema({cv.string: vol.Any(None, [cv.entity_id])}),
+        vol.Required("kort"): vol.Schema({cv.string: KORT}),
     }
 )
 @callback
