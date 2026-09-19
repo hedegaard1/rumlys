@@ -193,6 +193,13 @@ select, input[type=text], input[type=time], input[type=search] {
 .tidsraekke small { display: block; color: var(--rl-daempet); font-size: 12px; }
 .slaebes { opacity: .6; }
 .scenegitter { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; }
+/* Kortboksen er et gitter med «justify-items: start», så vælgere og knapper ikke trækkes ud i hele
+   bredden. Scenerne skal derimod have den: uden det her krymper gitteret til sit eget indhold og
+   står med én scene pr. række. */
+.scenevalg { justify-self: stretch; width: 100%; }
+/* Halv størrelse af det, kortboksen gav før. 72 px som bund rammer 10 kolonner i boksens bredde og
+   dermed felter omkring 76 px; 76 px som bund misser den tiende kolonne med to pixel og giver 85. */
+.scenevalg .scenegitter { grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); }
 .scenefelt { aspect-ratio: 1; border-radius: 12px; border: 0; cursor: pointer; position: relative; overflow: hidden; padding: 0; touch-action: none; }
 .scenefelt span { position: absolute; left: 0; right: 0; bottom: 0; font-size: 10px; font-weight: 600; color: #fff; background: rgba(0,0,0,.35); padding: 2px 2px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .scenefelt .fjern { position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; border-radius: 50%; border: 0; background: rgba(0,0,0,.45); color: #fff; display: grid; place-items: center; cursor: pointer; padding: 0; }
@@ -998,8 +1005,8 @@ class RumlysPanel extends HTMLElement {
       gitter.appendChild(felt);
     });
     sorterbar(gitter, ".scenefelt", (orden) => saet(orden.map((i) => valgte[i])));
-    if (!kan) return h("div", {}, h("p", { class: "hint" }, this.t("scener_ingen")), valgte.length ? gitter : null);
-    return h("div", {},
+    if (!kan) return h("div", { class: "scenevalg" }, h("p", { class: "hint" }, this.t("scener_ingen")), valgte.length ? gitter : null);
+    return h("div", { class: "scenevalg" },
       valgte.length ? gitter : h("p", { class: "hint" }, this.t("ingen_scener")),
       h("button", { class: "knap t", type: "button", onclick: () => this._tilfoejScener(valgte, saet) }, ikon("mdi:plus"), this.t("tilfoej_scener")));
   }
