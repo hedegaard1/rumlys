@@ -124,6 +124,22 @@ async def test_kun_listen_for_andre_end_administratorer(
     assert svar["error"]["code"] == "unauthorized"
 
 
+async def test_hent_folder_automatikken_ud(
+    hass: HomeAssistant, hass_ws_client: WebSocketGenerator
+) -> None:
+    """Et rum fra før 0.7.0 har ingen automatik i det gemte, og sidepanelet retter i netop det.
+
+    Fik det rå gemte, stod siden med «Rummet kunne ikke hentes» — den har ikke andre
+    automatikker at tegne end dem, der står i «data».
+    """
+    await opsaet(hass)
+    klient = await hass_ws_client(hass)
+
+    for rum_id, lamper in (("gang", [SPOTS]), ("kontor", [])):
+        data = (await kommando(klient, type="rumlys/rum/hent", rum_id=rum_id))["result"]["data"]
+        assert [aut["lamper"] for aut in data["automatik"]] == [lamper]
+
+
 async def test_hent_og_gem(hass: HomeAssistant, hass_ws_client: WebSocketGenerator) -> None:
     entry = await opsaet(hass)
     klient = await hass_ws_client(hass)

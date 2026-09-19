@@ -18,6 +18,7 @@ from homeassistant.helpers import (
 )
 
 from .const import (
+    CONF_AUTOMATIK,
     CONF_ENTITY_ID,
     CONF_IKON,
     CONF_KNAP_MAAL,
@@ -198,7 +199,13 @@ def ws_hent(
     connection.send_result(
         msg["id"],
         _rum_kort(hass, entry, subentry)
-        | {"data": dict(subentry.data), "status": rum.status()},
+        # Automatikkerne skal med i selve opsætningen, ikke kun ved siden af den: sidepanelet
+        # retter i «data», og et rum fra før 0.7.0 har dem ikke liggende dér. Uden det her stod
+        # siden med «Rummet kunne ikke hentes», fordi der ikke var nogen automatikker at tegne.
+        | {
+            "data": dict(subentry.data) | {CONF_AUTOMATIK: automatikkerne(subentry.data)},
+            "status": rum.status(),
+        },
     )
 
 

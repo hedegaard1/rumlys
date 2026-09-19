@@ -1395,6 +1395,8 @@ class RumlysPanel extends HTMLElement {
   // ting, så de står i én sektion — kortene nedenfor er ren betjening.
   _sekAutomatik() {
     const d = this._kladde.data;
+    // En bagende fra før 0.7.0 sender ingen automatikker. Siden skal stadig kunne tegnes.
+    if (!Array.isArray(d.automatik)) d.automatik = [];
     if (!this._aabneAut) this._aabneAut = new Set(d.automatik.length === 1 ? [d.automatik[0].id] : []);
     const liste = h("div", {});
     d.automatik.forEach((aut) => liste.appendChild(this._automatikBoks(aut)));
@@ -1506,7 +1508,7 @@ class RumlysPanel extends HTMLElement {
   // Automatikken, en lampe hører til — eller null. Det er dét, der gør, at to aldrig kan trække
   // i den samme pære: lampen kan kun stå ét sted.
   _autFor(entityId) {
-    return this._kladde.data.automatik.find((a) => a.lamper.indexOf(entityId) >= 0) || null;
+    return (this._kladde.data.automatik || []).find((a) => (a.lamper || []).indexOf(entityId) >= 0) || null;
   }
 
   _automatikBoks(aut) {
@@ -1994,7 +1996,9 @@ class RumlysPanel extends HTMLElement {
     const d = this._kladde.data;
     const andre = (d.tilstede || []).filter((s) => s !== entityId);
     d.tilstede = tilstede ? andre.concat([entityId]) : andre;
-    (this._kladde.indstillinger[String(this._kladde.data.automatik[0].id)] || {}).sluk_efter_bevaegelse = this._anbefaletTid();
+    // Et rum uden automatikker har ingen tid at sætte. Sensortypen skal stadig kunne vælges.
+    const foerste = (this._kladde.data.automatik || [])[0];
+    if (foerste) (this._kladde.indstillinger[String(foerste.id)] || {}).sluk_efter_bevaegelse = this._anbefaletTid();
     this._genTegn("sensorer", "ingen");
   }
 
