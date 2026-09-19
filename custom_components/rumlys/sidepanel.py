@@ -71,7 +71,11 @@ async def async_register(hass: HomeAssistant) -> None:
             frontend_url_path=DOMAIN,
             webcomponent_name="rumlys-panel",
             sidebar_title="Rumlys",
-            sidebar_icon="rumlys:lampe",
+            # Home Assistant slår et eget ikonsæt op én gang, netop som ikonet tegnes (ha-icon.ts),
+            # og prøver aldrig igen. Menuen kan nå at tegne, før rumlys-card.js har registreret
+            # «rumlys:lampe», og så står Rumlys uden ikon — det samme sker for HACS. Et mdi-ikon
+            # er bygget ind i Home Assistant og er der altid. Vores egen lampe bruges inde i Rumlys.
+            sidebar_icon="mdi:ceiling-light",
             module_url=f"{URL}/rumlys-panel.js",
             require_admin=True,
             config={},
