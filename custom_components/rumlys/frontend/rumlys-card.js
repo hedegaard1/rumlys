@@ -419,6 +419,10 @@ class RumlysCard extends HTMLElement {
     this._enIkon = enIkon;
     e.kort.style.setProperty("--rl-scene", str + "px");
     if (this._ikonerne) this._visIkoner(this._ikonerne);
+    // Selve opstillingen regnes i _tilpasScener, og den kører ellers kun, når kortet skifter
+    // størrelse. Skifter man felternes størrelse, er kortet lige bredt, så den skulle kaldes her —
+    // uden det slog valget først igennem, når noget andet tilfældigvis ændrede kortets højde.
+    this._tilpasScener();
   }
 
   _visIkoner(ikoner) {
@@ -565,7 +569,11 @@ class RumlysCard extends HTMLElement {
     // slutter, hvor scenerne slutter. Skal de deles på flere rækker, strækkes de lige så meget,
     // at rækkerne går helt ud til højre kant — ellers står der et hul i hjørnet, og det ligner
     // en fejl frem for et valg (Martins ønske 19-09-2026).
-    const felt = n <= plads ? valgt : (w - (kol - 1) * gap) / kol;
+    //
+    // Men højst en fjerdedel større end det valgte. Uden loftet blev både «Stor» og «Størst» til
+    // 135 px på et kort i fire kolonner, fordi der kun var plads til én i bredden — og så kunne
+    // man ikke se forskel på de to trin, man lige havde valgt imellem.
+    const felt = n <= plads ? valgt : Math.min(valgt * 1.25, (w - (kol - 1) * gap) / kol);
     e.scener.style.gap = gap + "px";
     e.scener.style.gridTemplateColumns = "repeat(" + kol + ", " + felt.toFixed(2) + "px)";
     e.scener.style.setProperty("--rl-scene-radius", Math.max(4, Math.min(16, Math.round(felt * 0.17))) + "px");
