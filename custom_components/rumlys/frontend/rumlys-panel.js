@@ -1606,7 +1606,10 @@ class RumlysPanel extends HTMLElement {
         "div",
         { style: { width: "100%" } },
         this._somGruppe(this._sekAutLamper(aut)),
-        this._somGruppe(this._sekAutSensorer(aut)),
+        // Er der ingen sensorer valgt til rummet, er der ingenting at vælge imellem her, og gruppen
+        // skjules (Martins ønske 19-09-2026). Den kommer frem igen, så snart rummet får sin første
+        // sensor; automatikkens egne valg ligger uberørt i kladden imens.
+        this._kladde.data.sensorer.length ? this._somGruppe(this._sekAutSensorer(aut)) : null,
         this._somGruppe(this._sekTidsplan(aut)),
         this._somGruppe(this._sekIngen(aut)),
         this._somGruppe(this._sekHold(aut)),
@@ -2149,8 +2152,9 @@ class RumlysPanel extends HTMLElement {
       "mdi:calendar-clock",
       this.t("tidsplan"),
       this.t("tidsplan_hint"),
-      // Tidsrummets lys er det, en sensor tænder med. Uden sensor sker det aldrig, og så siger vi det.
-      d.sensorer.length ? null : h("p", { class: "hint advarsel" }, this.t("tidsplan_uden_sensor")),
+      // Tidsrummets lys er det, en sensor tænder med. Uden sensor sker det aldrig, og så siger vi det
+      // — og hvad der skal til: en sensor i området, eller et flueben ved den, der allerede står der.
+      aut.sensorer.length ? null : h("p", { class: "hint advarsel" }, this.t(this._sensorTekst("tidsplan_uden_sensor", "tidsplan_sensor_ikke_valgt"))),
       uge,
       liste,
       fast,
@@ -2295,6 +2299,13 @@ class RumlysPanel extends HTMLElement {
     return this.t("sek", { n: v });
   }
 
+  // «Ingen sensor i området» og «ingen sensor valgt» er to forskellige beskeder: den første kan man
+  // ikke gøre noget ved i Rumlys, den anden er et flueben. Vælg teksten efter hvad der er tilfældet.
+  _sensorTekst(udenIOmraadet, ikkeValgt) {
+    const omraade = this._omraade(this._kladde.data.omraade);
+    return omraade && omraade.sensorer.length ? ikkeValgt : udenIOmraadet;
+  }
+
   _sekIngen(aut) {
     const ind = this._kladde.indstillinger[String(aut.id)];
     const anbefalet = this._anbefaletTid();
@@ -2307,7 +2318,7 @@ class RumlysPanel extends HTMLElement {
     return this._sektion(
       "mdi:motion-sensor-off",
       this.t("ingen_i_rummet"),
-      this.t(udenSensor ? "ingen_hint_uden_sensor" : "ingen_hint"),
+      this.t(udenSensor ? this._sensorTekst("ingen_hint_uden_sensor", "ingen_hint_ikke_valgt") : "ingen_hint"),
       udenSensor ? null : h("div", { class: "naar" }, h("div", { class: "tx" }, h("b", {}, this.t("auto_lys")), h("small", {}, this.t("auto_sub")), anbefaling), auto),
       h("div", { class: "naar" }, h("div", { class: "tx" }, h("b", {}, this.t("valgt_lys")), h("small", {}, this.t("valgt_sub"))), valgt),
       // Blød tænd og sluk hører til automatikken: to grupper lamper i samme rum kan have hver sin.
@@ -2317,11 +2328,13 @@ class RumlysPanel extends HTMLElement {
 
   _sekHold(aut) {
     const ind = this._kladde.indstillinger[String(aut.id)];
+    // Uden sensor er der ingen sensor at sætte ude af spil, og så skal sætningen ikke nævne den.
+    const udenSensor = !aut.sensorer.length;
     const tid = trinvalg([0.5, 1, 1.5, 2, 3, 4, 5, 6, 8, 10, 12, 24], ind.hold_tid, (v) => this.t("timer", { n: String(v).replace(".", ",") }), (v) => { ind.hold_tid = v; this._aendret(); });
     return this._sektion(
       "mdi:lock-clock",
       this.t("hold"),
-      this.t("hold_hint"),
+      this.t(udenSensor ? "hold_hint_uden_sensor" : "hold_hint"),
       h("div", { class: "naar" }, h("div", { class: "tx" }, h("b", {}, this.t("hold_i"))), tid)
     );
   }
