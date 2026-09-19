@@ -163,7 +163,19 @@ export const hass = {
   },
 };
 
-const ent = (rum) => ({ hold: `switch.${rum}_hold_lys`, tilstand: `sensor.${rum}_tilstand`, sluk_efter_bevaegelse: `number.${rum}_sluk_efter_bevaegelse`, sluk_efter_tryk: `number.${rum}_sluk_efter_tryk`, hold_tid: `number.${rum}_hold_tid` });
+// Rummets egne entiteter, og under «automatik» hver automatiks egne — som Rumlys selv giver dem.
+const autEnt = (rum, nr) => ({
+  hold: `switch.${rum}_automatik_${nr}_hold_lys`,
+  tilstand: `sensor.${rum}_automatik_${nr}_tilstand`,
+  sluk_efter_bevaegelse: `number.${rum}_automatik_${nr}_sluk_efter_bevaegelse`,
+  sluk_efter_tryk: `number.${rum}_automatik_${nr}_sluk_efter_tryk`,
+  hold_tid: `number.${rum}_automatik_${nr}_hold_tid`,
+});
+const ent = (rum, numre = [1]) => {
+  const ud = { hold: `switch.${rum}_hold_lys`, tilstand: `sensor.${rum}_tilstand`, sluk_efter_bevaegelse: null, sluk_efter_tryk: null, hold_tid: null, automatik: {} };
+  numre.forEach((nr) => { ud.automatik[String(nr)] = autEnt(rum, nr); });
+  return ud;
+};
 const kontorData = {
   omraade: "office",
   lamper: [{ entity_id: "light.kontor_loftspots", bevaegelse: true }, { entity_id: "light.kontor_bord_lysband", bevaegelse: true }],
@@ -177,6 +189,31 @@ const kontorData = {
     { navn: "Weekend", start: "00:00:00", slut: "00:00:00", dage: [5, 6], lys: { type: "hvid", lysstyrke: 80, kelvin: 2700 } },
   ],
   scener: STANDARD.map((s) => s[0]),
+  // Fra 0.7.0: to automatikker. Loftspotsene tændes af sensoren og følger tidsplanen; lysbåndet
+  // har ingen sensor og gør kun det, nogen selv beder om.
+  automatik: [
+    {
+      id: 1,
+      lamper: ["light.kontor_loftspots"],
+      sensorer: ["binary_sensor.lafaer_office"],
+      lys: { type: "hvid", lysstyrke: 100, kelvin: 3500 },
+      overgang: 3,
+      tidsrum: [
+        { navn: "Arbejde", start: "08:00:00", slut: "16:00:00", dage: [0, 1, 2, 3, 4], lys: { type: "scene", scene: "0cbec4e8-d064-4457-986a-fe6078a63f39", lysstyrke: 100 } },
+        { navn: "Fredagsbar", start: "22:00:00", slut: "02:00:00", dage: [4], lys: { type: "farve", farve: [300, 70], lysstyrke: 70 } },
+        { navn: "Aften", start: "19:00:00", slut: "23:30:00", lys: { type: "scene", scene: "e71b2ef3-1b15-4c4b-b036-4b3d6efe58f8", lysstyrke: 60 } },
+        { navn: "Weekend", start: "00:00:00", slut: "00:00:00", dage: [5, 6], lys: { type: "hvid", lysstyrke: 80, kelvin: 2700 } },
+      ],
+    },
+    {
+      id: 2,
+      lamper: ["light.kontor_bord_lysband"],
+      sensorer: [],
+      lys: { type: "hvid", lysstyrke: 60, kelvin: 2700 },
+      overgang: 3,
+      tidsrum: [],
+    },
+  ],
 };
 // Kortenes lamper, som Rumlys kender dem: et kort for hele rummet, et der er fjernet fra betjeningspanelet
 // (k999…), og et med et lysbånd.
@@ -228,7 +265,7 @@ const WS = {
   "rumlys/rum/liste": () => JSON.parse(JSON.stringify([
     { id: "entre", navn: "Entre", omraade: "entryway", lamper: [{ entity_id: "light.entre_loftspots", bevaegelse: true }], sensorer: ["binary_sensor.entre"], tidsrum: ["Nat"], scener: [], entiteter: ent("entre"), kort: {} },
     { id: "gang", navn: "Gang", omraade: "hallway", lamper: [{ entity_id: "light.gang_loftspots", bevaegelse: true }], sensorer: ["binary_sensor.gang_pir"], tidsrum: ["Dag", "Nat"], scener: [], entiteter: ent("gang"), kort: {} },
-    { id: "kontor", navn: "Kontor", omraade: "office", lamper: kontorData.lamper, sensorer: kontorData.sensorer, tidsrum: ["Arbejde", "Aften"], scener: kontorData.scener, entiteter: ent("kontor"), kort: kortLager.kontor },
+    { id: "kontor", navn: "Kontor", omraade: "office", lamper: kontorData.lamper, sensorer: kontorData.sensorer, tidsrum: ["Arbejde", "Aften"], automatik: kontorData.automatik, scener: kontorData.scener, entiteter: ent("kontor", [1, 2]), kort: kortLager.kontor },
     { id: "traeningsrum", navn: "Træningsrum", omraade: "training_room", lamper: [{ entity_id: "light.traeningsrum_loftspots", bevaegelse: true }, { entity_id: "light.traeningsrum_stenlampe", bevaegelse: false }], sensorer: ["binary_sensor.traening"], tidsrum: [], scener: [], entiteter: ent("traeningsrum"), kort: {} },
   ])),
   "rumlys/rum/hent": (msg) => ({
@@ -239,17 +276,22 @@ const WS = {
     lamper: kontorData.lamper,
     sensorer: kontorData.sensorer,
     tidsrum: ["Arbejde", "Aften"],
+    automatik: kontorData.automatik,
     scener: kontorData.scener,
-    entiteter: ent("kontor"),
+    entiteter: ent("kontor", [1, 2]),
     data: JSON.parse(JSON.stringify(kontorData)),
     status: {
       tilstand: "bevaegelse",
       slukker: null,
       hold_slutter: null,
       bevaegelse: true,
-      tidsrum: "Aften",
-      husket: false,
-      indstillinger: { sluk_efter_bevaegelse: 30, sluk_efter_tryk: 5, hold_tid: 4 },
+      taendte: 1,
+      lamper: 2,
+      uden_automatik: [],
+      automatik: [
+        { id: 1, navn: "Kontor Loftspots", tilstand: "bevaegelse", slukker: null, hold_slutter: null, bevaegelse: true, tidsrum: "Aften", husket: false, indstillinger: { sluk_efter_bevaegelse: 30, sluk_efter_tryk: 5, hold_tid: 4 } },
+        { id: 2, navn: "Kontor Bord Lysbånd", tilstand: "slukket", slukker: null, hold_slutter: null, bevaegelse: false, tidsrum: null, husket: false, indstillinger: { sluk_efter_bevaegelse: 0, sluk_efter_tryk: 0, hold_tid: 4 } },
+      ],
       haendelser: [
         { tid: om(-47), hvad: "valgt" },
         { tid: om(-41), hvad: "hold_fra" },

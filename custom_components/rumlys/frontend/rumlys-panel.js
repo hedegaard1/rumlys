@@ -7,6 +7,8 @@
 import {
   OPDATERET,
   RUMLYS_IKON,
+  STANDARD_LYS,
+  STANDARD_TIDER,
   STANDARDSCENER,
   VERSION,
   beskrivLys,
@@ -1000,7 +1002,10 @@ class RumlysPanel extends HTMLElement {
       return this._hentRum(id, forsoeg + 1);
     }
     const status = this._detalje.status;
-    this._kladde = { data: kopi(this._detalje.data), indstillinger: kopi(status.indstillinger), kort: kopi(this._detalje.kort || {}) };
+    // Tiderne hører til automatikken fra 0.7.0, så kladden holder dem efter automatikkens nummer.
+    const tider = {};
+    (status.automatik || []).forEach((a) => { tider[String(a.id)] = kopi(a.indstillinger); });
+    this._kladde = { data: kopi(this._detalje.data), indstillinger: tider, kort: kopi(this._detalje.kort || {}) };
     this._original = JSON.stringify(this._kladde);
   }
 
@@ -1243,6 +1248,9 @@ class RumlysPanel extends HTMLElement {
     indhold.appendChild(this._hovedet());
     [
       ["rummet", () => this._sekRummet()],
+      // Rummets lamper er puljen: hvilke af områdets lamper Rumlys styrer. Hvilken automatik hver
+      // af dem hører til, vælges nedenfor — en lampe kan kun høre til én.
+      ["lamper", () => this._sekLamper()],
       ["sensorer", () => this._sekSensorer()],
       ["automatik", () => this._sekAutomatik()],
       ["kort", () => this._sekKort()],
@@ -1259,8 +1267,12 @@ class RumlysPanel extends HTMLElement {
   }
 
   _genTegn(...noegler) {
-    // Lamperne, tidsplanen og tiderne er grupper inde i «Automatik», og scenerne hører til kortet.
-    noegler = noegler.map((n) => (["lamper", "tidsplan", "ingen", "hold"].indexOf(n) >= 0 ? "automatik" : n === "scener" ? "kort" : n));
+    // Tidsplanen og tiderne er grupper inde i «Automatik», og scenerne hører til kortet.
+    // «lamper» er rummets egen sektion — puljen — men automatikkerne viser den samme liste, så
+    // de skal tegnes om med den.
+    noegler = noegler.map((n) => (["tidsplan", "ingen", "hold"].indexOf(n) >= 0 ? "automatik" : n === "scener" ? "kort" : n));
+    if (noegler.indexOf("lamper") >= 0) noegler = noegler.concat(["automatik"]);
+    if (noegler.indexOf("sensorer") >= 0) noegler = noegler.concat(["automatik"]);
     // Knapperne viser kortenes navne, så de skal tegnes om, når kortene ændrer sig.
     if (noegler.indexOf("kort") >= 0) noegler = noegler.concat(["knapper"]);
     noegler = [...new Set(noegler)];
@@ -1321,31 +1333,33 @@ class RumlysPanel extends HTMLElement {
     this._tegnRum();
   }
 
+  // Hovedet fortæller, hvad der sker — det gør ikke noget (Martins ønske 19-09-2026). Lyset
+  // styres på kortet; sidepanelet er til opsætning, og en knap her ville kun være en genvej,
+  // der kunne forveksles med en indstilling.
   _hovedet() {
     const e = this._detalje.entiteter;
     const glod = h("span", { class: "glod" });
     const status = h("b", {});
-    const tidsrum = h("small", {});
-    const holdKnap = h("button", { class: "knap" }, ikon("mdi:lock-clock"), this.t("hold_lys"));
-    holdKnap.addEventListener("click", () => {
-      const st = this._hass.states[e.hold];
-      this._hass.callService("switch", st && st.state === "on" ? "turn_off" : "turn_on", { entity_id: e.hold });
-    });
-    const slukKnap = h("button", { class: "knap", onclick: () => this._hass.callService("rumlys", "daemp", { rum: this._aktiv, lysstyrke: 0 }) }, ikon("mdi:power"), this.t("sluk"));
+    const detaljer = h("small", {});
     this._levende.push((hass) => {
       const farver = rummetsFarver(hass, this._kladde.data.lamper.map((l) => l.entity_id));
       glod.style.background = farver.length ? overgang(farver, "135deg") : "";
       status.textContent = statusTekst(hass, e);
-      const hold = hass.states[e.hold];
-      holdKnap.textContent = "";
-      holdKnap.append(ikon("mdi:lock-clock"), this.t(hold && hold.state === "on" ? "slaa_fra" : "hold_lys"));
-      tidsrum.textContent = this._detalje.status.tidsrum ? this.t("tidsrum") + ": " + this._detalje.status.tidsrum : "";
+      const s = this._detalje.status || {};
+      const dele = [];
+      if (s.lamper) dele.push(this.t("taendte_lamper", { n: s.taendte || 0, i: s.lamper }));
+      const aut = (s.automatik || []).filter((a) => a.tilstand !== "slukket").length;
+      if ((s.automatik || []).length > 1) dele.push(this.t("taendte_automatikker", { n: aut, i: s.automatik.length }));
+      if (s.bevaegelse) dele.push(this.t("bevaegelse_nu"));
+      if (s.tidsrum) dele.push(this.t("tidsrum") + ": " + s.tidsrum);
+      if ((s.uden_automatik || []).length) dele.push(this.t("uden_automatik", { n: s.uden_automatik.length }));
+      detaljer.textContent = dele.join(" · ");
     });
     return h(
       "div",
       { class: "hoved" },
-      h("div", { class: "linje1" }, h("h1", {}, this._detalje.navn), holdKnap, slukKnap),
-      h("div", { class: "levende" }, glod, h("div", {}, status, tidsrum))
+      h("div", { class: "linje1" }, h("h1", {}, this._detalje.navn)),
+      h("div", { class: "levende" }, glod, h("div", {}, status, detaljer))
     );
   }
 
@@ -1360,14 +1374,162 @@ class RumlysPanel extends HTMLElement {
   // Automatikken: det, der sker af sig selv. Lamperne, tidsplanen og tiderne hører til den samme
   // ting, så de står i én sektion — kortene nedenfor er ren betjening.
   _sekAutomatik() {
+    const d = this._kladde.data;
+    if (!this._aabneAut) this._aabneAut = new Set(d.automatik.length === 1 ? [d.automatik[0].id] : []);
+    const liste = h("div", {});
+    d.automatik.forEach((aut) => liste.appendChild(this._automatikBoks(aut)));
+    const ny = h("button", { class: "knap t", type: "button" }, ikon("mdi:plus"), this.t("ny_automatik"));
+    ny.addEventListener("click", () => {
+      // Et nyt nummer, der aldrig har været brugt: entiteternes id'er hænger på det.
+      const nummer = d.automatik.reduce((hoejest, a) => Math.max(hoejest, a.id), 0) + 1;
+      d.automatik.push({ id: nummer, lamper: [], sensorer: [], lys: kopi(STANDARD_LYS), overgang: 0, tidsrum: [] });
+      this._kladde.indstillinger[String(nummer)] = kopi(STANDARD_TIDER);
+      this._aabneAut.add(nummer);
+      this._aendret();
+      this._genTegn("automatik");
+    });
+    return this._sektion("mdi:cog-outline", this.t("automatik"), this.t("automatik_hint"), liste, ny);
+  }
+
+  // Automatikken hedder det, den styrer. En tom er «Ny automatik», til den får sine første lamper.
+  _autNavn(aut) {
+    const navne = aut.lamper.map((entityId) => this._lampeNavn(entityId));
+    return navne.length ? navne.join(", ") : this.t("ny_automatik");
+  }
+
+  // Automatikken, en lampe hører til — eller null. Det er dét, der gør, at to aldrig kan trække
+  // i den samme pære: lampen kan kun stå ét sted.
+  _autFor(entityId) {
+    return this._kladde.data.automatik.find((a) => a.lamper.indexOf(entityId) >= 0) || null;
+  }
+
+  _automatikBoks(aut) {
+    const aaben = this._aabneAut.has(aut.id);
+    const antal = aut.tidsrum.length;
+    const hoved = h(
+      "button",
+      {
+        class: "korthoved",
+        type: "button",
+        "aria-expanded": String(aaben),
+        onclick: () => {
+          if (aaben) this._aabneAut.delete(aut.id);
+          else this._aabneAut.add(aut.id);
+          this._genTegn("automatik");
+        },
+      },
+      ikon("mdi:chevron-right", "chev"),
+      h(
+        "div",
+        { class: "kt" },
+        h(
+          "div",
+          { class: "kt1" },
+          h("b", {}, this._autNavn(aut)),
+          aut.sensorer.length ? h("span", { class: "pille" }, this.t("bevaegelse_pille")) : null
+        ),
+        h("div", { class: "hvad" }, antal ? this.t("n_tidsrum", { n: antal }) : this.t("ingen_tidsrum"))
+      )
+    );
+    if (!aaben) return h("div", { class: "kortboks" }, hoved);
+    const fjern = h("button", { class: "knap farlig", type: "button" }, ikon("mdi:delete-outline"), this.t("fjern_automatik"));
+    fjern.addEventListener("click", () => {
+      // Lamperne bliver frie igen og kan lægges i en anden automatik — eller stå uden.
+      this._kladde.data.automatik = this._kladde.data.automatik.filter((a) => a !== aut);
+      delete this._kladde.indstillinger[String(aut.id)];
+      this._aabneAut.delete(aut.id);
+      this._aendret();
+      this._genTegn("automatik");
+    });
+    return h(
+      "div",
+      { class: "kortboks" },
+      hoved,
+      h(
+        "div",
+        { style: { width: "100%" } },
+        this._somGruppe(this._sekAutLamper(aut)),
+        this._somGruppe(this._sekAutSensorer(aut)),
+        this._somGruppe(this._sekTidsplan(aut)),
+        this._somGruppe(this._sekIngen(aut)),
+        this._somGruppe(this._sekHold(aut)),
+        fjern
+      )
+    );
+  }
+
+  // Hvilke af rummets lamper automatikken styrer. En lampe, der hører til en anden, kan ikke
+  // vælges her — den skal først tages ud dér, og det siger rækken.
+  _sekAutLamper(aut) {
+    const d = this._kladde.data;
+    const liste = h("div", {});
+    d.lamper.forEach((lampe) => {
+      const entityId = lampe.entity_id;
+      const ejer = this._autFor(entityId);
+      const valgt = ejer === aut;
+      const spaerret = !!ejer && ejer !== aut;
+      const flueben = h(
+        "button",
+        { class: "flueben" + (valgt ? " til" : ""), "aria-pressed": String(valgt), type: "button", disabled: spaerret },
+        valgt ? ikon("mdi:check") : null
+      );
+      flueben.addEventListener("click", () => {
+        if (spaerret) return;
+        if (valgt) aut.lamper = aut.lamper.filter((l) => l !== entityId);
+        else aut.lamper = aut.lamper.concat([entityId]);
+        this._aendret();
+        this._genTegn("automatik");
+      });
+      liste.appendChild(
+        h(
+          "div",
+          { class: "raekke" },
+          flueben,
+          h(
+            "div",
+            { class: "tx" },
+            h("b", {}, this._lampeNavn(entityId)),
+            h("small", {}, spaerret ? this.t("hoerer_til", { navn: this._autNavn(ejer) }) : "")
+          )
+        )
+      );
+    });
     return this._sektion(
-      "mdi:cog-outline",
-      this.t("automatik"),
-      this.t("automatik_hint"),
-      this._somGruppe(this._sekLamper()),
-      this._somGruppe(this._sekTidsplan()),
-      this._somGruppe(this._sekIngen()),
-      this._somGruppe(this._sekHold())
+      "mdi:lightbulb-group-outline",
+      this.t("lamper"),
+      d.lamper.length ? this.t("aut_lamper_hint") : this.t("aut_ingen_lamper"),
+      liste
+    );
+  }
+
+  // Hvilke af rummets sensorer der tænder netop denne automatik.
+  _sekAutSensorer(aut) {
+    const d = this._kladde.data;
+    const liste = h("div", {});
+    d.sensorer.forEach((entityId) => {
+      const valgt = aut.sensorer.indexOf(entityId) >= 0;
+      const flueben = h("button", { class: "flueben" + (valgt ? " til" : ""), "aria-pressed": String(valgt), type: "button" }, valgt ? ikon("mdi:check") : null);
+      flueben.addEventListener("click", () => {
+        aut.sensorer = valgt ? aut.sensorer.filter((s) => s !== entityId) : aut.sensorer.concat([entityId]);
+        this._aendret();
+        this._genTegn("automatik");
+      });
+      const st = this._hass.states[entityId];
+      liste.appendChild(
+        h(
+          "div",
+          { class: "raekke" },
+          flueben,
+          h("div", { class: "tx" }, h("b", {}, (st && st.attributes.friendly_name) || entityId)),
+          st && st.state === "on" ? h("span", { class: "pille" }, this.t("ser_nogen")) : null
+        )
+      );
+    });
+    return this._sektion(
+      "mdi:motion-sensor",
+      this.t("bevaegelse_taender"),
+      d.sensorer.length ? this.t("aut_sensorer_hint") : this.t("aut_ingen_sensorer"),
+      liste
     );
   }
 
@@ -1519,7 +1681,7 @@ class RumlysPanel extends HTMLElement {
     if (!liste.children.length) liste.appendChild(h("p", { class: "hint" }, this.t("ingen_lamper")));
     const andre = h("button", { class: "knap t", onclick: () => this._andreLamper() }, ikon("mdi:plus"), this.t("vis_andre"));
     const udenSensorHint = udenSensor && d.lamper.length ? h("p", { class: "hint advarsel" }, this.t("bevaegelse_uden_sensor")) : null;
-    return this._sektion(RUMLYS_IKON, this.t("lamper"), this.t("lamper_hint"), liste, udenSensorHint, andre, this._blodFelt());
+    return this._sektion(RUMLYS_IKON, this.t("lamper"), this.t("lamper_hint"), liste, udenSensorHint, andre);
   }
 
   // Lampens ikon hører til lampen, ikke til rummet: det gemmes med det samme i Home Assistants
@@ -1545,11 +1707,11 @@ class RumlysPanel extends HTMLElement {
 
   // Blød tænd og sluk virker kun på lamper, der selv melder, at de kan (Home Assistant springer det
   // over for resten). Kan ingen af rummets lamper, er der ingen skyder.
-  _blodFelt() {
-    const d = this._kladde.data;
+  _blodFelt(aut) {
+    const d = aut;
     if (!d.lamper.length) return null;
     const ikkeBlod = d.lamper
-      .map((l) => this._hass.states[l.entity_id])
+      .map((entityId) => this._hass.states[entityId])
       .filter((st) => !st || !((st.attributes.supported_features || 0) & LYS_OVERGANG));
     if (ikkeBlod.length === d.lamper.length) {
       return h("div", { class: "felt", style: { marginTop: "14px" } }, h("label", {}, this.t("blod")), h("p", { class: "hint", style: { margin: "0" } }, this.t("blod_ingen")));
@@ -1782,7 +1944,7 @@ class RumlysPanel extends HTMLElement {
     const d = this._kladde.data;
     const andre = (d.tilstede || []).filter((s) => s !== entityId);
     d.tilstede = tilstede ? andre.concat([entityId]) : andre;
-    this._kladde.indstillinger.sluk_efter_bevaegelse = this._anbefaletTid();
+    (this._kladde.indstillinger[String(this._kladde.data.automatik[0].id)] || {}).sluk_efter_bevaegelse = this._anbefaletTid();
     this._genTegn("sensorer", "ingen");
   }
 
@@ -1804,8 +1966,9 @@ class RumlysPanel extends HTMLElement {
     return knap;
   }
 
-  _sekTidsplan() {
-    const d = this._kladde.data;
+  _sekTidsplan(aut) {
+    // «d» er automatikken: den ejer sit lys og sin tidsplan. Rummet har ingen af delene mere.
+    const d = aut;
     const vaelgHeleDoegnet = () => this._vaelgLys(d.lys, (lys) => { d.lys = lys; this._genTegn("tidsplan"); });
     const heleDoegnet = lysvalgBaggrund(d.lys, this._katalog);
     // Grænserne, hvor et andet tidsrum kan tage over. Imellem dem gælder det samme hele vejen.
@@ -1823,7 +1986,7 @@ class RumlysPanel extends HTMLElement {
         const p = plads;
         const tr = d.tidsrum[p];
         const knap = h("button", { class: "blok", type: "button", style: { left: fra / 14.4 + "%", width: (til - fra) / 14.4 + "%", background: lysvalgBaggrund(tr.lys, this._katalog) } }, tr.navn);
-        knap.addEventListener("click", () => this._retTidsrum(p));
+        knap.addEventListener("click", () => this._retTidsrum(aut, p));
         spor.appendChild(knap);
       };
       graenser.slice(0, -1).forEach((m) => {
@@ -1856,7 +2019,7 @@ class RumlysPanel extends HTMLElement {
         h("div", { class: "tx" }, h("b", {}, tr.navn), h("small", {}, [this._tider(tr), this._dageTekst(tr.dage), beskrivLys(this._hass, tr.lys, this._katalog)].join(" · "))),
         ikon("mdi:chevron-right")
       );
-      raekke.addEventListener("click", (ev) => { if (!ev.target.closest(".greb")) this._retTidsrum(plads); });
+      raekke.addEventListener("click", (ev) => { if (!ev.target.closest(".greb")) this._retTidsrum(aut, plads); });
       liste.appendChild(raekke);
     });
     sorterbar(liste, ".greb", (orden) => {
@@ -1883,7 +2046,7 @@ class RumlysPanel extends HTMLElement {
       uge,
       liste,
       fast,
-      h("button", { class: "knap t", onclick: () => this._retTidsrum(null) }, ikon("mdi:plus"), this.t("tilfoej_tidsrum"))
+      h("button", { class: "knap t", onclick: () => this._retTidsrum(aut, null) }, ikon("mdi:plus"), this.t("tilfoej_tidsrum"))
     );
   }
 
@@ -1913,7 +2076,7 @@ class RumlysPanel extends HTMLElement {
     return tekst.charAt(0).toUpperCase() + tekst.slice(1);
   }
 
-  _retTidsrum(plads) {
+  _retTidsrum(aut, plads) {
     const d = this._kladde.data;
     const ny = plads === null;
     const tr = ny
@@ -2024,12 +2187,12 @@ class RumlysPanel extends HTMLElement {
     return this.t("sek", { n: v });
   }
 
-  _sekIngen() {
-    const ind = this._kladde.indstillinger;
+  _sekIngen(aut) {
+    const ind = this._kladde.indstillinger[String(aut.id)];
     const anbefalet = this._anbefaletTid();
     // Uden sensor er der intet, der tænder lyset, så tiden for automatisk lys står der ikke. Den er gemt og
     // kommer frem igen med sin værdi, den dag rummet får en sensor.
-    const udenSensor = !this._kladde.data.sensorer.length;
+    const udenSensor = !aut.sensorer.length;
     const anbefaling = h("small", { style: { display: "block" } }, this.t(anbefalet === ANBEFALET_TILSTEDE ? "anb_tilstede" : "anb_bevaegelse", { tid: this._sekunder(anbefalet) }));
     const auto = trinvalg([0, 10, 20, 30, 45, 60, 90, 120, 180, 300, 600, 900, 1800], ind.sluk_efter_bevaegelse, (v) => this._sekunder(v), (v) => { ind.sluk_efter_bevaegelse = v; this._aendret(); });
     const valgt = trinvalg([0, 1, 2, 3, 5, 10, 15, 20, 30, 45, 60, 90, 120], ind.sluk_efter_tryk, (v) => (v === 0 ? this.t("aldrig") : v >= 60 && v % 60 === 0 ? this.t("timer", { n: v / 60 }) : this.t("min", { n: v })), (v) => { ind.sluk_efter_tryk = v; this._aendret(); });
@@ -2038,12 +2201,14 @@ class RumlysPanel extends HTMLElement {
       this.t("ingen_i_rummet"),
       this.t(udenSensor ? "ingen_hint_uden_sensor" : "ingen_hint"),
       udenSensor ? null : h("div", { class: "naar" }, h("div", { class: "tx" }, h("b", {}, this.t("auto_lys")), h("small", {}, this.t("auto_sub")), anbefaling), auto),
-      h("div", { class: "naar" }, h("div", { class: "tx" }, h("b", {}, this.t("valgt_lys")), h("small", {}, this.t("valgt_sub"))), valgt)
+      h("div", { class: "naar" }, h("div", { class: "tx" }, h("b", {}, this.t("valgt_lys")), h("small", {}, this.t("valgt_sub"))), valgt),
+      // Blød tænd og sluk hører til automatikken: to grupper lamper i samme rum kan have hver sin.
+      this._blodFelt(aut)
     );
   }
 
-  _sekHold() {
-    const ind = this._kladde.indstillinger;
+  _sekHold(aut) {
+    const ind = this._kladde.indstillinger[String(aut.id)];
     const tid = trinvalg([0.5, 1, 1.5, 2, 3, 4, 5, 6, 8, 10, 12, 24], ind.hold_tid, (v) => this.t("timer", { n: String(v).replace(".", ",") }), (v) => { ind.hold_tid = v; this._aendret(); });
     return this._sektion(
       "mdi:lock-clock",
