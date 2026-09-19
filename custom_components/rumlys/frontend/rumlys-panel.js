@@ -50,6 +50,11 @@ import {
 const STIL = `
 :host {
   display: block; min-height: 100%;
+  /* Browserens scroll-forankring holder et element i bunden af skærmen på plads, når indholdet
+     vokser — og så flyttede alt OVER indsættelsen opad i stedet. Det fik en udvidelsesmenu til at
+     se ud, som om den foldede sig ud opad, når man stod nederst på siden (Martin 19-09-2026).
+     Her er der ingenting at forankre: siden tegnes om af ens egne klik, ikke af noget der loader. */
+  overflow-anchor: none;
   background: var(--primary-background-color);
   color: var(--primary-text-color);
   font-family: var(--ha-font-family-body, Roboto, sans-serif);
