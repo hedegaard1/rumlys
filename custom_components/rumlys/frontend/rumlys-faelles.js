@@ -9,7 +9,7 @@
 // relativt, så Rumlys' egne ikoner også virker på testsiden og i node-testen.
 import "./ikoner/rumlys-ikoner.js";
 
-export const VERSION = "0.9.2";
+export const VERSION = "0.9.3";
 // Mappen, filen selv ligger i — i Home Assistant med versionen i stien, på testsiden repoets egen.
 export const FILER = new URL("./", import.meta.url).href;
 // Scenerne ligger i Rumlys selv. I Home Assistant har de en fast adresse uden version, så et kort,
@@ -121,6 +121,8 @@ const TEKSTER = {
     sensor_ikke_valgt: "Ingen sensor er valgt, så ingen af lamperne tændes af bevægelse. Sæt flueben ved en sensor under «Sensorer», så kommer valget frem.",
     gruppe_med: "Gruppe med {n}",
     fra_omraade: "Fra {omraade}",
+    knap_vis_valg: "Vis, hvad knappen må",
+    knap_skjul_valg: "Skjul, hvad knappen må",
     knap_tryk: "Tryk tænder og slukker",
     knap_tryk_sub: "Altid slået til — ellers var knappen valgt uden grund",
     knap_daemp: "Hold nede dæmper",
@@ -417,6 +419,8 @@ const TEKSTER = {
     sensor_ikke_valgt: "No sensor is chosen, so none of the lights turn on with motion. Tick a sensor under «Sensors» and the option appears.",
     gruppe_med: "Group of {n}",
     fra_omraade: "From {omraade}",
+    knap_vis_valg: "Show what the button may do",
+    knap_skjul_valg: "Hide what the button may do",
     knap_tryk: "A press turns on and off",
     knap_tryk_sub: "Always on — otherwise the button would be chosen for nothing",
     knap_daemp: "Hold down to dim",

@@ -123,6 +123,13 @@ button { font: inherit; color: inherit; }
 .evne.gul { background: #ffcf70; }
 /* Knappens egne valg: rykket ind under knappens egen række, så det er tydeligt, at de hører til den. */
 .knapvalg { border-left: 2px solid var(--rl-linje); margin: 0 0 10px 16px; }
+/* Mærkerne ud for knappen: ét pr. tryk, knappen faktisk gør noget ved. Samme lyse cirkel som
+   lampernes ikoner, bare mindre, så de passer i rækken (Martins ønske 19-09-2026). */
+.knapmaerker { display: inline-flex; gap: 6px; flex: none; }
+.knapmaerke {
+  width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; flex: none;
+  background: var(--rl-flade2); color: inherit; --mdc-icon-size: 17px;
+}
 .knapvalg .naar { border-top: 0; }
 .knapvalg .hint { margin: 6px 0 10px; }
 .levende { display: flex; align-items: center; gap: 12px; margin-top: 10px; font-size: 14px; }
@@ -1523,6 +1530,26 @@ class RumlysPanel extends HTMLElement {
   //
   // Et flueben både vælger knappen til rummet og peger den på dette kort. Følger den et andet kort,
   // siger rækken det, og et klik flytter den hertil — en knap på væggen kan kun gøre én ting.
+  // Ét mærke pr. tryk, knappen gør noget ved. Ikonerne er de tre bevægelser, de hører til, så de
+  // læses som ét sæt: et tryk, et tryk holdt nede, to tryk. Et tryk gør altid noget, så det mærke
+  // står der altid; de to andre kun, når de er slået til.
+  _knapMaerker(entityId, kortId) {
+    const maal = (this._kladde.data.knap_maal || {})[entityId] || {};
+    const maerker = [["mdi:gesture-tap", this.t("knap_tryk")]];
+    if (maal.daemp !== false && this._kanDaempe(kortId)) maerker.push(["mdi:gesture-tap-hold", this.t("knap_daemp")]);
+    if (maal.hold !== false) maerker.push(["mdi:gesture-double-tap", this.t("knap_hold")]);
+    return h("span", { class: "knapmaerker" }, ...maerker.map(([navn, titel]) =>
+      h("span", { class: "knapmaerke", role: "img", title: titel, "aria-label": titel }, ikon(navn))));
+  }
+
+  // Kan kortets lamper dæmpes? Uden det er «hold nede dæmper» hverken vist eller slået til.
+  _kanDaempe(kortId) {
+    const d = this._kladde.data;
+    const kortet = (this._kladde.kort || {})[kortId] || {};
+    const lamper = (kortet.lamper || []).length ? kortet.lamper : d.lamper.map((l) => l.entity_id);
+    return lamper.some((l) => lampensEvner(this._hass, l).daemp);
+  }
+
   // Hvad knappen må: et tryk tænder og slukker (altid), et hold dæmper, et dobbeltklik holder
   // lyset. De to sidste kan slås fra, og hver har et tandhjul til sine egne tal. Standarden er
   // dét, knapperne gjorde før 0.9.0, så en knap, ingen har rørt, opfører sig som før.
@@ -1533,9 +1560,7 @@ class RumlysPanel extends HTMLElement {
       d.knap_maal = Object.assign({}, d.knap_maal, { [entityId]: Object.assign({}, maal, aendring) });
       this._genTegn("kort");
     };
-    const kortet = (this._kladde.kort || {})[kortId] || {};
-    const lamper = (kortet.lamper || []).length ? kortet.lamper : d.lamper.map((l) => l.entity_id);
-    const kanDaempe = lamper.some((l) => lampensEvner(this._hass, l).daemp);
+    const kanDaempe = this._kanDaempe(kortId);
     const haendelse = entityId.indexOf("event.") === 0;
 
     const laast = h("div", { class: "naar" },
@@ -1653,9 +1678,25 @@ class RumlysPanel extends HTMLElement {
         h("div", { class: "tx", style: { minWidth: "140px" } }, h("b", {}, navn), forklaring ? h("small", {}, forklaring) : null),
         pille
       );
-      // Knappens egne valg står kun frem, når knappen faktisk er valgt til dette kort.
+      // Knappens egne valg står kun frem, når knappen faktisk er valgt til dette kort — og de er
+      // foldet sammen, så en side med fire knapper ikke bliver uendelig lang (Martins ønske
+      // 19-09-2026). Mærkerne ud for knappen siger, hvad der er slået til inde under.
       if (!valgt) return selve;
-      return h("div", {}, selve, this._knapvalg(entityId, kortId));
+      if (!this._aabneKnapper) this._aabneKnapper = new Set();
+      const aaben = this._aabneKnapper.has(entityId);
+      const chev = h("button", {
+        class: "knap t", type: "button", "aria-expanded": String(aaben),
+        title: this.t(aaben ? "knap_skjul_valg" : "knap_vis_valg"),
+        "aria-label": this.t(aaben ? "knap_skjul_valg" : "knap_vis_valg"),
+      }, ikon(aaben ? "mdi:chevron-down" : "mdi:chevron-right"));
+      chev.addEventListener("click", () => {
+        if (aaben) this._aabneKnapper.delete(entityId);
+        else this._aabneKnapper.add(entityId);
+        this._genTegn("kort");
+      });
+      selve.appendChild(this._knapMaerker(entityId, kortId));
+      selve.appendChild(chev);
+      return h("div", {}, selve, aaben ? this._knapvalg(entityId, kortId) : null);
     };
     omraadets.forEach((k) => liste.appendChild(raekke(k.entity_id, k.navn)));
     knapper.forEach((k) => {
