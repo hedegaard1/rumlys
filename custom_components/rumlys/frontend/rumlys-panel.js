@@ -99,6 +99,17 @@ button { font: inherit; color: inherit; }
 .hoved { background: var(--rl-flade); border-radius: var(--rl-radius); box-shadow: var(--rl-skygge); padding: 14px 16px; margin-bottom: 14px; }
 .hoved .linje1 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .hoved h1 { font-size: 22px; margin: 0; flex: 1; font-weight: 600; }
+/* Områdets eget ikon foran navnet, som i rumlisten. */
+.hoved .omraadeikon { color: var(--rl-p); --mdc-icon-size: 26px; flex: none; display: flex; }
+/* Én prik pr. lampe med lampens eget ikon og den farve, den lyser med lige nu. En gruppe viser
+   sine pærers farver som en overgang. Slukket er den en tom ring. */
+.paerer { display: flex; gap: 6px; flex: none; flex-wrap: wrap; }
+.paere-prik {
+  width: 32px; height: 32px; border-radius: 50%; flex: none; box-sizing: border-box;
+  display: grid; place-items: center; --mdc-icon-size: 18px;
+  border: 2px solid var(--rl-linje); color: var(--rl-daempet); transition: background .3s, color .3s, border-color .3s;
+}
+.paere-prik.taendt { border-color: transparent; }
 .levende { display: flex; align-items: center; gap: 12px; margin-top: 10px; font-size: 14px; }
 .glod { width: 36px; height: 36px; border-radius: 50%; background: var(--rl-flade2); flex: none; transition: background .3s; }
 .levende small { display: block; color: var(--rl-daempet); font-size: 12px; }
@@ -1371,9 +1382,18 @@ class RumlysPanel extends HTMLElement {
     const glod = h("span", { class: "glod" });
     const status = h("b", {});
     const detaljer = h("small", {});
+    // Områdets eget ikon foran navnet, som i rumlisten, og til højre én prik pr. lampe: lampens
+    // eget ikon i den farve, den lyser med lige nu (Martins ønske 19-09-2026). Hovedet gør
+    // ingenting — det er ren information — men pladsen ved siden af navnet stod tom.
+    const omraadeIkon = h("span", { class: "omraadeikon" });
+    const prikker = h("div", { class: "paerer" });
     this._levende.push((hass) => {
-      const farver = rummetsFarver(hass, this._kladde.data.lamper.map((l) => l.entity_id));
+      const lamper = this._kladde.data.lamper.map((l) => l.entity_id);
+      const farver = rummetsFarver(hass, lamper);
       glod.style.background = farver.length ? overgang(farver, "135deg") : "";
+      const omraade = (hass.areas || {})[this._kladde.data.omraade];
+      omraadeIkon.replaceChildren(ikon((omraade && omraade.icon) || RUMLYS_IKON));
+      prikker.replaceChildren(...lamper.map((id) => this._lampeprik(hass, id)));
       status.textContent = statusTekst(hass, e);
       const s = this._detalje.status || {};
       const dele = [];
@@ -1388,9 +1408,28 @@ class RumlysPanel extends HTMLElement {
     return h(
       "div",
       { class: "hoved" },
-      h("div", { class: "linje1" }, h("h1", {}, this._detalje.navn)),
+      h("div", { class: "linje1" }, omraadeIkon, h("h1", {}, this._detalje.navn), prikker),
       h("div", { class: "levende" }, glod, h("div", {}, status, detaljer))
     );
+  }
+
+  // Én lampe som en rund prik: dens eget ikon, fyldt med den farve den lyser med. En gruppe viser
+  // sine pærers farver som en overgang. Teksten skifter med fyldet, så ikonet kan ses på begge.
+  _lampeprik(hass, entityId) {
+    const st = hass.states[entityId];
+    const farver = rummetsFarver(hass, [entityId]);
+    const taendt = !!farver.length;
+    const prik = h(
+      "span",
+      { class: "paere-prik" + (taendt ? " taendt" : ""), title: (st && st.attributes.friendly_name) || entityId },
+      ikon(rummetsIkoner(hass, [entityId], null)[0])
+    );
+    if (taendt) {
+      prik.style.background = overgang(farver, "135deg");
+      const lyst = farver.some((f) => luminans(lysFarve(f)) > 0.179);
+      prik.style.color = lyst ? "rgba(0, 0, 0, .82)" : "#fff";
+    }
+    return prik;
   }
 
   _sektion(ikonNavn, titel, hint, ...indhold) {
