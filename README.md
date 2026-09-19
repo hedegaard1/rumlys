@@ -120,16 +120,16 @@ felterne ikke større, der kommer bare flere på en række. **Automatisk** er de
 giver et bredere kort større felter. Loftet på 64 px er sat af det smalleste kort, gitteret giver i et afsnit
 på 500 px: fire kolonner er 161 px, og der skal kunne stå to felter ved siden af hinanden.
 
-**Felterne er altid kvadratiske,** og de strækkes ikke ud, når der er få: er der plads til dem alle på én
-række, står de i den størrelse, du har valgt, og rækken slutter, hvor scenerne slutter. Skal de derimod
-deles på flere rækker, går rækkerne helt ud til højre kant — ellers står der et hul i hjørnet, og det ligner
-en fejl frem for et valg. Feltet må afvige **8 px** fra det valgte, op eller ned, og kortet prøver hvert
-antal kolonner og tager det, der kommer tættest på. Er der stadig lidt tilbage, lægges det i mellemrummene,
-som må vokse de samme 8 px. **Resten deles lige mellem venstre og højre side** — scenerne står midt i kortet,
-så der aldrig er en tom stribe i den ene kant.
+**Felterne er altid kvadratiske og altid præcis den valgte størrelse** — det samme tal på hvert eneste
+kort, uanset hvor bredt det er. Det er **luften imellem knapperne**, der fordeler dem, så rækken passer i
+kortets bredde. Kan alle scener stå på én række, står de tæt med deres eget mellemrum og midt i kortet;
+de trækkes ikke ud over hele bredden, bare fordi kortet er bredt.
 
 **Navnene retter sig efter knappen, ikke omvendt.** Teksten skrumper for at passe i feltet; vil du kunne
 læse navnene, vælger du et større felt.
+
+**På det smalleste kort** — fire kolonner i et afsnit på 320 px, altså cirka 101 px — falder ikonet væk, så
+navn og status kan stå helt. Tænd og sluk kommer før «hold lys», og skyderen får sin egen linje.
 
 Kortet bliver selv så højt, som scenerne kræver, og det melder samtidig en bund til afsnittets gitter, så
 de nederste scener ikke kan trækkes væk, hvis du selv tager fat i kortets højde.

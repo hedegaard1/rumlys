@@ -53,9 +53,6 @@ const SCENE_AUTO = [
   [600, SCENE_STR.large],
   [Infinity, SCENE_STR.xlarge],
 ];
-// Så meget må et felt strækkes for at fylde rækken ud. Mere end det, og man kan ikke se, hvilket
-// trin man har valgt; resten af pladsen går i mellemrummene i stedet.
-const SCENE_STRAEK = 8;
 // Under så bredt et kort står rummets første ikon alene i stedet for stakken. Det handler om
 // pladsen til navnet, ikke om scenefelterne, og har derfor sin egen grænse.
 const IKON_STAK_MIN = 300;
@@ -65,6 +62,9 @@ const TEKST_MIN = 90;
 // Og så meget skal skyderen have på den nederste række. Under det er den ikke til at ramme,
 // og så får den sin egen række under knapperne.
 const SKYDER_SMAL = 72;
+// Er øverste række smallere end det, er der ikke plads til både ikon og navn, og så ryger ikonet.
+// Navnet er det, kortet skal kunne kendes på; ikonet er pynt, når der kun er 77 px at gøre godt med.
+const IKON_MIN = 110;
 const FARVE_TILSTANDE = ["xy", "hs", "rgb", "rgbw"];
 
 /* ---------- rummene ---------- */
@@ -225,7 +225,7 @@ const STYLE = KONTROL_STYLE + `
   .navn { font-size:var(--rl-navn); line-height:calc(var(--rl-navn) + 4px); font-weight:var(--ha-font-weight-medium, 500); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .status { font-size:var(--rl-status); line-height:calc(var(--rl-status) + 5px); opacity:0.8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .hold {
-    flex:none; width:var(--rl-knap); height:var(--rl-knap); padding:0; border-radius:50%; cursor:pointer;
+    flex:none; box-sizing:border-box; width:var(--rl-knap); height:var(--rl-knap); padding:0; border-radius:50%; cursor:pointer;
     display:flex; align-items:center; justify-content:center; --mdc-icon-size:var(--rl-knap-ikon);
     background:transparent; border:2px solid currentColor; opacity:0.5; transition:background .2s ease, opacity .2s ease;
   }
@@ -241,10 +241,16 @@ const STYLE = KONTROL_STYLE + `
   .top.smal .brud { display:block; flex:0 0 100%; height:0; order:1; }
   .top.smal .tekst { flex:1 1 0; max-width:none; }
   .top.smal .saet-op { order:2; }
-  .top.smal .hold { order:2; }
-  .top.smal .skyder { order:3; flex:1 1 0; min-width:40px; }
-  .top.smal .kontakt { order:4; margin-left:auto; }
-  .top.smal.skyder-egen .skyder { flex:1 1 100%; order:5; }
+  /* Tænd og sluk står først — det er den, man rækker ud efter. «Hold lys» kommer bagefter. */
+  .top.smal .kontakt { order:2; }
+  .top.smal .hold { order:3; }
+  .top.smal .skyder { order:4; flex:1 1 0; min-width:40px; margin-left:auto; }
+  .top.smal.skyder-egen .skyder { flex:1 1 100%; order:5; margin-left:0; }
+  /* Det smalleste kort: ikonet fylder halvdelen af øverste række, og så er der intet navn tilbage.
+     Mellemrummet ned på 5 px, så kontakten og «hold lys» kan stå på samme linje — ved 101 px er
+     der 75 px at gøre godt med, og 38 + 8 + 30 er to for meget. */
+  .top.uden-ikon { column-gap:5px; }
+  .top.uden-ikon .ikoner { display:none; }
   /* Scenerne står midt i kortet: er der plads tilovers, deles den lige mellem venstre og højre
      side, så der aldrig er en tom stribe i den ene kant (Martins ønske 19-09-2026). */
   .scener { display:grid; grid-template-columns:repeat(auto-fill, var(--rl-scene)); justify-content:center; gap:var(--rl-scene-gap); margin-top:var(--rl-scene-top); cursor:default; }
@@ -533,6 +539,9 @@ class RumlysCard extends HTMLElement {
     // og hold, skyder og kontakt flytter ned på deres egen. Samme dele, anden opstilling.
     const smal = bredde - knapper < TEKST_MIN;
     e.top.classList.toggle("smal", smal);
+    // Målt på kortet, ikke på ikonet selv: gemmer man ikonet, bliver dets bredde nul, og så ville
+    // en måling sige, at der er plads igen — og ikonet ville blinke frem og tilbage.
+    e.top.classList.toggle("uden-ikon", bredde < IKON_MIN);
     e.top.classList.toggle("skyder-egen", smal && bredde - (knapper - e.ikoner.offsetWidth - gap) < SKYDER_SMAL);
     if (smal || e.skyder.classList.contains("skjult")) {
       e.top.classList.remove("skyder-under");
@@ -580,39 +589,17 @@ class RumlysCard extends HTMLElement {
     const valgt = this._sceneStr || SCENE_STR.small;
     // Mellemrum og hjørner følger feltet, så de fem størrelser ser ens ud, bare i hver sin skala.
     const gap = Math.max(3, Math.min(9, Math.round(valgt * 0.1)));
-    let kol = n;
-    let felt = valgt;
-    let mellemrum = gap;
-    // Er der plads til dem alle på én række i den valgte størrelse, står de sådan, og rækken
-    // slutter, hvor scenerne slutter — der strækkes ikke noget, bare fordi kortet er bredt.
-    if (n * valgt + (n - 1) * gap > w) {
-      // Ellers skal rækkerne gå helt ud til højre kant, for et hul i hjørnet ligner en fejl frem
-      // for et valg. Vi prøver hvert antal kolonner og tager det, hvor feltet kommer tættest på
-      // det valgte — feltet må afvige med SCENE_STRAEK px, op eller ned (Martins ønske 19-09-2026).
-      // Netop fordi det også må blive mindre, findes der næsten altid et antal, der rammer bredden
-      // præcist, og så bliver mellemrummene stående. Ellers ville resten samle sig i ét hul: to
-      // felter på et kort i fem kolonner stod med 34 px imellem sig.
-      let bedst = Infinity;
-      for (let k = 1; k <= n; k += 1) {
-        const f = (w - (k - 1) * gap) / k;
-        if (f < valgt - SCENE_STRAEK) break;
-        const afvig = Math.abs(f - valgt);
-        if (afvig >= bedst) continue;
-        bedst = afvig;
-        kol = k;
-        felt = Math.min(f, valgt + SCENE_STRAEK);
-      }
-      if (bedst === Infinity) {
-        // Ét felt er bredere end hele rækken — så står der ét, så stort der er plads til.
-        kol = 1;
-        felt = Math.min(w, valgt + SCENE_STRAEK);
-      }
-      // Det, der er tilbage, når feltet ramte loftet, lægges i mellemrummene — men de må heller
-      // ikke vokse mere end SCENE_STRAEK. Uden det loft stod to felter på et kort i fem kolonner
-      // med 34 px imellem sig, og det er et hul, ikke et mellemrum. Er der stadig noget tilbage,
-      // bliver det plads i højre side, som når der kun er få scener.
-      if (kol > 1) mellemrum = Math.min(gap + SCENE_STRAEK, (w - kol * felt) / (kol - 1));
-    }
+    // Feltet er altid præcis den størrelse, der er valgt — det samme tal på hvert eneste kort,
+    // uanset bredden. Det er luften imellem knapperne, der fordeler dem, så rækken passer i
+    // kortets bredde (Martins ønske 19-09-2026). Før blev felterne selv strukket, og så var
+    // «Størst» 65 px på ét kort og 72 px på det næste; det kunne ses med det samme, når to kort
+    // stod ved siden af hinanden.
+    const felt = valgt;
+    const kol = Math.min(n, Math.max(1, Math.floor((w + gap) / (felt + gap))));
+    // Kun når scenerne faktisk deles på flere rækker. Er der få, og de kan stå på én række, står
+    // de tæt med deres eget mellemrum og midt i kortet — de skal ikke trækkes ud over hele
+    // bredden, bare fordi kortet er bredt.
+    const mellemrum = kol < n && kol > 1 ? (w - kol * felt) / (kol - 1) : gap;
     e.scener.style.gap = mellemrum.toFixed(2) + "px";
     e.scener.style.gridTemplateColumns = "repeat(" + kol + ", " + felt.toFixed(2) + "px)";
     e.scener.style.setProperty("--rl-scene-radius", Math.max(4, Math.min(16, Math.round(felt * 0.17))) + "px");
