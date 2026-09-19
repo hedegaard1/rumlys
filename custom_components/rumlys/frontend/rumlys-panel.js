@@ -386,7 +386,6 @@ class RumlysPanel extends HTMLElement {
     this._kladde = null;
     this._original = null;
     this._omraader = null;
-    this._lamper = null;
     this._katalog = { scener: [], efterId: {}, kategorier: [] };
     this._levende = [];
     this._visAlle = false;
@@ -1834,19 +1833,18 @@ class RumlysPanel extends HTMLElement {
     d.lamper.forEach((l) => {
       if (kendte.has(l.entity_id)) return;
       const st = this._hass.states[l.entity_id];
-      const andre = (this._lamper || []).find((a) => a.entity_id === l.entity_id);
-      const omr = andre && andre.omraade ? this.t("fra_omraade", { omraade: andre.omraade }) : this.t("uden_omraade");
-      liste.appendChild(raekke(l.entity_id, st ? st.attributes.friendly_name || l.entity_id : l.entity_id, omr));
+      // En lampe valgt, dengang man kunne tage dem fra andre områder. Den styres stadig, så den
+      // skal kunne ses og vælges fra — men der kommer ingen nye til.
+      liste.appendChild(raekke(l.entity_id, st ? st.attributes.friendly_name || l.entity_id : l.entity_id, this.t("ikke_i_omraadet")));
     });
     if (!liste.children.length) liste.appendChild(h("p", { class: "hint" }, this.t("ingen_lamper")));
-    const andre = h("button", { class: "knap t", onclick: () => this._andreLamper() }, ikon("mdi:plus"), this.t("vis_andre"));
     // «Ingen sensor valgt» og «ingen sensor i området» er to forskellige ting, og det var kun den
     // sidste, teksten sagde. Villads har en sensor, den var bare ikke sat flueben ved, og så stod
     // der at rummet ingen havde (Martin 19-09-2026).
     const udenSensorHint = udenSensor && d.lamper.length
       ? h("p", { class: "hint advarsel" }, this.t(omraade.sensorer.length ? "sensor_ikke_valgt" : "bevaegelse_uden_sensor"))
       : null;
-    return this._sektion(RUMLYS_IKON, this.t("lamper"), this.t("lamper_hint"), liste, udenSensorHint, andre);
+    return this._sektion(RUMLYS_IKON, this.t("lamper"), this.t("lamper_hint"), liste, udenSensorHint);
   }
 
   // Lampens ikon hører til lampen, ikke til rummet: det gemmes med det samme i Home Assistants
@@ -1896,40 +1894,6 @@ class RumlysPanel extends HTMLElement {
       h("div", { class: "skyder" }, skyder, vaerdi),
       navne.length ? h("p", { class: "hint", style: { margin: "0" } }, this.t("virker_ikke", { lamper: navne.join(", ") })) : null
     );
-  }
-
-  async _andreLamper() {
-    if (!this._lamper) this._lamper = await this._hass.callWS({ type: "rumlys/lamper" });
-    const d = this._kladde.data;
-    const iOmraadet = new Set(this._omraade(d.omraade).lamper.map((l) => l.entity_id));
-    const soeg = h("input", { type: "search", placeholder: this.t("soeg") });
-    const liste = h("div", { style: { marginTop: "8px" } });
-    const tegn = () => {
-      const q = soeg.value.trim().toLowerCase();
-      liste.textContent = "";
-      this._lamper
-        .filter((l) => !iOmraadet.has(l.entity_id))
-        .filter((l) => !q || (l.navn + " " + (l.omraade || "") + " " + l.entity_id).toLowerCase().indexOf(q) >= 0)
-        .slice(0, 150)
-        .forEach((l) => {
-          const valgt = d.lamper.some((v) => v.entity_id === l.entity_id);
-          const flueben = h("span", { class: "flueben" + (valgt ? " til" : "") }, valgt ? ikon("mdi:check") : null);
-          const raekke = h("div", { class: "raekke", style: { cursor: "pointer" } }, flueben, h("div", { class: "tx" }, h("b", {}, l.navn), h("small", {}, l.omraade || this.t("uden_omraade"))));
-          raekke.addEventListener("click", () => {
-            if (valgt) d.lamper = d.lamper.filter((v) => v.entity_id !== l.entity_id);
-            else d.lamper.push({ entity_id: l.entity_id, bevaegelse: true });
-            tegn();
-          });
-          liste.appendChild(raekke);
-        });
-    };
-    soeg.addEventListener("input", tegn);
-    tegn();
-    this._dialog({
-      titel: this.t("lamper_andre"),
-      indhold: [soeg, liste],
-      knapper: [{ tekst: this.t("faerdig"), primaer: true, handling: () => this._lamperAendret() }],
-    });
   }
 
   // Vægknapperne. En knap følger et af rummets kort og styrer præcis de lamper, kortet viser —

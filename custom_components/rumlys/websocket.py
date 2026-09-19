@@ -55,7 +55,6 @@ def async_register(hass: HomeAssistant) -> None:
         ws_slet,
         ws_omraader,
         ws_knapper,
-        ws_lamper,
     ):
         websocket_api.async_register_command(hass, kommando)
 
@@ -424,37 +423,6 @@ def ws_knapper(
                 "entity_id": entitet.entity_id,
                 "navn": _navn(hass, entitet.entity_id),
                 "omraade": omraade.name if omraade else None,
-            }
-        )
-    connection.send_result(msg["id"], svar)
-
-
-@websocket_api.require_admin
-@websocket_api.websocket_command({vol.Required("type"): "rumlys/lamper"})
-@callback
-def ws_lamper(
-    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
-) -> None:
-    """Alle husets synlige lamper — til en lampe, der står i et andet område end rummet."""
-    register = er.async_get(hass)
-    enheder = dr.async_get(hass)
-    omraader = ar.async_get(hass)
-    svar = []
-    for tilstand in sorted(hass.states.async_all("light"), key=lambda t: t.name.lower()):
-        entitet = register.async_get(tilstand.entity_id)
-        if entitet and entitet.hidden_by:
-            continue
-        omraade_id = entitet.area_id if entitet else None
-        if entitet and omraade_id is None and entitet.device_id:
-            enhed = enheder.async_get(entitet.device_id)
-            omraade_id = enhed.area_id if enhed else None
-        omraade = omraader.async_get_area(omraade_id) if omraade_id else None
-        svar.append(
-            {
-                "entity_id": tilstand.entity_id,
-                "navn": tilstand.name,
-                "omraade": omraade.name if omraade else None,
-                "gruppe": gruppens_lamper(hass, tilstand.entity_id),
             }
         )
     connection.send_result(msg["id"], svar)

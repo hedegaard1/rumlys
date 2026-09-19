@@ -316,9 +316,6 @@ async def test_omraader_og_lamper(hass: HomeAssistant, hass_ws_client: WebSocket
     assert kontor["rum"] == "kontor"
     assert stue["rum"] is None
 
-    svar = await kommando(klient, type="rumlys/lamper")
-    assert {"entity_id": SPOTS, "navn": "Gang Spots", "omraade": "Gang", "gruppe": []} in svar["result"]
-
 
 async def test_skjulte_lamper_kan_ikke_vaelges(hass: HomeAssistant, hass_ws_client: WebSocketGenerator) -> None:
     await opsaet(hass)
@@ -331,5 +328,3 @@ async def test_skjulte_lamper_kan_ikke_vaelges(hass: HomeAssistant, hass_ws_clie
 
     svar = await kommando(klient, type="rumlys/omraader")
     assert svar["result"][1]["lamper"] == []
-    svar = await kommando(klient, type="rumlys/lamper")
-    assert "light.kontor_relae" not in [lampe["entity_id"] for lampe in svar["result"]]
