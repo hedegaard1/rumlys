@@ -5,10 +5,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from homeassistant.components import frontend, panel_custom, persistent_notification
+from homeassistant.components import frontend, panel_custom
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.storage import Store
 
 from .const import DOMAIN
 
@@ -29,41 +28,14 @@ SCENER_URL = "/rumlys_scener"
 IKON_URL = "/rumlys_ikoner"
 
 
-# Beskeden efter en opdatering. En fane, der stod åben, beder om filerne under den gamle versions sti,
-# som ikke findes længere — så tegnes kortene ikke, og der står intet om hvorfor.
-BESKED = {
-    "da": (
-        "Rumlys er opdateret",
-        "Rumlys kører nu {version}. En fane, der stod åben under opdateringen, bruger stadig den forrige "
-        "udgave, og så kan kortene stå tomme. Genindlæs fanen med Ctrl+F5.",
-    ),
-    "en": (
-        "Rumlys has been updated",
-        "Rumlys is now running {version}. A tab that was open during the update still uses the previous "
-        "version, and its cards may stay empty. Reload the tab with Ctrl+F5.",
-    ),
-}
-
-
-async def meld_opdatering(hass: HomeAssistant) -> None:
-    """Sig til, når versionen er skiftet — men ikke, første gang Rumlys sættes op."""
-    lager: Store[dict[str, str]] = Store(hass, 1, f"{DOMAIN}.version")
-    gemt = await lager.async_load() or {}
-    if gemt.get("version") == VERSION:
-        return
-    await lager.async_save({"version": VERSION})
-    if not gemt:
-        return
-    titel, tekst = BESKED["da" if (hass.config.language or "en").startswith("da") else "en"]
-    persistent_notification.async_create(
-        hass, tekst.format(version=VERSION), title=titel, notification_id=f"{DOMAIN}_opdateret"
-    )
+# Beskeden efter en opdatering gives af kortet selv: det sammenligner den udgave, dets egen fil
+# blev hentet som, med den, der kører, og viser en besked i bunden af siden med en knap, der
+# genindlæser. Før stod der en notits om at trykke Ctrl+F5, og det skulle man så gøre i hånden.
 
 
 async def async_register(hass: HomeAssistant) -> None:
     if not {"http", "frontend"} <= hass.config.components:
         return
-    await meld_opdatering(hass)
     await hass.http.async_register_static_paths(
         [
             StaticPathConfig(URL, str(MAPPE / "frontend"), cache_headers=False),

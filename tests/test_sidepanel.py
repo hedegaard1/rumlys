@@ -1,42 +1,38 @@
-"""Beskeden efter en opdatering: en fane, der stod åben, kører stadig forrige udgave."""
+"""Efter en opdatering: siden skal selv kunne opdage, at den kører forrige udgave.
+
+Før 0.7.0 lagde Rumlys en notits i Home Assistant om at trykke Ctrl+F5. Nu spørger kortet, hvilken
+udgave der kører, og sammenligner med den, dets egen fil blev hentet som — er de forskellige,
+lægger det en besked i bunden af siden med en knap, der genindlæser. Kommandoen herunder er dét,
+svaret kommer fra.
+"""
 
 from typing import Any
-from unittest.mock import patch
 
 from homeassistant.core import HomeAssistant
+from pytest_homeassistant_custom_component.typing import WebSocketGenerator
 
 from custom_components.rumlys import sidepanel
 
-LAGER = "rumlys.version"
+from .test_websocket import kommando, opsaet
 
 
-def _gemt(version: str) -> dict[str, Any]:
-    return {"version": 1, "minor_version": 1, "key": LAGER, "data": {"version": version}}
-
-
-async def test_besked_naar_versionen_er_skiftet(
-    hass: HomeAssistant, hass_storage: dict[str, Any]
+async def test_version_kan_hentes(
+    hass: HomeAssistant, hass_ws_client: WebSocketGenerator
 ) -> None:
-    hass.config.language = "da"
-    hass_storage[LAGER] = _gemt("0.0.1")
-
-    with patch.object(sidepanel.persistent_notification, "async_create") as besked:
-        await sidepanel.meld_opdatering(hass)
-    assert besked.call_count == 1
-    assert "Ctrl+F5" in besked.call_args.args[1]
-    assert hass_storage[LAGER]["data"] == {"version": sidepanel.VERSION}
-
-    # Samme version igen — fx en genindlæsning af integrationen — giver ingen besked.
-    with patch.object(sidepanel.persistent_notification, "async_create") as igen:
-        await sidepanel.meld_opdatering(hass)
-    assert igen.call_count == 0
+    await opsaet(hass)
+    svar = await kommando(await hass_ws_client(hass), type="rumlys/version")
+    assert svar["success"]
+    assert svar["result"] == {"version": sidepanel.VERSION}
 
 
-async def test_ingen_besked_foerste_gang(
-    hass: HomeAssistant, hass_storage: dict[str, Any]
+async def test_version_kraever_ikke_administrator(
+    hass: HomeAssistant,
+    hass_ws_client: WebSocketGenerator,
+    hass_read_only_access_token: str,
 ) -> None:
-    """Første gang Rumlys sættes op, har ingen fane stået åben med en tidligere udgave."""
-    with patch.object(sidepanel.persistent_notification, "async_create") as besked:
-        await sidepanel.meld_opdatering(hass)
-    assert besked.call_count == 0
-    assert hass_storage[LAGER]["data"] == {"version": sidepanel.VERSION}
+    """Alle, der har et kort på en fane, skal kunne få beskeden — ikke kun administratorer."""
+    await opsaet(hass)
+    klient = await hass_ws_client(hass, hass_read_only_access_token)
+    svar: dict[str, Any] = await kommando(klient, type="rumlys/version")
+    assert svar["success"]
+    assert svar["result"]["version"] == sidepanel.VERSION

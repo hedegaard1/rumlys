@@ -251,6 +251,8 @@ const TEKSTER = {
     indstillinger_for: "Indstillinger for {navn}",
     vaelg_rum: "Rum",
     rum_findes_ikke: "Rummet findes ikke i Rumlys",
+    opdateret: "Rumlys er opdateret til {version}. Siden her kører stadig den forrige udgave.",
+    genindlaes: "Genindlæs",
     scenefelter: "Scenefelter",
     automatisk: "Automatisk",
     mindst: "Mindst",
@@ -498,6 +500,8 @@ const TEKSTER = {
     indstillinger_for: "Settings for {navn}",
     vaelg_rum: "Room",
     rum_findes_ikke: "The room does not exist in Rumlys",
+    opdateret: "Rumlys has been updated to {version}. This page is still running the previous version.",
+    genindlaes: "Reload",
     scenefelter: "Scene tiles",
     automatisk: "Automatic",
     mindst: "Smallest",
@@ -909,6 +913,43 @@ export function kortetsValg(kortConfig, rumLamper, valg, rumScener) {
     scener: gemt && gemt.scener ? gemt.scener : rumScener || [],
     ikon: gemt ? gemt.ikon || null : null,
   };
+}
+
+// Kører siden her stadig kode fra før en opdatering? Filerne har versionen i deres adresse, så
+// en fane, der har stået åben, bliver ved med den udgave, den hentede. Før stod der en notits om
+// at trykke Ctrl+F5; nu spørger vi Rumlys, hvad der kører, og lægger en besked i bunden af siden
+// med en knap, der genindlæser.
+//
+// «duration: -1» er det, der gør, at den bliver stående — 0 ville lukke en besked i stedet for at
+// vise en (set i notification-manager.ts).
+let versionTjekket = false;
+
+export function tjekVersion(hass) {
+  if (versionTjekket || !hass || !hass.connection || typeof document === "undefined") return;
+  versionTjekket = true;
+  hass.connection.sendMessagePromise({ type: "rumlys/version" }).then(
+    (svar) => {
+      if (!svar || !svar.version || svar.version === VERSION) return;
+      const rod = document.querySelector("home-assistant");
+      if (!rod) return;
+      rod.dispatchEvent(
+        new CustomEvent("hass-notification", {
+          bubbles: true,
+          composed: true,
+          detail: {
+            id: "rumlys-opdateret",
+            message: tekst(hass, "opdateret", { version: svar.version }),
+            duration: -1,
+            dismissable: true,
+            action: { text: tekst(hass, "genindlaes"), action: () => location.reload() },
+          },
+        })
+      );
+    },
+    () => {
+      // Et Rumlys fra før 0.7.0 kender ikke kommandoen. Så er der intet at melde.
+    }
+  );
 }
 
 // Rummets ikoner: det valgte ikon, ellers lampernes egne i rummets rækkefølge. En lampe uden eget ikon —

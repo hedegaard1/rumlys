@@ -29,6 +29,7 @@ from .const import (
 )
 from .omraade import entiteter_i_omraade, er_knap, gruppens_lamper, nyt_rum
 from .rum import Rum, automatikkerne
+from .sidepanel import VERSION
 from .skema import INDSTILLINGER, KORT, RUM_DATA, hele_tal
 
 # Rummets entiteter efter nøgle, som kortet og sidepanelet slår op i.
@@ -44,6 +45,7 @@ ENTITETER = {
 @callback
 def async_register(hass: HomeAssistant) -> None:
     for kommando in (
+        ws_version,
         ws_liste,
         ws_hent,
         ws_gem,
@@ -146,6 +148,20 @@ def _optaget(entry: ConfigEntry, undtagen: str | None = None) -> dict[str, str]:
         for subentry in entry.get_subentries_of_type(RUM)
         if subentry.data.get(CONF_OMRAADE) and subentry.subentry_id != undtagen
     }
+
+
+@websocket_api.websocket_command({vol.Required("type"): "rumlys/version"})
+@callback
+def ws_version(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Hvilken udgave af Rumlys, der kører lige nu.
+
+    Kortet og sidepanelet sammenligner den med den udgave, deres egen fil blev hentet som. Er de
+    forskellige, kører fanen kode fra før opdateringen, og så siger Rumlys til med en knap, der
+    genindlæser. Kræver ikke administrator: alle, der har et kort, skal kunne få beskeden.
+    """
+    connection.send_result(msg["id"], {"version": VERSION})
 
 
 @websocket_api.websocket_command({vol.Required("type"): "rumlys/rum/liste"})

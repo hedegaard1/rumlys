@@ -10,6 +10,7 @@
 import {
   OPDATERET,
   RUMLYS_IKON,
+  tjekVersion,
   VERSION,
   css,
   erRummetsKort,
@@ -292,6 +293,7 @@ class RumlysCard extends HTMLElement {
     const foerste = !this._hass;
     this._hass = hass;
     if (foerste) {
+      tjekVersion(hass);
       this._hentRum(0);
       hentScener().then((k) => {
         this._katalog = k;
