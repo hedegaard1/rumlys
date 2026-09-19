@@ -99,18 +99,23 @@ udseendet:
 type: custom:rumlys-card
 omraade: <områdets id>             # vælges i kortets opsætning
 kort: k1a2b3c4d5e6                 # kortets id — sættes af sig selv
-size: medium                       # udelades: kortet følger selv sin bredde. Ellers small, medium eller large
+size: medium                       # scenefelternes størrelse. Udelades: følger kortets bredde
 scene_size: small                  # small eller large (med navn)
 ```
 
 **Kortet tilpasser sig den bredde, det bliver trukket ud i** (fra 0.6.2). Det er det samme design hele
-vejen — de samme dele, stillet op efter pladsen. Under 300 px er kortet en lille flise: mindre ikoner og
-tekst, ét ikon i stedet for stakken, og navnet får øverste række for sig selv, mens hold, skyder og kontakt
-står på den næste. Fra 640 px bliver alt større. Derimellem står skyderen enten ved siden af navnet eller
-på sin egen linje, alt efter om navn og den længste status kan stå helt.
+vejen — de samme dele, stillet op efter pladsen. Navn, ikoner, kontakt, skyder og «hold lys» har **én
+størrelse** uanset bredden; det er kun opstillingen, der flytter sig. Er der ikke plads til navnet ved
+siden af knapperne, får navn og status øverste række for sig selv, og hold, skyder og kontakt står på den
+næste; bliver skyderen for kort dér, får den sin egen linje. Under 300 px står rummets første ikon alene i
+stedet for stakken. Er der plads til navnet, den længste status og skyderen på én række, står skyderen
+mellem dem; ellers lige nedenunder.
 
-Vælger du selv **Lille**, **Mellem** eller **Stor** i kortets opsætning, gælder dit valg i stedet, uanset
-bredden. Opstillingen følger stadig pladsen — ellers ville et stort kort på fire kolonner ikke kunne læses.
+**Størrelsen gælder kun scenefelterne** (fra 0.6.3). Lades den ude, følger felterne kortets bredde — små på
+en smal flise, større på et kort i fuld bredde. **Lille**, **Mellem** og **Stor** sætter dem fast.
+
+Kortet bliver selv så højt, som scenerne kræver, og det melder samtidig en bund til afsnittets gitter, så
+de nederste scener ikke kan trækkes væk, hvis du selv tager fat i kortets højde.
 
 **Kortet ejer sine lamper, sine scener og sit ikon**, og de vælges i sidepanelet under rummets **Kort**,
 efter kortets id. Viser kortet nogle af lamperne, gælder tænd og sluk, skyder, scener og menuen dem, og et

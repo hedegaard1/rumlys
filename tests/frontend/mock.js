@@ -33,16 +33,42 @@ window.fetch = async (url, ...rest) => {
   return svar;
 };
 
+// Material Design Icons' egne stier for de ikoner, kortet bruger. Et ikon tegnet som et tegn
+// (🔒, ⏻) ligner ikke Home Assistant, og laaseknappen saa ud som en tom cirkel paa testsiden,
+// selvom den er i orden i HA. Ikoner uden en sti her falder tilbage paa tegnet.
+const MDI_STIER = {
+  "arrow-left": "M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z",
+  "brightness-6": "M12,18V6A6,6 0 0,1 18,12A6,6 0 0,1 12,18M20,15.31L23.31,12L20,8.69V4H15.31L12,0.69L8.69,4H4V8.69L0.69,12L4,15.31V20H8.69L12,23.31L15.31,20H20V15.31Z",
+  close: "M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z",
+  "cog-outline": "M12,8A4,4 0 0,1 16,12A4,4 0 0,1 12,16A4,4 0 0,1 8,12A4,4 0 0,1 12,8M12,10A2,2 0 0,0 10,12A2,2 0 0,0 12,14A2,2 0 0,0 14,12A2,2 0 0,0 12,10M10,22C9.75,22 9.54,21.82 9.5,21.58L9.13,18.93C8.5,18.68 7.96,18.34 7.44,17.94L4.95,18.95C4.73,19.03 4.46,18.95 4.34,18.73L2.34,15.27C2.21,15.05 2.27,14.78 2.46,14.63L4.57,12.97L4.5,12L4.57,11L2.46,9.37C2.27,9.22 2.21,8.95 2.34,8.73L4.34,5.27C4.46,5.05 4.73,4.96 4.95,5.05L7.44,6.05C7.96,5.66 8.5,5.32 9.13,5.07L9.5,2.42C9.54,2.18 9.75,2 10,2H14C14.25,2 14.46,2.18 14.5,2.42L14.87,5.07C15.5,5.32 16.04,5.66 16.56,6.05L19.05,5.05C19.27,4.96 19.54,5.05 19.66,5.27L21.66,8.73C21.79,8.95 21.73,9.22 21.54,9.37L19.43,11L19.5,12L19.43,13L21.54,14.63C21.73,14.78 21.79,15.05 21.66,15.27L19.66,18.73C19.54,18.95 19.27,19.04 19.05,18.95L16.56,17.95C16.04,18.34 15.5,18.68 14.87,18.93L14.5,21.58C14.46,21.82 14.25,22 14,22H10M11.25,4L10.88,6.61C9.68,6.86 8.62,7.5 7.85,8.39L5.44,7.35L4.69,8.65L6.8,10.2C6.4,11.37 6.4,12.64 6.8,13.8L4.68,15.36L5.43,16.66L7.86,15.62C8.63,16.5 9.68,17.14 10.87,17.38L11.24,20H12.76L13.13,17.39C14.32,17.14 15.37,16.5 16.14,15.62L18.57,16.66L19.32,15.36L17.2,13.81C17.6,12.64 17.6,11.37 17.2,10.2L19.31,8.65L18.56,7.35L16.15,8.39C15.38,7.5 14.32,6.86 13.12,6.62L12.75,4H11.25Z",
+  "lock-clock": "M8.5,2C6,2 4,4 4,6.5V7C2.89,7 2,7.89 2,9V18C2,19.11 2.89,20 4,20H8.72C10.18,21.29 12.06,22 14,22A8,8 0 0,0 22,14A8,8 0 0,0 14,6C13.66,6 13.32,6.03 13,6.08C12.76,3.77 10.82,2 8.5,2M8.5,4A2.5,2.5 0 0,1 11,6.5V7H6V6.5A2.5,2.5 0 0,1 8.5,4M14,8A6,6 0 0,1 20,14A6,6 0 0,1 14,20A6,6 0 0,1 8,14A6,6 0 0,1 14,8M13,10V15L16.64,17.19L17.42,15.9L14.5,14.15V10H13Z",
+  power: "M16.56,5.44L15.11,6.89C16.84,7.94 18,9.83 18,12A6,6 0 0,1 12,18A6,6 0 0,1 6,12C6,9.83 7.16,7.94 8.88,6.88L7.44,5.44C5.36,6.88 4,9.28 4,12A8,8 0 0,0 12,20A8,8 0 0,0 20,12C20,9.28 18.64,6.88 16.56,5.44M13,3H11V13H13",
+  lightbulb: "M12,2A7,7 0 0,0 5,9C5,11.38 6.19,13.47 8,14.74V17A1,1 0 0,0 9,18H15A1,1 0 0,0 16,17V14.74C17.81,13.47 19,11.38 19,9A7,7 0 0,0 12,2M9,21A1,1 0 0,0 10,22H14A1,1 0 0,0 15,21V20H9V21Z",
+  "lightbulb-group": "M15 14V16A1 1 0 0 1 14 17H10A1 1 0 0 1 9 16V14A5 5 0 1 1 15 14M14 18H10V19A1 1 0 0 0 11 20H13A1 1 0 0 0 14 19M7 19V18H5V19A1 1 0 0 0 6 20H7.17A2.93 2.93 0 0 1 7 19M5 10A6.79 6.79 0 0 1 5.68 7A4 4 0 0 0 4 14.45V16A1 1 0 0 0 5 17H7V14.88A6.92 6.92 0 0 1 5 10M17 18V19A2.93 2.93 0 0 1 16.83 20H18A1 1 0 0 0 19 19V18M18.32 7A6.79 6.79 0 0 1 19 10A6.92 6.92 0 0 1 17 14.88V17H19A1 1 0 0 0 20 16V14.45A4 4 0 0 0 18.32 7Z",
+};
+const MDI_TEGN = { check: "✓", plus: "+", "chevron-right": "›", drag: "⋮⋮", "delete-outline": "🗑", "home-outline": "⌂", "lightbulb-group-outline": "💡", "motion-sensor": "◎", "lightbulb-auto-outline": "✦", "clock-outline": "◷", "motion-sensor-off": "◌", "palette-outline": "🎨", history: "↺", cog: "⚙", "ceiling-light": "💡" };
+
 customElements.define("ha-icon", class extends HTMLElement {
   static get observedAttributes() { return ["icon"]; }
   connectedCallback() { this.tegn(); }
   attributeChangedCallback() { this.tegn(); }
   set icon(v) { this.setAttribute("icon", v); }
-  tegn() {
-    this.style.cssText = "display:inline-grid;place-items:center;width:var(--mdc-icon-size,24px);height:var(--mdc-icon-size,24px);font-size:10px;line-height:1;opacity:.8";
-    const navn = (this.getAttribute("icon") || "").replace("mdi:", "");
-    const tegn = { "arrow-left": "←", close: "✕", check: "✓", plus: "+", "chevron-right": "›", drag: "⋮⋮", power: "⏻", "lock-clock": "🔒", "delete-outline": "🗑", "home-outline": "⌂", "lightbulb-group-outline": "💡", "motion-sensor": "◎", "lightbulb-auto-outline": "✦", "clock-outline": "◷", "motion-sensor-off": "◌", "palette-outline": "🎨", history: "↺", cog: "⚙", "ceiling-light": "💡" };
-    this.textContent = tegn[navn] || "•";
+  async tegn() {
+    this.style.cssText = "display:inline-grid;place-items:center;width:var(--mdc-icon-size,24px);height:var(--mdc-icon-size,24px);font-size:10px;line-height:1";
+    const hele = this.getAttribute("icon") || "";
+    const [foran, bagved] = hele.split(":", 2);
+    let sti = foran === "mdi" ? MDI_STIER[bagved] : null;
+    // Rumlys' eget ikonsaet - det samme opslag, Home Assistant selv laver.
+    if (!sti && bagved && window.customIcons && window.customIcons[foran]) {
+      sti = (await window.customIcons[foran].getIcon(bagved)).path;
+    }
+    if (sti) {
+      this.style.opacity = "";
+      this.innerHTML = '<svg viewBox="0 0 24 24" style="width:100%;height:100%;display:block"><path fill="currentColor" d="' + sti + '"></path></svg>';
+      return;
+    }
+    this.style.opacity = ".8";
+    this.textContent = MDI_TEGN[bagved] || "•";
   }
 });
 customElements.define("ha-menu-button", class extends HTMLElement {

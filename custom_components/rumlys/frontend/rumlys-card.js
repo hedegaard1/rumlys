@@ -174,12 +174,14 @@ const KONTROL_STYLE = `
 const STYLE = KONTROL_STYLE + `
   :host { display:block; }
   ha-card {
-    --rl-pad:12px 16px; --rl-gap:12px; --rl-ikon:40px; --rl-ikon-str:24px;
-    --rl-navn:16px; --rl-status:13px; --rl-knap:36px; --rl-knap-ikon:20px;
-    --rl-kontakt-b:46px; --rl-kontakt-h:26px; --rl-knop:20px;
-    --rl-skyder-h:28px; --rl-spor-h:6px; --rl-tommel:18px;
-    --rl-scene:48px; --rl-scene-min:36px; --rl-scene-maks:56px;
-    --rl-scene-gap:6px; --rl-scene-top:10px; --rl-scene-radius:8px;
+    /* Kortets egne dele har én størrelse hele vejen — den, der før hed «Lille» (Martins ønske
+       19-09-2026). Kun scenefelterne skifter størrelse, og de er halvt så store som før 0.6.3. */
+    --rl-pad:8px 12px; --rl-gap:8px; --rl-ikon:32px; --rl-ikon-str:20px;
+    --rl-navn:14px; --rl-status:12px; --rl-knap:30px; --rl-knap-ikon:16px;
+    --rl-kontakt-b:38px; --rl-kontakt-h:22px; --rl-knop:16px;
+    --rl-skyder-h:22px; --rl-spor-h:4px; --rl-tommel:14px;
+    --rl-scene:24px; --rl-scene-min:18px; --rl-scene-maks:28px;
+    --rl-scene-gap:4px; --rl-scene-top:8px; --rl-scene-radius:5px;
     display:block; position:relative; box-sizing:border-box; overflow:hidden; cursor:pointer;
     padding:var(--rl-pad);
     border-radius:var(--ha-card-border-radius, 12px);
@@ -192,21 +194,13 @@ const STYLE = KONTROL_STYLE + `
     --rl-fyld:var(--primary-color); --rl-spor:rgba(127, 127, 127, 0.3); --rl-paa-fyld:var(--text-primary-color, #fff);
     -webkit-tap-highlight-color:transparent; transition:background .4s ease, color .4s ease;
   }
-  ha-card.lille {
-    --rl-pad:8px 12px; --rl-gap:8px; --rl-ikon:32px; --rl-ikon-str:20px;
-    --rl-navn:14px; --rl-status:12px; --rl-knap:30px; --rl-knap-ikon:16px;
-    --rl-kontakt-b:38px; --rl-kontakt-h:22px; --rl-knop:16px;
-    --rl-skyder-h:22px; --rl-spor-h:4px; --rl-tommel:14px;
-    --rl-scene:40px; --rl-scene-min:30px; --rl-scene-maks:46px;
-    --rl-scene-gap:5px; --rl-scene-top:8px; --rl-scene-radius:6px;
+  ha-card.scener-lille {
+    --rl-scene:20px; --rl-scene-min:15px; --rl-scene-maks:23px;
+    --rl-scene-gap:3px; --rl-scene-radius:4px;
   }
-  ha-card.stor {
-    --rl-pad:16px 20px; --rl-gap:14px; --rl-ikon:52px; --rl-ikon-str:30px;
-    --rl-navn:19px; --rl-status:14px; --rl-knap:44px; --rl-knap-ikon:24px;
-    --rl-kontakt-b:56px; --rl-kontakt-h:32px; --rl-knop:26px;
-    --rl-skyder-h:36px; --rl-spor-h:12px; --rl-tommel:26px;
-    --rl-scene:58px; --rl-scene-min:56px; --rl-scene-maks:68px;
-    --rl-scene-gap:8px; --rl-scene-top:14px; --rl-scene-radius:10px;
+  ha-card.scener-stor {
+    --rl-scene:29px; --rl-scene-min:28px; --rl-scene-maks:34px;
+    --rl-scene-gap:5px; --rl-scene-top:10px; --rl-scene-radius:6px;
   }
   ha-card.taendt { background:var(--rl-baggrund); color:var(--rl-tekst); border-color:transparent; }
   .inhold { container-type:inline-size; }
@@ -327,14 +321,18 @@ class RumlysCard extends HTMLElement {
   }
 
   getCardSize() {
-    return (this._taethed() === "stor" ? 2 : 1) + 1;
+    return Math.max(2, Math.ceil((this.offsetHeight || 100) / 50));
   }
 
   getGridOptions() {
-    // Fire kolonner er 161 px. Så smalt et kort er kun til at læse, når tætheden må følge med ned,
-    // så den grænse gælder både «Automatisk» og «Lille».
-    const fast = this._config && this._config.size;
-    return { columns: 12, rows: "auto", min_columns: !fast || fast === "small" ? 4 : 6 };
+    // Fire kolonner er 161 px, og kortets dele har samme størrelse hele vejen, så det kan læses der.
+    const valg = { columns: 12, rows: "auto", min_columns: 4 };
+    // «auto» gør kortet så højt, som scenerne kræver. Trækker man selv i højden, bliver rækkerne
+    // et tal i stedet, og så er det her, Home Assistant henter bunden — ellers kunne de nederste
+    // scener trækkes væk. Afsnittets gitter er rækker på 56 px med 8 px imellem.
+    const hoejde = this.offsetHeight;
+    if (hoejde) valg.min_rows = Math.max(1, Math.ceil((hoejde + 8) / 64));
+    return valg;
   }
 
   t(noegle, vaerdier) {
@@ -406,9 +404,9 @@ class RumlysCard extends HTMLElement {
   }
 
   // Ikonerne tegnes kun forfra, når de har ændret sig.
-  // Tætheden: hvor store ikoner, tekst og knapper er. Vælges den ikke i kortets opsætning, følger
-  // den kortets egen bredde, så det samme design holder fra fire kolonner i et afsnit til et kort
-  // i fuld bredde på et panel.
+  // Hvor store scenefelterne er. Vælges det ikke i kortets opsætning, følger det kortets egen
+  // bredde, så en smal flise får mindre felter end et kort i fuld bredde. Kortets øvrige dele
+  // har samme størrelse hele vejen.
   _taethed() {
     const valgt = this._config && this._config.size;
     if (valgt === "small") return "lille";
@@ -432,8 +430,8 @@ class RumlysCard extends HTMLElement {
     if (taet === this._taet && enIkon === this._enIkon) return;
     this._taet = taet;
     this._enIkon = enIkon;
-    e.kort.classList.toggle("lille", taet === "lille");
-    e.kort.classList.toggle("stor", taet === "stor");
+    e.kort.classList.toggle("scener-lille", taet === "lille");
+    e.kort.classList.toggle("scener-stor", taet === "stor");
     if (this._ikonerne) this._visIkoner(this._ikonerne);
   }
 
