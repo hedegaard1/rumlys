@@ -9,7 +9,7 @@
 // relativt, så Rumlys' egne ikoner også virker på testsiden og i node-testen.
 import "./ikoner/rumlys-ikoner.js";
 
-export const VERSION = "0.9.6";
+export const VERSION = "0.9.7";
 // Mappen, filen selv ligger i — i Home Assistant med versionen i stien, på testsiden repoets egen.
 export const FILER = new URL("./", import.meta.url).href;
 // Scenerne ligger i Rumlys selv. I Home Assistant har de en fast adresse uden version, så et kort,
@@ -282,7 +282,6 @@ const TEKSTER = {
     genindlaes: "Genindlæs",
     ny_automatik: "Ny automatik",
     fjern_automatik: "Fjern automatikken",
-    bevaegelse_pille: "bevægelse",
     n_tidsrum: "{n} tidsrum",
     ingen_tidsrum: "ingen tidsrum",
     bevaegelse_taender: "Bevægelse tænder",
@@ -580,7 +579,6 @@ const TEKSTER = {
     genindlaes: "Reload",
     ny_automatik: "New automation",
     fjern_automatik: "Remove the automation",
-    bevaegelse_pille: "motion",
     n_tidsrum: "{n} time ranges",
     ingen_tidsrum: "no time ranges",
     bevaegelse_taender: "Motion turns on",

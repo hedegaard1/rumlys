@@ -1552,6 +1552,19 @@ class RumlysPanel extends HTMLElement {
     return this._sektion("mdi:cog-outline", this.t("automatik"), this.t("automatik_hint"), liste, ny);
   }
 
+  // Mærket siger, hvad automatikkens sensorer faktisk er sat til — ikke bare at der er en. Har den
+  // både en bevægelses- og en tilstedeværelsessensor, står begge: de ser ikke det samme, og
+  // forskellen er hele grunden til, at tiden for «lys tændt af sensoren» anbefales forskelligt
+  // (Martins ønske 19-09-2026).
+  _sensorPiller(aut) {
+    const tilstede = this._kladde.data.tilstede || [];
+    const slags = new Set(aut.sensorer.map((s) => (tilstede.indexOf(s) >= 0 ? "tilstede_type" : "bevaegelse_type")));
+    // Bevægelse først: den er den grovere af de to, og det er den, tiden skal rette sig efter.
+    return ["bevaegelse_type", "tilstede_type"]
+      .filter((n) => slags.has(n))
+      .map((n) => h("span", { class: "pille" }, this.t(n).toLowerCase()));
+  }
+
   // Automatikken hedder det, den styrer. En tom er «Ny automatik», til den får sine første lamper.
   _autNavn(aut) {
     const navne = aut.lamper.map((entityId) => this._lampeNavn(entityId));
@@ -1799,7 +1812,7 @@ class RumlysPanel extends HTMLElement {
           "div",
           { class: "kt1" },
           h("b", {}, this._autNavn(aut)),
-          aut.sensorer.length ? h("span", { class: "pille" }, this.t("bevaegelse_pille")) : null
+          ...this._sensorPiller(aut)
         ),
         h("div", { class: "hvad" }, antal ? this.t("n_tidsrum", { n: antal }) : this.t("ingen_tidsrum"))
       )
