@@ -25,8 +25,10 @@
 <body>
 <h1>Rumlys kort i alle størrelser</h1>
 <p class="hint">
-  Bredderne er dem, Home Assistants afsnit-gitter giver: 12 kolonner i et afsnit på 500 px med 8 px mellemrum.
-  Kortet kan trækkes fra 4 til 12 kolonner. Nederst står kortet, som det ser ud i en gammeldags kolonne og på et panel i fuld bredde.
+  Bredderne er dem, Home Assistants afsnit-gitter giver: 12 kolonner med 8 px mellemrum. Et afsnit er mellem
+  320 og 500 px bredt (<code>--ha-view-sections-column-min-width</code> og <code>-max-width</code>), og begge kan
+  ændres i et tema — derfor står begge yderpunkter her. Kortet kan trækkes fra 4 til 12 kolonner. Nederst står det,
+  som det ser ud i en gammeldags kolonne og på et panel i fuld bredde.
 </p>
 <div class="valg">
   <span>Scenefelter:</span>
@@ -40,8 +42,11 @@
   <button data-scene="large">Med</button>
 </div>
 
-<h2>Afsnit-gitteret</h2>
+<h2>Afsnit på 500 px (bredest)</h2>
 <div class="raekke" id="gitter"></div>
+
+<h2>Afsnit på 320 px (smallest)</h2>
+<div class="raekke" id="smalt"></div>
 
 <h2>Kolonne og fuld bredde</h2>
 <div class="raekke" id="brede"></div>
@@ -50,8 +55,8 @@
   const { hass, vedOpdatering } = await import("./mock.js");
   await import("../../custom_components/rumlys/frontend/rumlys-card.js");
 
-  const KOL = 12, AFSNIT = 500, MELLEM = 8;
-  const bredde = (n) => Math.round((AFSNIT - (KOL - 1) * MELLEM) / KOL * n + (n - 1) * MELLEM);
+  const KOL = 12, MELLEM = 8;
+  const bredde = (n, afsnit = 500) => Math.round((afsnit - (KOL - 1) * MELLEM) / KOL * n + (n - 1) * MELLEM);
 
   const kortene = [];
   function saet(vaert, etiket, w, grund) {
@@ -68,6 +73,9 @@
 
   const gitter = document.getElementById("gitter");
   for (let n = 4; n <= KOL; n += 1) saet(gitter, n + " kolonner", bredde(n), { omraade: "office", kort: "k111111111111" });
+
+  const smalt = document.getElementById("smalt");
+  for (let n = 4; n <= KOL; n += 2) saet(smalt, n + " kolonner", bredde(n, 320), { omraade: "office", kort: "k111111111111" });
 
   const brede = document.getElementById("brede");
   saet(brede, "kolonne", 480, { omraade: "office", kort: "k111111111111" });

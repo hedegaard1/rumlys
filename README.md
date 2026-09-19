@@ -114,14 +114,17 @@ mellem dem; ellers lige nedenunder.
 **Scenefelterne er det eneste, der skifter størrelse** (fra 0.6.3), og kortets opsætning har derfor to valg:
 **Scenefelter** og **Navne på scenerne**.
 
-Scenefelterne har fem trin — **Mindst**, **Lille**, **Mellem**, **Stor** og **Størst** — på 20, 40, 60, 80 og
-100 px. Trinnet er dit valg og **følger aldrig kortets bredde**: trækker du kortet bredere, bliver felterne
-ikke større, der kommer bare flere på en række.
+Scenefelterne har fem trin — **Mindst**, **Lille**, **Mellem**, **Stor** og **Størst** — på 20, 31, 42, 53
+og 64 px. Trinnet er dit valg og **følger aldrig kortets bredde**: trækker du kortet bredere, bliver felterne
+ikke større, der kommer bare flere på en række. Loftet på 64 px er sat af det smalleste kort, gitteret giver
+i et afsnit på 500 px: fire kolonner er 161 px, og der skal kunne stå to felter ved siden af hinanden.
 
 **Felterne er altid kvadratiske,** og de strækkes ikke ud, når der er få: er der plads til dem alle på én
 række, står de i den størrelse, du har valgt, og rækken slutter, hvor scenerne slutter. Skal de derimod
-deles på flere rækker, strækkes de lige så meget, at rækkerne går helt ud til højre kant — ellers står der
-et hul i hjørnet, og det ligner en fejl frem for et valg.
+deles på flere rækker, går rækkerne helt ud til højre kant — ellers står der et hul i hjørnet, og det ligner
+en fejl frem for et valg. Feltet må afvige **8 px** fra det valgte, op eller ned, og kortet prøver hvert
+antal kolonner og tager det, der kommer tættest på. Er der stadig lidt tilbage, lægges det i mellemrummene,
+som må vokse de samme 8 px; resten bliver plads i højre side.
 
 **Navnene retter sig efter knappen, ikke omvendt.** Teksten skrumper for at passe i feltet; vil du kunne
 læse navnene, vælger du et større felt.
