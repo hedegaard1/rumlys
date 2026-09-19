@@ -37,8 +37,6 @@ import {
 } from "./rumlys-faelles.js";
 
 const NAVN = "rumlys-card";
-// Så bred skal skyderen mindst kunne være mellem ikonerne og knapperne; ellers kommer den under.
-const SKYDER_MIN = 100;
 // Scenefelternes fem størrelser i pixels, med lige stor forskel fra trin til trin. Loftet er
 // sat af det smalleste kort, gitteret kan give: fire kolonner er 161 px, altså 137 px indeni, og
 // der skal kunne stå to felter ved siden af hinanden (Martins ønske 19-09-2026). Derfor 64 og
@@ -53,15 +51,17 @@ const SCENE_AUTO = [
   [600, SCENE_STR.large],
   [Infinity, SCENE_STR.xlarge],
 ];
+// Så meget må et felt afvige fra den valgte størrelse, op eller ned, for at rækken kan gå præcis
+// op i kortets bredde (Martins forslag 19-09-2026). Uden spillerum blev der et hul: «Størst» på et
+// kort i fem kolonner gav to felter med 34 px imellem sig og et kort, der var dobbelt så højt som
+// nødvendigt. Ti pixels er nok til, at der næsten altid findes et antal kolonner, der passer.
+const SCENE_SPIL = 10;
 // Under så bredt et kort står rummets første ikon alene i stedet for stakken. Det handler om
 // pladsen til navnet, ikke om scenefelterne, og har derfor sin egen grænse.
 const IKON_STAK_MIN = 300;
 // Så meget skal navn og status have ved siden af ikoner og knapper. Er der mindre, får de
 // øverste række for sig selv.
 const TEKST_MIN = 90;
-// Og så meget skal skyderen have på den nederste række. Under det er den ikke til at ramme,
-// og så får den sin egen række under knapperne.
-const SKYDER_SMAL = 72;
 // Er øverste række smallere end det, er der ikke plads til både ikon og navn, og så ryger ikonet.
 // Navnet er det, kortet skal kunne kendes på; ikonet er pynt, når der kun er 77 px at gøre godt med.
 const IKON_MIN = 110;
@@ -202,15 +202,19 @@ const STYLE = KONTROL_STYLE + `
     border-width:var(--ha-card-border-width, 1px); border-style:solid;
     border-color:var(--ha-card-border-color, var(--divider-color, #e0e0e0));
     background:var(--ha-card-background, var(--card-background-color, #fff));
+    /* Skal stå EFTER genvejen background, som ellers nulstiller den. Uden den måles baggrunden
+       kun til indersiden af rammen, mens den tegnes ud over den, og så gentager gradienten sig:
+       den sidste pixelstribe i højre kant viste startfarven igen. */
+    background-origin:border-box;
     box-shadow:var(--ha-card-box-shadow, none);
     color:var(--primary-text-color);
     font-family:var(--ha-font-family-body, Roboto, Noto, sans-serif);
     --rl-fyld:var(--primary-color); --rl-spor:rgba(127, 127, 127, 0.3); --rl-paa-fyld:var(--text-primary-color, #fff);
     -webkit-tap-highlight-color:transparent; transition:background .4s ease, color .4s ease;
   }
-  ha-card.taendt { background:var(--rl-baggrund); color:var(--rl-tekst); border-color:transparent; }
+  ha-card.taendt { background:var(--rl-baggrund); background-origin:border-box; color:var(--rl-tekst); border-color:transparent; }
   .inhold { container-type:inline-size; }
-  .top { display:flex; align-items:center; gap:var(--rl-gap); min-height:calc(var(--rl-ikon) + 8px); }
+  .top { display:flex; flex-wrap:wrap; align-items:center; gap:var(--rl-gap); row-gap:8px; min-height:calc(var(--rl-ikon) + 8px); }
   .ikoner { flex:none; display:flex; align-items:center; }
   .ikon {
     flex:none; width:var(--rl-ikon); height:var(--rl-ikon); border-radius:50%; box-sizing:border-box;
@@ -220,8 +224,7 @@ const STYLE = KONTROL_STYLE + `
   .ikon.flere { font-size:calc(var(--rl-ikon-str) * 0.6); font-weight:var(--ha-font-weight-medium, 500); }
   ha-card.taendt .ikon { background:rgba(255, 255, 255, 0.3); }
   ha-card.taendt .ikoner .ikon + .ikon { box-shadow:-2px 0 0 0 rgba(255, 255, 255, 0.45); }
-  .tekst { flex:0 1 auto; min-width:0; max-width:42%; }
-  .top.uden-skyder .tekst { flex:1 1 0; max-width:none; }
+  .tekst { flex:1 1 0; min-width:0; }
   .navn { font-size:var(--rl-navn); line-height:calc(var(--rl-navn) + 4px); font-weight:var(--ha-font-weight-medium, 500); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .status { font-size:var(--rl-status); line-height:calc(var(--rl-status) + 5px); opacity:0.8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .hold {
@@ -230,30 +233,23 @@ const STYLE = KONTROL_STYLE + `
     background:transparent; border:2px solid currentColor; opacity:0.5; transition:background .2s ease, opacity .2s ease;
   }
   .hold.aktiv { opacity:1; background:var(--rl-fyld); border-color:var(--rl-fyld); color:var(--rl-paa-fyld); }
-  .top .skyder { flex:1 1 0; min-width:60px; }
-  /* Skyderen står mellem ikonerne og knapperne, når den får plads nok dér; ellers på sin egen linje. */
-  .top.skyder-under { flex-wrap:wrap; row-gap:0; }
-  .top.skyder-under .tekst { flex:1 1 0; max-width:none; }
-  .top.skyder-under .skyder { order:1; flex:1 1 100%; }
-  /* Et smalt kort: navn og status får øverste række alene, hold, skyder og kontakt den næste. */
+  /* Skyderen har altid hele bredden på sin egen linje (Martins ønske 19-09-2026). Så er den til
+     at ramme på ethvert kort, og navn og status får den øverste række til sig selv. */
+  .top .skyder { flex:1 1 100%; order:5; }
+  /* Et smalt kort: navn og status får øverste række alene, knapperne den næste. */
   .brud { display:none; }
-  .top.smal { flex-wrap:wrap; row-gap:8px; }
   .top.smal .brud { display:block; flex:0 0 100%; height:0; order:1; }
-  .top.smal .tekst { flex:1 1 0; max-width:none; }
   .top.smal .saet-op { order:2; }
   /* Tænd og sluk står først — det er den, man rækker ud efter. «Hold lys» kommer bagefter. */
   .top.smal .kontakt { order:2; }
   .top.smal .hold { order:3; }
-  .top.smal .skyder { order:4; flex:1 1 0; min-width:40px; margin-left:auto; }
-  .top.smal.skyder-egen .skyder { flex:1 1 100%; order:5; margin-left:0; }
   /* Det smalleste kort: ikonet fylder halvdelen af øverste række, og så er der intet navn tilbage.
      Mellemrummet ned på 5 px, så kontakten og «hold lys» kan stå på samme linje — ved 101 px er
      der 75 px at gøre godt med, og 38 + 8 + 30 er to for meget. */
   .top.uden-ikon { column-gap:5px; }
   .top.uden-ikon .ikoner { display:none; }
-  /* Scenerne står midt i kortet: er der plads tilovers, deles den lige mellem venstre og højre
-     side, så der aldrig er en tom stribe i den ene kant (Martins ønske 19-09-2026). */
-  .scener { display:grid; grid-template-columns:repeat(auto-fill, var(--rl-scene)); justify-content:center; gap:var(--rl-scene-gap); margin-top:var(--rl-scene-top); cursor:default; }
+  /* Scenerne starter altid i venstre side (Martins ønske 19-09-2026). */
+  .scener { display:grid; grid-template-columns:repeat(auto-fill, var(--rl-scene)); justify-content:start; gap:var(--rl-scene-gap); margin-top:var(--rl-scene-top); cursor:default; }
   .scener.skjult { display:none; }
   .scener:not(.med-navne) .scene .n { display:none; }
   .scener.med-navne .scene .n { padding:0.25em 0.35em 0.35em; }
@@ -314,7 +310,7 @@ class RumlysCard extends HTMLElement {
     if (window.ResizeObserver && !this._ro) {
       this._ro = new ResizeObserver(() => {
         this._saetScener();
-        this._placerSkyder();
+        this._tilpasTop();
         this._tilpasScener();
       });
       this._ro.observe(this);
@@ -518,59 +514,35 @@ class RumlysCard extends HTMLElement {
     this._tilpasScener();
   }
 
-  // Skyderen står mellem ikonerne og knapperne, hvis den dér kan blive mindst SKYDER_MIN bred, mens navn og
-  // status kan læses helt; ellers får den sin egen linje. Det afhænger af kortets bredde, antallet af ikoner
-  // og teksternes længde, så det måles i stedet for at bruge en fast bredde.
-  _placerSkyder() {
+  // Øverste række. Skyderen har altid sin egen linje, så her afgøres kun, om navn og status kan
+  // stå ved siden af knapperne, og om der er plads til ikonet.
+  _tilpasTop() {
     const e = this._el;
     if (!e || !e.top.isConnected) return;
     const bredde = e.top.clientWidth;
+    if (!bredde) return;
     const gap = parseFloat(getComputedStyle(e.top).columnGap) || 0;
-    // Et kort uden rum har hverken skyder eller knapper — kun navn, status og knappen, der sætter op.
-    if (!bredde || !this._rum()) {
-      e.top.classList.remove("skyder-under", "skyder-egen");
-      const plads = bredde - (e.ikoner.offsetWidth + e.saetOp.offsetWidth + 2 * gap);
-      e.top.classList.toggle("smal", !!bredde && plads < TEKST_MIN);
-      e.tekst.style.flex = e.tekst.style.maxWidth = "";
-      return;
-    }
-    const knapper = e.ikoner.offsetWidth + e.hold.offsetWidth + e.kontakt.offsetWidth + 3 * gap;
-    // Er der ikke plads til navnet ved siden af knapperne, får navn og status rækken for sig selv,
-    // og hold, skyder og kontakt flytter ned på deres egen. Samme dele, anden opstilling.
-    const smal = bredde - knapper < TEKST_MIN;
-    e.top.classList.toggle("smal", smal);
+    // Uden et rum står knappen «Sæt op i Rumlys» i stedet for hold og kontakt.
+    const knapper = this._rum()
+      ? e.hold.offsetWidth + e.kontakt.offsetWidth + 2 * gap
+      : e.saetOp.offsetWidth + gap;
+    e.top.classList.toggle("smal", bredde - e.ikoner.offsetWidth - gap - knapper < TEKST_MIN);
     // Målt på kortet, ikke på ikonet selv: gemmer man ikonet, bliver dets bredde nul, og så ville
     // en måling sige, at der er plads igen — og ikonet ville blinke frem og tilbage.
     e.top.classList.toggle("uden-ikon", bredde < IKON_MIN);
-    e.top.classList.toggle("skyder-egen", smal && bredde - (knapper - e.ikoner.offsetWidth - gap) < SKYDER_SMAL);
-    if (smal || e.skyder.classList.contains("skjult")) {
-      e.top.classList.remove("skyder-under");
-      e.tekst.style.flex = e.tekst.style.maxWidth = "";
-      return;
+    this._visStatus();
+  }
+
+  // Nedtællingen er det første, der viger, når pladsen er knap: «Tændt · 100 %» helt er bedre end
+  // «Tændt · 100 % · holdes i 23 …» skåret midt over (Martins ønske 19-09-2026).
+  _visStatus() {
+    const e = this._el;
+    if (!e || this._statusLang == null) return;
+    e.status.textContent = this._statusLang;
+    if (this._statusLang === this._statusKort) return;
+    if (e.status.clientWidth && e.status.scrollWidth > e.status.clientWidth) {
+      e.status.textContent = this._statusKort;
     }
-    if (!this._canvas) this._canvas = document.createElement("canvas");
-    const ctx = this._canvas.getContext("2d");
-    const maal = (tekst, el) => {
-      const cs = getComputedStyle(el);
-      ctx.font = cs.fontWeight + " " + cs.fontSize + " " + cs.fontFamily;
-      return ctx.measureText(tekst).width;
-    };
-    // Statussen skal kunne læses helt, også med den længste nedtælling. Den måles med de længste tekster,
-    // den kan få, så skyderen ikke flytter sig, når lyset tændes, dæmpes eller tæller ned.
-    const status = this._rum()
-      ? [
-          this.t("taendt") + " · 100 % · " + this.t("holdes_i", { tid: this.t("timer", { n: 23 }) + " " + this.t("min", { n: 59 }) }),
-          this.t("taendt") + " · 100 % · " + this.t("slukker_om", { tid: this.t("timer", { n: 1 }) + " " + this.t("min", { n: 59 }) }),
-          this.t("slukket"),
-          this.t("utilgaengelig"),
-        ]
-      : [e.status.textContent];
-    const tekst = Math.ceil(Math.max(maal(e.navn.textContent, e.navn), ...status.map((s) => maal(s, e.status))));
-    const under = bredde - (knapper + tekst + gap) < SKYDER_MIN;
-    e.top.classList.toggle("skyder-under", under);
-    // Mellem ikonerne og knapperne får teksten den målte bredde, så den står helt og ikke flytter skyderen.
-    e.tekst.style.flex = under ? "" : "0 0 " + tekst + "px";
-    e.tekst.style.maxWidth = under ? "" : "none";
   }
 
   // Scenefelterne er altid kvadratiske og lige store — de strækkes ikke ud i bredden, når der er få
@@ -589,17 +561,34 @@ class RumlysCard extends HTMLElement {
     const valgt = this._sceneStr || SCENE_STR.small;
     // Mellemrum og hjørner følger feltet, så de fem størrelser ser ens ud, bare i hver sin skala.
     const gap = Math.max(3, Math.min(9, Math.round(valgt * 0.1)));
-    // Feltet er altid præcis den størrelse, der er valgt — det samme tal på hvert eneste kort,
-    // uanset bredden. Det er luften imellem knapperne, der fordeler dem, så rækken passer i
-    // kortets bredde (Martins ønske 19-09-2026). Før blev felterne selv strukket, og så var
-    // «Størst» 65 px på ét kort og 72 px på det næste; det kunne ses med det samme, når to kort
-    // stod ved siden af hinanden.
-    const felt = valgt;
-    const kol = Math.min(n, Math.max(1, Math.floor((w + gap) / (felt + gap))));
-    // Kun når scenerne faktisk deles på flere rækker. Er der få, og de kan stå på én række, står
-    // de tæt med deres eget mellemrum og midt i kortet — de skal ikke trækkes ud over hele
-    // bredden, bare fordi kortet er bredt.
-    const mellemrum = kol < n && kol > 1 ? (w - kol * felt) / (kol - 1) : gap;
+    let kol = n;
+    let felt = valgt;
+    let mellemrum = gap;
+    // Kan de alle stå på én række i den valgte størrelse, gør de det, og rækken slutter, hvor
+    // scenerne slutter. Der strækkes ikke noget, bare fordi kortet er bredt.
+    if (n * valgt + (n - 1) * gap > w) {
+      // Ellers skal rækken gå op i kortets bredde. Vi prøver hvert antal kolonner og tager det,
+      // hvor feltet kommer tættest på det valgte; feltet må afvige SCENE_SPIL px, op eller ned.
+      // Netop fordi det også må blive mindre, findes der næsten altid et antal, der passer præcis,
+      // og så bliver mellemrummet stående på sin egen størrelse.
+      let bedst = Infinity;
+      for (let k = 1; k <= n; k += 1) {
+        const f = (w - (k - 1) * gap) / k;
+        if (f < valgt - SCENE_SPIL) break;
+        const afvig = Math.abs(f - valgt);
+        if (afvig >= bedst) continue;
+        bedst = afvig;
+        kol = k;
+        felt = Math.min(f, valgt + SCENE_SPIL);
+      }
+      if (bedst === Infinity) {
+        // Ét felt er bredere end hele rækken — så står der ét, så stort der er plads til.
+        kol = 1;
+        felt = Math.min(w, valgt + SCENE_SPIL);
+      }
+      // Det, der bliver tilbage, når feltet ramte loftet, lægges i mellemrummene.
+      if (kol > 1) mellemrum = (w - kol * felt) / (kol - 1);
+    }
     e.scener.style.gap = mellemrum.toFixed(2) + "px";
     e.scener.style.gridTemplateColumns = "repeat(" + kol + ", " + felt.toFixed(2) + "px)";
     e.scener.style.setProperty("--rl-scene-radius", Math.max(4, Math.min(16, Math.round(felt * 0.17))) + "px");
@@ -666,14 +655,14 @@ class RumlysCard extends HTMLElement {
       e.navn.textContent = c.name || (omraade ? omraade.name : this.t("kort_navn"));
       if (!c.omraade && !c.rum) status = this.t("vaelg_rum_hint");
       else if (this._rummene) status = omraade ? this.t("kort_ikke_sat_op") : this.t("rum_findes_ikke");
-      e.status.textContent = status;
+      this._statusKort = this._statusLang = status;
+      this._visStatus();
       // Sidepanelet er kun for administratorer. I forhåndsvisningen ville knappen forlade kortets opsætning.
       const admin = !!(hass.user && hass.user.is_admin) && !this.preview;
       e.saetOp.hidden = !(admin && omraade && this._rummene);
       e.saetOp.textContent = this.t("saet_op");
-      e.top.classList.add("uden-skyder");
       e.kort.classList.remove("taendt");
-      this._placerSkyder();
+      this._tilpasTop();
       return;
     }
     e.saetOp.hidden = true;
@@ -697,8 +686,7 @@ class RumlysCard extends HTMLElement {
     e.kontakt.disabled = e.skyder.disabled = !tilgaengelig;
     e.hold.disabled = !hold;
     e.skyder.classList.toggle("skjult", !kanDaempe);
-    e.top.classList.toggle("uden-skyder", !kanDaempe);
-    this._placerSkyder();
+    this._tilpasTop();
 
     const farver = rummetsFarver(hass, lamper, this._katalog, () => this._opdater());
     if (farver.length) {
@@ -735,8 +723,10 @@ class RumlysCard extends HTMLElement {
 
     let status = this.t("slukket");
     if (!tilgaengelig) status = this.t("utilgaengelig");
-    else if (taendt) status = this.t("taendt") + (kanDaempe ? " · " + lysstyrke + " %" : "") + (nedtaelling ? " · " + nedtaelling : "");
-    e.status.textContent = status;
+    else if (taendt) status = this.t("taendt") + (kanDaempe ? " · " + lysstyrke + " %" : "");
+    this._statusKort = status;
+    this._statusLang = taendt && tilgaengelig && nedtaelling ? status + " · " + nedtaelling : status;
+    this._visStatus();
   }
 
   _aabnMenu() {

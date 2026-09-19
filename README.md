@@ -120,16 +120,27 @@ felterne ikke større, der kommer bare flere på en række. **Automatisk** er de
 giver et bredere kort større felter. Loftet på 64 px er sat af det smalleste kort, gitteret giver i et afsnit
 på 500 px: fire kolonner er 161 px, og der skal kunne stå to felter ved siden af hinanden.
 
-**Felterne er altid kvadratiske og altid præcis den valgte størrelse** — det samme tal på hvert eneste
-kort, uanset hvor bredt det er. Det er **luften imellem knapperne**, der fordeler dem, så rækken passer i
-kortets bredde. Kan alle scener stå på én række, står de tæt med deres eget mellemrum og midt i kortet;
-de trækkes ikke ud over hele bredden, bare fordi kortet er bredt.
+**Felterne er altid kvadratiske.** Det er **luften imellem knapperne**, der fordeler dem, så rækken passer i
+kortets bredde. Scenerne starter altid i venstre side, og kan de alle stå på én række, står de tæt med
+deres eget mellemrum; de trækkes ikke ud over hele bredden, bare fordi kortet er bredt.
+
+Skal de deles på flere rækker, må feltet **afvige 10 px** fra det valgte, op eller ned, så rækken kan gå
+præcis op i kortets bredde. Kortet prøver hvert antal kolonner og tager det, der kommer tættest på. Uden
+det spillerum blev der et hul: «Størst» på et kort i fem kolonner gav to felter med 34 px imellem sig og
+et kort, der var dobbelt så højt som nødvendigt.
 
 **Navnene retter sig efter knappen, ikke omvendt.** Teksten skrumper for at passe i feltet; vil du kunne
 læse navnene, vælger du et større felt.
 
+**Skyderen har altid hele bredden på sin egen linje.** Så er den til at ramme på ethvert kort, og navn og
+status får den øverste række til sig selv sammen med knapperne.
+
+**Nedtællingen viger, når der ikke er plads.** Er lyset holdt tændt eller på vej til at slukke, står det i
+statussen — «Tændt · 100 % · holdes i 1 t 12 min». Kan den linje ikke stå helt, vises den korte i stedet.
+Bedre at læse «Tændt · 100 %» helt end at få den lange skåret midt over.
+
 **På det smalleste kort** — fire kolonner i et afsnit på 320 px, altså cirka 101 px — falder ikonet væk, så
-navn og status kan stå helt. Tænd og sluk kommer før «hold lys», og skyderen får sin egen linje.
+navn og status kan stå helt, og tænd og sluk kommer før «hold lys».
 
 Kortet bliver selv så højt, som scenerne kræver, og det melder samtidig en bund til afsnittets gitter, så
 de nederste scener ikke kan trækkes væk, hvis du selv tager fat i kortets højde.
