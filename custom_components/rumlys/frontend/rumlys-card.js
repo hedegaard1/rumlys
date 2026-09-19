@@ -39,13 +39,17 @@ import {
 const NAVN = "rumlys-card";
 // Så bred skal skyderen mindst kunne være mellem ikonerne og knapperne; ellers kommer den under.
 const SKYDER_MIN = 100;
-// Scenefelternes fem størrelser i pixels. Der skal være rigtig forskel på trinnene: de tre, der
-// var før, lå på 20, 24 og 29 px, og så kunne man ikke se hvilket man havde valgt. Lige trin på
-// 20 px hele vejen, så forskellen er den samme fra et trin til det næste.
-const SCENE_STR = { xsmall: 20, small: 40, medium: 60, large: 80, xlarge: 100 };
+// Scenefelternes fem størrelser i pixels, med lige stor forskel fra trin til trin. Loftet er
+// sat af det smalleste kort, gitteret kan give: fire kolonner er 161 px, altså 137 px indeni, og
+// der skal kunne stå to felter ved siden af hinanden (Martins ønske 19-09-2026). Derfor 64 og
+// ikke mere. Det mindste trin blev stående på 20.
+const SCENE_STR = { xsmall: 20, small: 31, medium: 42, large: 53, xlarge: 64 };
 // Størrelsen følger aldrig kortets bredde — den er dit valg og bliver stående (Martin 19-09-2026).
 // Uden et valg er det «Lille».
 const SCENE_STANDARD = SCENE_STR.small;
+// Så meget må et felt strækkes for at fylde rækken ud. Mere end det, og man kan ikke se, hvilket
+// trin man har valgt; resten af pladsen går i mellemrummene i stedet.
+const SCENE_STRAEK = 8;
 // Under så bredt et kort står rummets første ikon alene i stedet for stakken. Det handler om
 // pladsen til navnet, ikke om scenefelterne, og har derfor sin egen grænse.
 const IKON_STAK_MIN = 300;
@@ -563,18 +567,40 @@ class RumlysCard extends HTMLElement {
     const valgt = this._sceneStr || SCENE_STANDARD;
     // Mellemrum og hjørner følger feltet, så de fem størrelser ser ens ud, bare i hver sin skala.
     const gap = Math.max(3, Math.min(9, Math.round(valgt * 0.1)));
-    const plads = Math.max(1, Math.floor((w + gap) / (valgt + gap)));
-    const kol = Math.min(n, plads);
-    // Er der plads til dem alle på én række, står de i den størrelse, du har valgt, og rækken
-    // slutter, hvor scenerne slutter. Skal de deles på flere rækker, strækkes de lige så meget,
-    // at rækkerne går helt ud til højre kant — ellers står der et hul i hjørnet, og det ligner
-    // en fejl frem for et valg (Martins ønske 19-09-2026).
-    //
-    // Men højst en fjerdedel større end det valgte. Uden loftet blev både «Stor» og «Størst» til
-    // 135 px på et kort i fire kolonner, fordi der kun var plads til én i bredden — og så kunne
-    // man ikke se forskel på de to trin, man lige havde valgt imellem.
-    const felt = n <= plads ? valgt : Math.min(valgt * 1.25, (w - (kol - 1) * gap) / kol);
-    e.scener.style.gap = gap + "px";
+    let kol = n;
+    let felt = valgt;
+    let mellemrum = gap;
+    // Er der plads til dem alle på én række i den valgte størrelse, står de sådan, og rækken
+    // slutter, hvor scenerne slutter — der strækkes ikke noget, bare fordi kortet er bredt.
+    if (n * valgt + (n - 1) * gap > w) {
+      // Ellers skal rækkerne gå helt ud til højre kant, for et hul i hjørnet ligner en fejl frem
+      // for et valg. Vi prøver hvert antal kolonner og tager det, hvor feltet kommer tættest på
+      // det valgte — feltet må afvige med SCENE_STRAEK px, op eller ned (Martins ønske 19-09-2026).
+      // Netop fordi det også må blive mindre, findes der næsten altid et antal, der rammer bredden
+      // præcist, og så bliver mellemrummene stående. Ellers ville resten samle sig i ét hul: to
+      // felter på et kort i fem kolonner stod med 34 px imellem sig.
+      let bedst = Infinity;
+      for (let k = 1; k <= n; k += 1) {
+        const f = (w - (k - 1) * gap) / k;
+        if (f < valgt - SCENE_STRAEK) break;
+        const afvig = Math.abs(f - valgt);
+        if (afvig >= bedst) continue;
+        bedst = afvig;
+        kol = k;
+        felt = Math.min(f, valgt + SCENE_STRAEK);
+      }
+      if (bedst === Infinity) {
+        // Ét felt er bredere end hele rækken — så står der ét, så stort der er plads til.
+        kol = 1;
+        felt = Math.min(w, valgt + SCENE_STRAEK);
+      }
+      // Det, der er tilbage, når feltet ramte loftet, lægges i mellemrummene — men de må heller
+      // ikke vokse mere end SCENE_STRAEK. Uden det loft stod to felter på et kort i fem kolonner
+      // med 34 px imellem sig, og det er et hul, ikke et mellemrum. Er der stadig noget tilbage,
+      // bliver det plads i højre side, som når der kun er få scener.
+      if (kol > 1) mellemrum = Math.min(gap + SCENE_STRAEK, (w - kol * felt) / (kol - 1));
+    }
+    e.scener.style.gap = mellemrum.toFixed(2) + "px";
     e.scener.style.gridTemplateColumns = "repeat(" + kol + ", " + felt.toFixed(2) + "px)";
     e.scener.style.setProperty("--rl-scene-radius", Math.max(4, Math.min(16, Math.round(felt * 0.17))) + "px");
     e.scener.classList.toggle("med-navne", medNavne);
