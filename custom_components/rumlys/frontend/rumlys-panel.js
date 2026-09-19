@@ -1487,7 +1487,9 @@ class RumlysPanel extends HTMLElement {
     const d = this._kladde.data;
     // En bagende fra før 0.7.0 sender ingen automatikker. Siden skal stadig kunne tegnes.
     if (!Array.isArray(d.automatik)) d.automatik = [];
-    if (!this._aabneAut) this._aabneAut = new Set(d.automatik.length === 1 ? [d.automatik[0].id] : []);
+    // Automatikkerne starter altid foldet sammen, også når rummet kun har én (Martins ønske
+    // 19-09-2026). Siden skal åbne som et overblik, ikke som en formular.
+    if (!this._aabneAut) this._aabneAut = new Set();
     const liste = h("div", {});
     d.automatik.forEach((aut) => liste.appendChild(this._automatikBoks(aut)));
     const ny = h("button", { class: "knap t", type: "button" }, ikon("mdi:plus"), this.t("ny_automatik"));
