@@ -32,6 +32,7 @@
 </p>
 <div class="valg">
   <span>Scenefelter:</span>
+  <button data-size="">Automatisk</button>
   <button data-size="xsmall">Mindst</button>
   <button data-size="small">Lille</button>
   <button data-size="medium">Mellem</button>
@@ -83,7 +84,7 @@
   saet(brede, "én lampe, 6 kolonner", bredde(6), { omraade: "office", kort: "k333333333333" });
   saet(brede, "uden Rumlys, 6 kolonner", bredde(6), { omraade: "living_room" });
 
-  let size = "small", scene = "small";
+  let size = "", scene = "small";
   function tegn() {
     kortene.forEach(([el, grund]) => {
       const config = Object.assign({ type: "custom:rumlys-card", scene_size: scene }, grund);

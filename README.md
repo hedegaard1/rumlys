@@ -99,7 +99,7 @@ udseendet:
 type: custom:rumlys-card
 omraade: <områdets id>             # vælges i kortets opsætning
 kort: k1a2b3c4d5e6                 # kortets id — sættes af sig selv
-size: medium                       # scenefelterne: xsmall, small, medium, large eller xlarge
+size: medium                       # scenefelterne: xsmall, small, medium, large, xlarge. Udelades: automatisk
 scene_size: small                  # large sætter scenernes navne under dem
 ```
 
@@ -115,16 +115,18 @@ mellem dem; ellers lige nedenunder.
 **Scenefelter** og **Navne på scenerne**.
 
 Scenefelterne har fem trin — **Mindst**, **Lille**, **Mellem**, **Stor** og **Størst** — på 20, 31, 42, 53
-og 64 px. Trinnet er dit valg og **følger aldrig kortets bredde**: trækker du kortet bredere, bliver felterne
-ikke større, der kommer bare flere på en række. Loftet på 64 px er sat af det smalleste kort, gitteret giver
-i et afsnit på 500 px: fire kolonner er 161 px, og der skal kunne stå to felter ved siden af hinanden.
+og 64 px, plus **Automatisk**. Vælger du et af de fem, bliver det stående: trækker du kortet bredere, bliver
+felterne ikke større, der kommer bare flere på en række. **Automatisk** er det eneste, der ser på bredden, og
+giver et bredere kort større felter. Loftet på 64 px er sat af det smalleste kort, gitteret giver i et afsnit
+på 500 px: fire kolonner er 161 px, og der skal kunne stå to felter ved siden af hinanden.
 
 **Felterne er altid kvadratiske,** og de strækkes ikke ud, når der er få: er der plads til dem alle på én
 række, står de i den størrelse, du har valgt, og rækken slutter, hvor scenerne slutter. Skal de derimod
 deles på flere rækker, går rækkerne helt ud til højre kant — ellers står der et hul i hjørnet, og det ligner
 en fejl frem for et valg. Feltet må afvige **8 px** fra det valgte, op eller ned, og kortet prøver hvert
 antal kolonner og tager det, der kommer tættest på. Er der stadig lidt tilbage, lægges det i mellemrummene,
-som må vokse de samme 8 px; resten bliver plads i højre side.
+som må vokse de samme 8 px. **Resten deles lige mellem venstre og højre side** — scenerne står midt i kortet,
+så der aldrig er en tom stribe i den ene kant.
 
 **Navnene retter sig efter knappen, ikke omvendt.** Teksten skrumper for at passe i feltet; vil du kunne
 læse navnene, vælger du et større felt.

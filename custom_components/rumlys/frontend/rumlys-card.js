@@ -44,9 +44,15 @@ const SKYDER_MIN = 100;
 // der skal kunne stå to felter ved siden af hinanden (Martins ønske 19-09-2026). Derfor 64 og
 // ikke mere. Det mindste trin blev stående på 20.
 const SCENE_STR = { xsmall: 20, small: 31, medium: 42, large: 53, xlarge: 64 };
-// Størrelsen følger aldrig kortets bredde — den er dit valg og bliver stående (Martin 19-09-2026).
-// Uden et valg er det «Lille».
-const SCENE_STANDARD = SCENE_STR.small;
+// «Automatisk» er det sjette valg og det eneste, der ser på kortets bredde: et bredere kort får
+// større felter. Vælger man et af de fem trin, bliver det stående, uanset hvor kortet trækkes hen.
+const SCENE_AUTO = [
+  [180, SCENE_STR.xsmall],
+  [280, SCENE_STR.small],
+  [420, SCENE_STR.medium],
+  [600, SCENE_STR.large],
+  [Infinity, SCENE_STR.xlarge],
+];
 // Så meget må et felt strækkes for at fylde rækken ud. Mere end det, og man kan ikke se, hvilket
 // trin man har valgt; resten af pladsen går i mellemrummene i stedet.
 const SCENE_STRAEK = 8;
@@ -239,7 +245,9 @@ const STYLE = KONTROL_STYLE + `
   .top.smal .skyder { order:3; flex:1 1 0; min-width:40px; }
   .top.smal .kontakt { order:4; margin-left:auto; }
   .top.smal.skyder-egen .skyder { flex:1 1 100%; order:5; }
-  .scener { display:grid; grid-template-columns:repeat(auto-fill, var(--rl-scene)); justify-content:start; gap:var(--rl-scene-gap); margin-top:var(--rl-scene-top); cursor:default; }
+  /* Scenerne står midt i kortet: er der plads tilovers, deles den lige mellem venstre og højre
+     side, så der aldrig er en tom stribe i den ene kant (Martins ønske 19-09-2026). */
+  .scener { display:grid; grid-template-columns:repeat(auto-fill, var(--rl-scene)); justify-content:center; gap:var(--rl-scene-gap); margin-top:var(--rl-scene-top); cursor:default; }
   .scener.skjult { display:none; }
   .scener:not(.med-navne) .scene .n { display:none; }
   .scener.med-navne .scene .n { padding:0.25em 0.35em 0.35em; }
@@ -404,9 +412,14 @@ class RumlysCard extends HTMLElement {
   }
 
   // Ikonerne tegnes kun forfra, når de har ændret sig.
-  // Scenefelternes størrelse i pixels — kortets eget valg, uanset hvor bredt det er trukket ud.
+  // Scenefelternes størrelse i pixels. Et af de fem trin bliver stående; «Automatisk» følger
+  // kortets bredde.
   _sceneStoerrelse() {
-    return (this._config && SCENE_STR[this._config.size]) || SCENE_STANDARD;
+    const valgt = this._config && SCENE_STR[this._config.size];
+    if (valgt) return valgt;
+    const bredde = this.clientWidth || (this._el ? this._el.kort.clientWidth : 0);
+    if (!bredde) return this._sceneStr || SCENE_STR.small;
+    return SCENE_AUTO.find(([graense]) => bredde < graense)[1];
   }
 
   _saetScener() {
@@ -564,7 +577,7 @@ class RumlysCard extends HTMLElement {
     // Navnet retter sig efter knappen, ikke omvendt: feltet er den størrelse, du har valgt, og
     // teksten skrumper for at passe ind (Martins ønske 19-09-2026). Vil du kunne læse navnene,
     // vælger du en større knap.
-    const valgt = this._sceneStr || SCENE_STANDARD;
+    const valgt = this._sceneStr || SCENE_STR.small;
     // Mellemrum og hjørner følger feltet, så de fem størrelser ser ens ud, bare i hver sin skala.
     const gap = Math.max(3, Math.min(9, Math.round(valgt * 0.1)));
     let kol = n;
@@ -1405,7 +1418,7 @@ class RumlysCardEditor extends HTMLElement {
       // Scenefelterne er det eneste på kortet, der skifter størrelse, så det er dét, valget hedder.
       // Navnene er ikke en størrelse, men et til og fra — de stod før som «Store med navn» i samme
       // række som størrelserne, og så var der to valg om det samme (Martin fangede det 19-09-2026).
-      h("div", { class: "felt" }, h("span", { class: "etiket" }, t("scenefelter")), knapper("size", [["xsmall", "mindst"], ["small", "lille"], ["medium", "mellem"], ["large", "stor"], ["xlarge", "stoerst"]], "small")),
+      h("div", { class: "felt" }, h("span", { class: "etiket" }, t("scenefelter")), knapper("size", [["auto", "automatisk"], ["xsmall", "mindst"], ["small", "lille"], ["medium", "mellem"], ["large", "stor"], ["xlarge", "stoerst"]], "auto")),
       h("div", { class: "felt" }, h("span", { class: "etiket" }, t("scenenavne")), knapper("scene_size", [["small", "uden_navn"], ["large", "med_navn"]], "small")),
       h("p", {}, t("kort_hint"))
     );
