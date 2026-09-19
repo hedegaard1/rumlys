@@ -20,6 +20,7 @@ CONF_KORT = "kort"
 # Kortets egne felter i Rumlys' lager. Fra 0.6.0 ejer kortet sine scener og sit ikon, og to
 # kort må frit vise den samme lampe: kortet er en betjeningsflade, ikke en ejer.
 KORT_LAMPER = "lamper"
+KORT_UNDTAGEN = "undtagen"  # lamper, et kort for hele rummet alligevel ikke viser
 KORT_SCENER = "scener"
 KORT_IKON = "ikon"
 # Automatikken: en gruppe af rummets lamper, der opfører sig ens. Hver har sine egne sensorer,

@@ -9,7 +9,7 @@
 // relativt, så Rumlys' egne ikoner også virker på testsiden og i node-testen.
 import "./ikoner/rumlys-ikoner.js";
 
-export const VERSION = "0.7.6";
+export const VERSION = "0.8.0";
 // Mappen, filen selv ligger i — i Home Assistant med versionen i stien, på testsiden repoets egen.
 export const FILER = new URL("./", import.meta.url).href;
 // Scenerne ligger i Rumlys selv. I Home Assistant har de en fast adresse uden version, så et kort,
@@ -78,7 +78,7 @@ const TEKSTER = {
     kort_sektion: "Kort",
     kort_sektion_hint: "Rummets kort på dine betjeningspaneler, i den rækkefølge de står. Et kort viser hele rummet eller de lamper, du vælger. På en fane kan en lampe kun stå på ét kort, og et kort for hele rummet optager dem alle.",
     nyt: "Nyt",
-    hele_rummet: "Hele rummet",
+    hele_rummet: "Alt lys",
     viser: "Viser",
     vaelg_lamper: "Vælg lamper",
     paa_kort: "På kort {n}",
@@ -114,12 +114,21 @@ const TEKSTER = {
     slet_spoergsmaal: "Slet {navn}? Rummets enhed og entiteter forsvinder fra Home Assistant.",
     slet: "Slet",
     lamper: "Lamper",
-    lamper_hint: "Vælg rummets lamper. Er en gruppe valgt, skjules dens pærer, så de ikke styres to gange.",
+    lamper_hint: "Alle lamper i området. Er der en gruppe, skjules dens pærer, så de ikke styres to gange. En lampe styres først af sig selv, når den ligger i en automatik nedenfor.",
+    fjern_lampe: "Fjern lampen fra rummet",
     taender_ved_bevaegelse: "Tænder ved bevægelse",
     bevaegelse_uden_sensor: "Der er ingen bevægelsessensor i området, så ingen af lamperne kan tændes af bevægelse. De kan stadig tændes af et tidsrum eller i hånden.",
     sensor_ikke_valgt: "Ingen sensor er valgt, så ingen af lamperne tændes af bevægelse. Sæt flueben ved en sensor under «Sensorer», så kommer valget frem.",
     gruppe_med: "Gruppe med {n}",
     fra_omraade: "Fra {omraade}",
+    undtagen: "Undtagen",
+    undtagen_ingen: "Ingen — kortet viser alle rummets lamper",
+    undtagen_hint: "Lamper, kortet ikke skal vise. Kortet er stadig «Alt lys», så en ny lampe i området kommer med af sig selv.",
+    vaelg_undtagne: "Vælg lamper, kortet ikke skal vise",
+    evne_temp: "Hvidt lys, der kan stilles fra gult til køligt",
+    evne_farve: "Kan vise farver",
+    evne_daemp: "Kan kun dæmpes — hverken farvetemperatur eller farve",
+    evne_onoff: "Kun tænd og sluk — hverken lysstyrke eller farve",
     ikke_i_omraadet: "Ikke i området — vælg den fra, eller læg lampen i området i Home Assistant",
     uden_omraade: "Uden område",
     ingen_lamper: "Området har ingen lamper.",
@@ -346,7 +355,7 @@ const TEKSTER = {
     kort_sektion: "Cards",
     kort_sektion_hint: "The room's cards on your dashboards, in the order they appear. A card shows the whole room or the lights you choose. On a tab a light can only be on one card, and a card for the whole room takes them all.",
     nyt: "New",
-    hele_rummet: "Whole room",
+    hele_rummet: "All lights",
     viser: "Shows",
     vaelg_lamper: "Choose lights",
     paa_kort: "On card {n}",
@@ -382,12 +391,21 @@ const TEKSTER = {
     slet_spoergsmaal: "Delete {navn}? The room's device and entities disappear from Home Assistant.",
     slet: "Delete",
     lamper: "Lights",
-    lamper_hint: "Choose the room's lights. When a group is chosen, its bulbs are hidden so they are not controlled twice.",
+    lamper_hint: "Every light in the area. When there is a group, its bulbs are hidden so they are not controlled twice. A light is only driven automatically once it is in an automation below.",
+    fjern_lampe: "Remove the light from the room",
     taender_ved_bevaegelse: "Turns on with motion",
     bevaegelse_uden_sensor: "There is no motion sensor in the area, so none of the lights can turn on with motion. They can still turn on from a period or by hand.",
     sensor_ikke_valgt: "No sensor is chosen, so none of the lights turn on with motion. Tick a sensor under «Sensors» and the option appears.",
     gruppe_med: "Group of {n}",
     fra_omraade: "From {omraade}",
+    undtagen: "Except",
+    undtagen_ingen: "None — the card shows every light in the room",
+    undtagen_hint: "Lights the card should not show. The card is still «All lights», so a new light in the area is included by itself.",
+    vaelg_undtagne: "Choose lights the card should not show",
+    evne_temp: "White light adjustable from warm to cool",
+    evne_farve: "Can show colours",
+    evne_daemp: "Can only be dimmed — neither colour temperature nor colour",
+    evne_onoff: "On and off only — neither brightness nor colour",
     ikke_i_omraadet: "Not in the area — deselect it, or move the light into the area in Home Assistant",
     uden_omraade: "No area",
     ingen_lamper: "The area has no lights.",
@@ -946,12 +964,17 @@ export function kortetsValg(kortConfig, rumLamper, valg, rumScener) {
   const gemt = kendt ? valg[c.kort] : null;
   const oenskede = gemt ? gemt.lamper : Array.isArray(c.lamper) ? c.lamper : [];
   const egne = rumLamper.filter((l) => (oenskede || []).indexOf(l) >= 0);
+  // «Alt lys» kan have fravalgt enkelte lamper — fx en 3D-printers lys — og er stadig alt lys:
+  // en ny lampe i området er med, uden at nogen retter kortet. Derfor gemmes undtagelserne.
+  const undtagne = (gemt && gemt.undtagen) || [];
   // Ingen valgte lamper — eller ingen af dem i rummet længere — er hele rummet.
-  const lamper = egne.length ? egne : rumLamper.slice();
+  const lamper = egne.length ? egne : rumLamper.filter((l) => undtagne.indexOf(l) < 0);
   return {
     kendt,
     lamper,
-    hele: lamper.length === rumLamper.length,
+    undtagne: egne.length ? [] : rumLamper.filter((l) => undtagne.indexOf(l) >= 0),
+    // Et kort med fravalg er stadig rummets kort: det hedder «Alt lys» og optager alle lamperne.
+    hele: !egne.length || egne.length === rumLamper.length,
     scener: gemt && gemt.scener ? gemt.scener : rumScener || [],
     ikon: gemt ? gemt.ikon || null : null,
   };
@@ -1038,6 +1061,17 @@ export function ikonStak(ikoner) {
 }
 
 // Hvidt lys eller farve på mindst én pære — det, en scene kræver. Samme regel som kortet.
+// Hvad en lampe kan: kan den dæmpes, kan dens hvide lys stilles fra gult til køligt, og kan den
+// vise farver. En gruppe kan det, en af dens pærer kan. Bruges til mærkerne ud for lamperne.
+export function lampensEvner(hass, entityId) {
+  const modes = paerer(hass, [entityId]).reduce((samlet, id) => {
+    const st = hass.states[id];
+    return samlet.concat(((st && st.attributes && st.attributes.supported_color_modes) || []));
+  }, []);
+  const farve = modes.some((m) => FARVE_TILSTANDE.indexOf(m) >= 0);
+  return { daemp: modes.some((m) => m !== "onoff"), temp: modes.indexOf("color_temp") >= 0, farve };
+}
+
 export function kanHvid(hass, lamper) {
   return (
     paerer(hass, lamper).some((id) => ((hass.states[id] && hass.states[id].attributes.supported_color_modes) || []).indexOf("color_temp") >= 0) ||

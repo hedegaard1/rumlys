@@ -58,9 +58,19 @@ Siden har to halvdele. **Automatik** er det, der sker af sig selv, og **Kort** e
 Hovedet øverst fortæller kun, hvad der sker lige nu — det gør ingenting. Lyset styres på kortet.
 
 - **Rummet** — området, rummet hører til.
-- **Lamper** — rummets pulje: hvilke af områdets lamper Rumlys styrer. Hver lampe kan sættes til ikke at
-  tænde ved bevægelse; den hører stadig til sin automatik og slukker med den. Tryk på lampens ikon for at
-  skifte det i Home Assistant — det gælder overalt, også på kortene.
+- **Lamper** — **alle lamper i området** (fra 0.8.0). Ingen skal vælge dem til: er en lampe i rummet, er
+  den en mulighed. En lampe, der kommer til i området, er med efter næste indlæsning — men den lander i
+  ingen automatik og gør derfor kun det, nogen selv beder om, til den bliver lagt i en. Hver lampe kan
+  sættes til ikke at tænde ved bevægelse; den hører stadig til sin automatik og slukker med den.
+
+  Ud for hver lampe står **hvad den kan**: en cirkel fra gult til køligt hvidt for lys, der kan stilles,
+  farvehjulet for farver, og en enkelt gul bolle for en pære, der kan ingen af delene. Tryk på lampens ikon
+  for at skifte det i Home Assistant — det gælder overalt, også på kortene.
+
+  Indtil 0.8.0 var listen en pulje med flueben, og lamper kunne tages ind fra andre områder. Begge dele er
+  væk: et rum **er** et område, og kunne to rum trække i den samme pære uden at kunne se det, betød «alt
+  lys» ikke længere det samme som området. En lampe, der blev valgt ind dengang, står stadig på listen med
+  «Ikke i området» og sit eget flueben, så den kan komme af igen.
 - **Sensorer** — med «ser nogen nu» og valget Bevægelse eller Tilstedeværelse. En bevægelsessensor ser ikke
   en, der står stille, så valget sætter den anbefalede tid for lys tændt af sensoren: 5 min med kun
   bevægelsessensorer, 30 sek. med en tilstedeværelsessensor. Tiden kan stadig sættes frit. Hvilke sensorer
@@ -89,8 +99,11 @@ Hver boks har fem grupper:
 - **Kort** — rummets kort på alle betjeningspaneler, i den rækkefølge de står, og hvor de står. **«Tilføj kort til
   en fane»** sætter kortet ind nederst på den fane, du vælger, og i kortets boks vælger du fanen igen for at flytte
   det — eller «Fjern kortet». Hvert kort står som én linje med, hvad det viser; tryk på linjen for at folde den ud.
-  Et kort, der ikke kan bruges, er foldet ud med det samme. I kortets boks står **«Viser»**: hele rummet eller
-  én af rummets lamper — og «Vælg lamper …», når rummet har flere end to. På en fane kan en lampe kun stå på ét
+  Et kort, der ikke kan bruges, er foldet ud med det samme. I kortets boks står **«Viser»**: alt lys eller
+  én af rummets lamper — og «Vælg lamper …», når rummet har flere end to. Viser kortet alt lys, står
+  **«Undtagen»** nedenunder: lamper, kortet alligevel ikke skal vise — lyset i en 3D-printer, fx. Kortet er
+  stadig alt lys, så en ny lampe i området kommer med af sig selv; det er undtagelserne, der gemmes, ikke
+  listen over det, kortet viser (fra 0.8.0). På en fane kan en lampe kun stå på ét
   kort, og et kort for hele rummet optager dem alle: på de andre kort står en lampe som «På kort N» — med
   «Flyt hertil», når kort N kun har nogle af lamperne. Kommer et kort ind uden om Rumlys — YAML, «Duplikér» eller en gendannet backup —
   dukker det op som «Nyt»; det viser hele rummet, hvis det er rummets eneste kort på fanen, og ellers ingen lamper,
@@ -110,7 +123,9 @@ række den er.
 
 ### Kortet
 
-Et kort for et rum eller for nogle af dets lamper. Baggrunden viser lampernes farver; skyderen dæmper alle rummets lamper i samme
+Et kort for et rum eller for nogle af dets lamper. Et kort for hele rummet hedder **«Alt lys»** og ikke
+rummets navn (fra 0.8.0): rummet står allerede som overskrift over kortene, og ved siden af «Bord Lysbånd»
+siger rummets navn ikke, hvad kortet styrer. Baggrunden viser lampernes farver; skyderen dæmper alle rummets lamper i samme
 forhold; knappen holder lyset tændt og tæller ned. Tryk på kortet åbner menuen med lysstyrke, hvidt
 lys, farve, scener og hver lampe for sig. Ikonet kommer fra rummet. Kortets opsætning er kun rummet og
 udseendet:

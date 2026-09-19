@@ -367,6 +367,26 @@ async def test_knappen_styrer_kortets_lamper(hus: Hus) -> None:
     assert [k.data["entity_id"] for k in hus.taend] == [[STENLAMPE]]
 
 
+async def test_kortet_kan_fravaelge_en_lampe_og_stadig_vaere_alt_lys(hus: Hus) -> None:
+    """«Alt lys» med et fravalg viser resten — fx alt undtagen lyset i en 3D-printer.
+
+    Det er stadig alt lys: undtagelserne gemmes, ikke listen over det kortet viser, så en lampe,
+    der kommer til i rummet, er med uden at nogen retter kortet.
+    """
+    rummet = KNAPRUMMET | {
+        "lamper": [
+            {"entity_id": SPOTS, "bevaegelse": True},
+            {"entity_id": STENLAMPE, "bevaegelse": True},
+        ],
+        "knap_maal": {KNAP: {"kort": "kort1"}},
+    }
+    await hus.saet_op(rummet, gemt={"kort": {"kort1": {"undtagen": [STENLAMPE]}}})
+
+    await hus.tryk()
+    await hus.vent(0.4)
+    assert [k.data["entity_id"] for k in hus.taend] == [[SPOTS]]
+
+
 async def test_ny_bevaegelse_stopper_nedtaellingen(hus: Hus) -> None:
     await hus.saet_op()
     await hus.bevaegelse("on")

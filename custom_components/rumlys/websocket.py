@@ -29,7 +29,7 @@ from .const import (
     RUM,
 )
 from .omraade import entiteter_i_omraade, er_knap, gruppens_lamper, nyt_rum
-from .rum import Rum, automatikkerne
+from .rum import Rum, automatikkerne, rummets_lamper
 from .sidepanel import VERSION
 from .skema import INDSTILLINGER, KORT, RUM_DATA, hele_tal
 
@@ -118,7 +118,8 @@ def _rum_kort(hass: HomeAssistant, entry: ConfigEntry, subentry: ConfigSubentry)
         "id": subentry.subentry_id,
         "navn": rum.navn if rum else subentry.title,
         "omraade": subentry.data.get(CONF_OMRAADE),
-        "lamper": subentry.data.get("lamper", []),
+        # Lamperne er områdets, ikke en liste nogen har valgt — se rummets_lamper().
+        "lamper": rummets_lamper(hass, subentry.data),
         "sensorer": subentry.data.get("sensorer", []),
         # Tidsrummene hører til automatikkerne fra 0.7.0. Oversigten viser dem samlet.
         "tidsrum": [

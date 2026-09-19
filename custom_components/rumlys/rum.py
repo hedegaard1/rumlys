@@ -18,7 +18,7 @@ samme klokkeslæt i start og slut er et helt døgn. Uden for tidsrummene gælder
 from __future__ import annotations
 
 from collections import deque
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from functools import partial
 from datetime import datetime, time, timedelta
@@ -98,6 +98,7 @@ from .const import (
     KNAP_HOLD,
     KORT_IKON,
     KORT_LAMPER,
+    KORT_UNDTAGEN,
     KORT_SCENER,
     LYS_FARVE,
     LYS_HVID,
@@ -109,7 +110,7 @@ from .const import (
     STANDARD_LYS,
 )
 from . import scener
-from .omraade import omraadets_navn
+from .omraade import lamper_og_sensorer, omraadets_navn
 
 UKENDT = (STATE_UNAVAILABLE, STATE_UNKNOWN)
 
@@ -141,6 +142,31 @@ class _Tryk:
                 timer()
         self.hold = self.vent = self.skridt = None
         self.daemper = None
+
+
+@callback
+def rummets_lamper(hass: HomeAssistant, data: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """Rummets lamper: alle områdets, plus dem der står i opsætningen og ikke er der længere.
+
+    Ingen skal vælge dem til (Martins ønske 19-09-2026): er en lampe i rummet, er den en
+    mulighed. En lampe, der kommer til i området, er derfor med efter næste indlæsning uden at
+    nogen har gemt rummet — men den lander i ingen automatik og gør derfor kun det, nogen selv
+    beder om, til den bliver lagt i en.
+
+    Det gemte kastes ikke væk. Lamper valgt fra et andet område, dengang det kunne lade sig gøre,
+    bliver ved med at være med, og «tænder ved bevægelse» på en lampe huskes.
+    """
+    gemte = list(data.get(CONF_LAMPER, []))
+    omraade = data.get(CONF_OMRAADE)
+    if not omraade:
+        return gemte
+    kendte = {lampe[CONF_ENTITY_ID] for lampe in gemte}
+    fra_omraadet, _ = lamper_og_sensorer(hass, omraade)
+    return gemte + [
+        {CONF_ENTITY_ID: entity_id, CONF_BEVAEGELSE: True}
+        for entity_id in fra_omraadet
+        if entity_id not in kendte
+    ]
 
 
 def automatikkerne(data: dict[str, Any]) -> list[dict[str, Any]]:
@@ -531,7 +557,7 @@ class Rum:
         self.id = subentry.subentry_id
         self.omraade: str | None = data.get(CONF_OMRAADE)
         self._titel = subentry.title
-        lamper = data.get(CONF_LAMPER, [])
+        lamper = rummets_lamper(hass, data)
         self.lys: list[str] = [lampe[CONF_ENTITY_ID] for lampe in lamper]
         # Lamperne, bevægelse tænder. De andre hører til deres automatik og slukker med den.
         self.bevaegelseslamper: list[str] = [
@@ -723,9 +749,17 @@ class Rum:
     # dobbeltklik-vinduet er forbi — ellers ville første klik i et dobbeltklik nå at slukke lyset.
 
     def kortets_lamper(self, kort_id: str) -> list[str] | None:
-        """Lamperne, et kort viser. Tom liste er hele rummet, og så er svaret None — «alle»."""
-        kortet = self.kort.get(kort_id)
-        return (kortet or {}).get(KORT_LAMPER) or None
+        """Lamperne, et kort viser. Tom liste er hele rummet, og så er svaret None — «alle».
+
+        Et kort for hele rummet kan have fravalgt enkelte lamper; så er svaret resten. Det er
+        stadig «alt lys»: en ny lampe i området er med, uden at nogen retter kortet.
+        """
+        kortet = self.kort.get(kort_id) or {}
+        if valgte := kortet.get(KORT_LAMPER):
+            return valgte
+        if undtagne := kortet.get(KORT_UNDTAGEN):
+            return [lampe for lampe in self.lys if lampe not in undtagne] or None
+        return None
 
     def _knappens_lamper(self, knap: str) -> list[str] | None:
         """Lamperne, en knap styrer. None er hele rummet — også når kortet er væk eller står tomt:
@@ -1101,12 +1135,16 @@ def _kortet(
         lamper = vaerdi.get(KORT_LAMPER) or []
         kortet = {
             KORT_LAMPER: list(lamper),
+            # «Alt lys, undtagen ...»: lamper, kortet alligevel ikke viser. Kun meningsfuld, når
+            # kortet er hele rummet — vælger man lamper til, er det dem, der gælder.
+            KORT_UNDTAGEN: list(vaerdi.get(KORT_UNDTAGEN) or []),
             KORT_SCENER: list(vaerdi.get(KORT_SCENER) or []),
             KORT_IKON: vaerdi.get(KORT_IKON) or None,
         }
     else:
         kortet = {
             KORT_LAMPER: [] if vaerdi is None else list(vaerdi),
+            KORT_UNDTAGEN: [],
             KORT_SCENER: list(scener),
             KORT_IKON: ikon,
         }
@@ -1115,6 +1153,8 @@ def _kortet(
         # der alle — viser kortet hele rummet.
         valgte = [entity_id for entity_id in lys if entity_id in kortet[KORT_LAMPER]]
         kortet[KORT_LAMPER] = [] if len(valgte) == len(lys) else valgte
+        # Et fravalg af en lampe, der ikke er i rummet længere, siger ikke noget.
+        kortet[KORT_UNDTAGEN] = [e for e in lys if e in kortet[KORT_UNDTAGEN]]
     return kortet
 
 

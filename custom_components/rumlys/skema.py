@@ -29,6 +29,7 @@ from .const import (
     CONF_KORT,
     KORT_IKON,
     KORT_LAMPER,
+    KORT_UNDTAGEN,
     KORT_SCENER,
     CONF_LAMPER,
     CONF_LYS,
@@ -200,6 +201,10 @@ KORT = vol.Any(
     vol.Schema(
         {
             vol.Optional(KORT_LAMPER, default=list): [cv.entity_domain("light")],
+            # «Alt lys, undtagen ...». Et kort for hele rummet, der har fravalgt et par lamper, er
+            # stadig hele rummet: en lampe, der kommer til i området, er med af sig selv. Derfor
+            # gemmes undtagelserne og ikke en liste over dem, kortet viser.
+            vol.Optional(KORT_UNDTAGEN, default=list): [cv.entity_domain("light")],
             vol.Optional(KORT_SCENER, default=list): [cv.string],
             vol.Optional(KORT_IKON, default=None): vol.Any(None, cv.icon),
         }

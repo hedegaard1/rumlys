@@ -124,6 +124,28 @@ async def test_kun_listen_for_andre_end_administratorer(
     assert svar["error"]["code"] == "unauthorized"
 
 
+async def test_lamperne_kommer_fra_omraadet(
+    hass: HomeAssistant, hass_ws_client: WebSocketGenerator
+) -> None:
+    """Ingen vaelger rummets lamper til: er en lampe i omraadet, er den rummets.
+
+    Den lander i ingen automatik, saa den goer kun det nogen selv beder om, til den bliver lagt
+    i en - men den er med paa listen og kan staa paa et kort.
+    """
+    await opsaet(hass)
+    entiteter = er.async_get(hass)
+    entiteter.async_get_or_create("light", "test", "ny", suggested_object_id="gang_ny")
+    entiteter.async_update_entity("light.gang_ny", area_id="gang")
+    hass.states.async_set("light.gang_ny", "off", {"friendly_name": "Gang Ny"})
+    klient = await hass_ws_client(hass)
+
+    svar = await kommando(klient, type="rumlys/rum/hent", rum_id="gang")
+    lamper = [lampe["entity_id"] for lampe in svar["result"]["lamper"]]
+    assert lamper == [SPOTS, "light.gang_ny"]
+    # Den er ikke i nogen automatik - den taendes ikke af bevaegelse, foer nogen laegger den i en.
+    assert svar["result"]["automatik"][0]["lamper"] == [SPOTS]
+
+
 async def test_hent_folder_automatikken_ud(
     hass: HomeAssistant, hass_ws_client: WebSocketGenerator
 ) -> None:
@@ -222,11 +244,11 @@ async def test_kortenes_lamper(hass: HomeAssistant, hass_ws_client: WebSocketGen
     # Lamper uden for rummet tæller ikke, og alle rummets lamper er hele rummet. Et kort, hvis lamper
     # alle er uden for rummet, viser hele rummet — to kort må gerne vise den samme lampe fra 0.6.0.
     assert liste[0]["kort"] == {
-        "k1": {"lamper": [bord], "scener": ["s1"], "ikon": None},
-        "k2": {"lamper": [], "scener": [], "ikon": None},
-        "k3": {"lamper": [], "scener": [], "ikon": None},
-        "k5": {"lamper": [], "scener": [], "ikon": None},
-        "k6": {"lamper": [], "scener": [], "ikon": "mdi:lamp"},
+        "k1": {"lamper": [bord], "undtagen": [], "scener": ["s1"], "ikon": None},
+        "k2": {"lamper": [], "undtagen": [], "scener": [], "ikon": None},
+        "k3": {"lamper": [], "undtagen": [], "scener": [], "ikon": None},
+        "k5": {"lamper": [], "undtagen": [], "scener": [], "ikon": None},
+        "k6": {"lamper": [], "undtagen": [], "scener": [], "ikon": "mdi:lamp"},
     }
 
     # Nye kort fra sidepanelet: et kort, rummet kender, røres ikke.
@@ -236,7 +258,7 @@ async def test_kortenes_lamper(hass: HomeAssistant, hass_ws_client: WebSocketGen
         kort={"k1": {"lamper": [SPOTS]}, "k4": {"lamper": [SPOTS], "scener": ["s2"]}},
     )
     assert svar["result"]["kort"]["k1"]["lamper"] == [bord]
-    assert svar["result"]["kort"]["k4"] == {"lamper": [SPOTS], "scener": ["s2"], "ikon": None}
+    assert svar["result"]["kort"]["k4"] == {"lamper": [SPOTS], "undtagen": [], "scener": ["s2"], "ikon": None}
     # Tilstandssensoren viser, at kortene er ændret, så kort på andre skærme henter rummet igen.
     await hass.async_block_till_done()
     assert hass.states.get("sensor.gang_tilstand").attributes["kort_opdateret"] not in (None, foer)
@@ -246,7 +268,7 @@ async def test_kortenes_lamper(hass: HomeAssistant, hass_ws_client: WebSocketGen
     await hass.async_block_till_done()
     liste = (await kommando(klient, type="rumlys/rum/liste"))["result"]
     assert sorted(liste[0]["kort"]) == ["k1", "k2", "k3", "k4", "k5", "k6"]
-    assert liste[0]["kort"]["k1"] == {"lamper": [bord], "scener": ["s1"], "ikon": None}
+    assert liste[0]["kort"]["k1"] == {"lamper": [bord], "undtagen": [], "scener": ["s1"], "ikon": None}
 
     # Et gem, hvor kun kortene er ændret, gemmer dem også — og et glemt kort er væk.
     data = (await kommando(klient, type="rumlys/rum/hent", rum_id="gang"))["result"]["data"]
@@ -256,7 +278,7 @@ async def test_kortenes_lamper(hass: HomeAssistant, hass_ws_client: WebSocketGen
     await hass.async_block_till_done()
     liste = (await kommando(klient, type="rumlys/rum/liste"))["result"]
     # Rummet har to lamper, så loftspottene alene er ikke hele rummet.
-    assert liste[0]["kort"] == {"k1": {"lamper": [SPOTS], "scener": ["s1"], "ikon": None}}
+    assert liste[0]["kort"] == {"k1": {"lamper": [SPOTS], "undtagen": [], "scener": ["s1"], "ikon": None}}
 
 
 async def test_gem_afviser_det_ugyldige(hass: HomeAssistant, hass_ws_client: WebSocketGenerator) -> None:

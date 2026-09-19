@@ -22,6 +22,7 @@ import {
   ikon,
   ikonStak,
   kanFarve,
+  lampensEvner,
   kanHvid,
   kategoriNavn,
   kelvinGraenser,
@@ -110,6 +111,14 @@ button { font: inherit; color: inherit; }
   border: 2px solid var(--rl-linje); color: var(--rl-daempet); transition: background .3s, color .3s, border-color .3s;
 }
 .paere-prik.taendt { border-color: transparent; }
+/* Hvad lampen kan, som små runde mærker ud for den: en cirkel fra gult til køligt hvidt for lys,
+   der kan stilles, farvehjulet for farver, og en enkelt gul bolle for en pære, der hverken kan
+   det ene eller det andet. Designet kommer fra mockuppen (Martins ønske 19-09-2026). */
+.evner { display: inline-flex; gap: 4px; align-items: center; flex: none; }
+.evne { width: 18px; height: 18px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0,0,0,.22); }
+.evne.temp { background: linear-gradient(to bottom, #dcefff, #ffffff 48%, #ffd39b); }
+.evne.farve { background: conic-gradient(from .25turn, #ff2d2d, #ffe600, #2bd93a, #00d8d8, #2b5cff, #e42bff, #ff2d2d); }
+.evne.gul { background: #ffcf70; }
 .levende { display: flex; align-items: center; gap: 12px; margin-top: 10px; font-size: 14px; }
 .glod { width: 36px; height: 36px; border-radius: 50%; background: var(--rl-flade2); flex: none; transition: background .3s; }
 .levende small { display: block; color: var(--rl-daempet); font-size: 12px; }
@@ -944,6 +953,26 @@ class RumlysPanel extends HTMLElement {
         if (v !== "eget") saetLamper(v === "hele" ? [] : [v]);
       });
       dele.push(h("div", { class: "felt" }, h("label", {}, this.t("viser")), vaelger));
+
+      // Et kort for hele rummet kan fravælge enkelte lamper — fx lyset i en 3D-printer — og er
+      // stadig «Alt lys»: en ny lampe i området er med, uden at nogen retter kortet. Derfor gemmes
+      // undtagelserne og ikke en liste over det, kortet viser (Martins ønske 19-09-2026).
+      if (hele) {
+        const undtagne = ((d.kort[k.id] || {}).undtagen || []).filter((l) => lamper.indexOf(l) >= 0);
+        const knap = h("button", { class: "knap", type: "button" },
+          undtagne.length ? undtagne.map(lampeNavn).join(", ") : this.t("undtagen_ingen"));
+        knap.addEventListener("click", () => this._vaelgLamper({
+          titel: this.t("vaelg_undtagne"),
+          lamper,
+          valgte: undtagne,
+          gem: (nye) => {
+            d.kort[k.id] = Object.assign({}, d.kort[k.id], { undtagen: nye });
+            this._genTegn("kort");
+          },
+          fortryd: () => this._genTegn("kort"),
+        }));
+        dele.push(h("div", { class: "felt" }, h("label", {}, this.t("undtagen")), knap, h("small", { class: "hint" }, this.t("undtagen_hint"))));
+      }
 
       // Kortets eget ikon. «Automatisk» tegner kortets egne lampers ikoner.
       dele.push(this._kortIkon(k.id, hele ? lamper : valgte));
@@ -1790,15 +1819,20 @@ class RumlysPanel extends HTMLElement {
       gruppe.forEach((m) => medlemmer.add(m));
     });
     const liste = h("div", {});
-    const raekke = (entityId, navn, under) => {
-      const lampe = valgte.get(entityId);
-      const valgt = !!lampe;
-      const flueben = h("button", { class: "flueben" + (valgt ? " til" : ""), "aria-pressed": String(valgt), type: "button" }, valgt ? ikon("mdi:check") : null);
-      flueben.addEventListener("click", () => {
-        if (valgt) d.lamper = d.lamper.filter((l) => l.entity_id !== entityId);
-        else d.lamper.push({ entity_id: entityId, bevaegelse: true });
-        this._lamperAendret();
-      });
+    // Rummets lamper er områdets — ingen skal vælge dem til (Martins ønske 19-09-2026). Fluebenet
+    // står derfor kun ud for en lampe, der IKKE er i området: en, der blev valgt ind fra et andet
+    // område, dengang det kunne lade sig gøre. Den skal kunne komme af igen.
+    const raekke = (entityId, navn, under, kanFravaelges) => {
+      const lampe = valgte.get(entityId) || { entity_id: entityId, bevaegelse: true };
+      const valgt = true;
+      let flueben = null;
+      if (kanFravaelges) {
+        flueben = h("button", { class: "flueben til", "aria-pressed": "true", type: "button", title: this.t("fjern_lampe") }, ikon("mdi:check"));
+        flueben.addEventListener("click", () => {
+          d.lamper = d.lamper.filter((l) => l.entity_id !== entityId);
+          this._lamperAendret();
+        });
+      }
       let foelger = null;
       if (valgt) {
         const kontakt = h("button", { class: "kontakt" + (lampe.bevaegelse ? " til" : ""), type: "button", "aria-pressed": String(lampe.bevaegelse) });
@@ -1824,18 +1858,18 @@ class RumlysPanel extends HTMLElement {
         // Rummets ikon under «Rummet» viser lampernes egne ikoner.
         setTimeout(() => this._genTegn("rummet"));
       });
-      return h("div", { class: "raekke" }, flueben, ikonKnap, h("div", { class: "tx" }, h("b", {}, navn), under ? h("small", {}, under) : null), foelger);
+      return h("div", { class: "raekke" }, flueben, ikonKnap, h("div", { class: "tx" }, h("b", {}, navn), under ? h("small", {}, under) : null), this._evneMaerker(entityId), foelger);
     };
     omraade.lamper.forEach((l) => {
       if (medlemmer.has(l.entity_id) && !valgte.has(l.entity_id)) return;
-      liste.appendChild(raekke(l.entity_id, l.navn, l.gruppe.length ? this.t("gruppe_med", { n: l.gruppe.length }) : ""));
+      liste.appendChild(raekke(l.entity_id, l.navn, l.gruppe.length ? this.t("gruppe_med", { n: l.gruppe.length }) : "", false));
     });
     d.lamper.forEach((l) => {
       if (kendte.has(l.entity_id)) return;
       const st = this._hass.states[l.entity_id];
       // En lampe valgt, dengang man kunne tage dem fra andre områder. Den styres stadig, så den
       // skal kunne ses og vælges fra — men der kommer ingen nye til.
-      liste.appendChild(raekke(l.entity_id, st ? st.attributes.friendly_name || l.entity_id : l.entity_id, this.t("ikke_i_omraadet")));
+      liste.appendChild(raekke(l.entity_id, st ? st.attributes.friendly_name || l.entity_id : l.entity_id, this.t("ikke_i_omraadet"), true));
     });
     if (!liste.children.length) liste.appendChild(h("p", { class: "hint" }, this.t("ingen_lamper")));
     // «Ingen sensor valgt» og «ingen sensor i området» er to forskellige ting, og det var kun den
@@ -1845,6 +1879,20 @@ class RumlysPanel extends HTMLElement {
       ? h("p", { class: "hint advarsel" }, this.t(omraade.sensorer.length ? "sensor_ikke_valgt" : "bevaegelse_uden_sensor"))
       : null;
     return this._sektion(RUMLYS_IKON, this.t("lamper"), this.t("lamper_hint"), liste, udenSensorHint);
+  }
+
+  // Hvad lampen kan, som små runde mærker: en cirkel fra gult til køligt hvidt for lys, der kan
+  // stilles, farvehjulet for farver, og en enkelt gul bolle for en pære, der kan ingen af delene.
+  // En lampe, der kun kan dæmpes, får den gule med sin egen forklaring — det er ikke det samme
+  // som et relæ, der kun kan tænde og slukke.
+  _evneMaerker(entityId) {
+    const kan = lampensEvner(this._hass, entityId);
+    const maerker = [];
+    if (kan.temp) maerker.push(["temp", this.t("evne_temp")]);
+    if (kan.farve) maerker.push(["farve", this.t("evne_farve")]);
+    if (!maerker.length) maerker.push(["gul", this.t(kan.daemp ? "evne_daemp" : "evne_onoff")]);
+    return h("span", { class: "evner" }, ...maerker.map(([k, t]) =>
+      h("span", { class: "evne " + k, role: "img", "aria-label": t, title: t })));
   }
 
   // Lampens ikon hører til lampen, ikke til rummet: det gemmes med det samme i Home Assistants

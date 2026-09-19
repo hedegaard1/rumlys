@@ -33,6 +33,23 @@ proev("et kort for én lampe viser kun den", () => {
   assert.equal(v.hele, false);
 });
 
+proev("«Alt lys» kan fravælge en lampe og stadig være alt lys", () => {
+  const v = kortetsValg(kort("a"), LAMPER, { a: { lamper: [], undtagen: [BAAND] } });
+  assert.deepEqual(v.lamper, [LOFT]);
+  assert.deepEqual(v.undtagne, [BAAND]);
+  // Stadig rummets kort: det hedder «Alt lys», og en ny lampe i området kommer med af sig selv.
+  assert.equal(v.hele, true);
+  const medNy = kortetsValg(kort("a"), LAMPER.concat(["light.ny"]), { a: { lamper: [], undtagen: [BAAND] } });
+  assert.deepEqual(medNy.lamper, [LOFT, "light.ny"]);
+});
+
+proev("valgte lamper slår fravalg: et kort for én lampe er ikke alt lys", () => {
+  const v = kortetsValg(kort("a"), LAMPER, { a: { lamper: [LOFT], undtagen: [BAAND] } });
+  assert.deepEqual(v.lamper, [LOFT]);
+  assert.deepEqual(v.undtagne, []);
+  assert.equal(v.hele, false);
+});
+
 proev("to kort må vise den samme lampe", () => {
   const valg = { a: { lamper: [LOFT] }, b: { lamper: [LOFT, BAAND] } };
   assert.deepEqual(kortetsValg(kort("a"), LAMPER, valg).lamper, [LOFT]);
