@@ -9,7 +9,7 @@
 // relativt, så Rumlys' egne ikoner også virker på testsiden og i node-testen.
 import "./ikoner/rumlys-ikoner.js";
 
-export const VERSION = "0.6.3";
+export const VERSION = "0.7.0";
 // Mappen, filen selv ligger i — i Home Assistant med versionen i stien, på testsiden repoets egen.
 export const FILER = new URL("./", import.meta.url).href;
 // Scenerne ligger i Rumlys selv. I Home Assistant har de en fast adresse uden version, så et kort,
@@ -87,7 +87,7 @@ const TEKSTER = {
     flere_steder: "Kortet står {n} gange, og alle viser de samme lamper. «Adskil» giver det sidste sit eget valg.",
     adskil: "Adskil",
     fane: "Fane",
-    tilfoej_kort: "Tilføj kort til en fane",
+    tilfoej_kort: "Nyt kort",
     tilfoej_kort_hint: "Kortet sættes nederst i fanen. Bagefter kan du trække det på plads på betjeningspanelet.",
     tilfoej: "Tilføj",
     har_kort: "har et kort",
@@ -268,6 +268,11 @@ const TEKSTER = {
     taendte_automatikker: "{n} af {i} automatikker i gang",
     bevaegelse_nu: "bevægelse nu",
     uden_automatik: "{n} uden automatik",
+    kortets_automatik: "automatik: {navn}",
+    n_automatikker: "{n} automatikker",
+    en_knap: "1 knap",
+    n_knapper: "{n} knapper",
+    foelger_kortet: "Følger kortet {navn}",
     scenefelter: "Scenefelter",
     automatisk: "Automatisk",
     mindst: "Mindst",
@@ -351,7 +356,7 @@ const TEKSTER = {
     flere_steder: "The card appears {n} times, and all of them show the same lights. «Separate» gives the last one its own choice.",
     adskil: "Separate",
     fane: "Tab",
-    tilfoej_kort: "Add a card to a tab",
+    tilfoej_kort: "New card",
     tilfoej_kort_hint: "The card is placed at the bottom of the tab. You can drag it into place on the dashboard afterwards.",
     tilfoej: "Add",
     har_kort: "has a card",
@@ -532,6 +537,11 @@ const TEKSTER = {
     taendte_automatikker: "{n} of {i} automations running",
     bevaegelse_nu: "motion now",
     uden_automatik: "{n} without automation",
+    kortets_automatik: "automation: {navn}",
+    n_automatikker: "{n} automations",
+    en_knap: "1 button",
+    n_knapper: "{n} buttons",
+    foelger_kortet: "Follows the card {navn}",
     scenefelter: "Scene tiles",
     automatisk: "Automatic",
     mindst: "Smallest",

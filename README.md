@@ -49,24 +49,37 @@ vælges.
 ### Rummets side i sidepanelet
 
 Siden har to halvdele. **Automatik** er det, der sker af sig selv, og **Kort** er ren betjening.
+Hovedet øverst fortæller kun, hvad der sker lige nu — det gør ingenting. Lyset styres på kortet.
 
 - **Rummet** — området, rummet hører til.
+- **Lamper** — rummets pulje: hvilke af områdets lamper Rumlys styrer. Hver lampe kan sættes til ikke at
+  tænde ved bevægelse; den hører stadig til sin automatik og slukker med den. Tryk på lampens ikon for at
+  skifte det i Home Assistant — det gælder overalt, også på kortene.
 - **Sensorer** — med «ser nogen nu» og valget Bevægelse eller Tilstedeværelse. En bevægelsessensor ser ikke
   en, der står stille, så valget sætter den anbefalede tid for lys tændt af sensoren: 5 min med kun
-  bevægelsessensorer, 30 sek. med en tilstedeværelsessensor. Tiden kan stadig sættes frit. **Hver sensor kan
-  tænde sine egne af rummets lamper** — «Tænder: alle bevægelseslamper» som standard, eller fx kun loftspots
-  ved døren. Rummet har stadig én tilstand og én nedtælling: når ingen sensor ser nogen, slukker det samlet.
-- **Automatik** — det, der sker af sig selv, samlet ét sted: rummets lamper, tidsplanen, sluk-tiderne
-  og «hold lys».
-- **Lamper** (i Automatik) — hver lampe kan sættes til ikke at tænde ved bevægelse; den hører stadig til
-  rummet og slukker med det. Tryk på lampens ikon for at skifte det i Home Assistant — det gælder overalt,
-  også på kortene. Her sættes også blød tænd og sluk.
-- **Tidsplan** (i Automatik) — ugen med én række pr. dag. Nederst ligger **Hele døgnet**, rummets eget lys, som gælder,
+  bevægelsessensorer, 30 sek. med en tilstedeværelsessensor. Tiden kan stadig sættes frit. Hvilke sensorer
+  der tænder hvad, vælges i automatikken nedenfor.
+- **Automatik** — en liste af automatikker, én boks hver, og **«Ny automatik»** nederst.
+
+**En automatik er en gruppe af rummets lamper, der opfører sig ens** (fra 0.7.0). Den har sine egne
+sensorer, sit eget lys, sin egen tidsplan, sine egne sluk-tider og sin egen bløde overgang — og sin egen
+nedtælling. **En lampe hører til én automatik**, og det er dét, der gør, at to aldrig kan komme til at
+trække i den samme pære: vælger du en lampe, der hører til en anden, er fluebenet spærret, og rækken siger
+hvor den står. En lampe uden automatik gør kun det, nogen selv beder om. Et nyt rum får én automatik med
+alle lamperne, og sådan bliver et rum fra før 0.7.0 også læst ind.
+
+Hver boks har fem grupper:
+
+- **Lamper** — hvilke af rummets lamper automatikken styrer.
+- **Bevægelse tænder** — hvilke af rummets sensorer der tænder netop dem. Uden en sensor tænder
+  automatikken ikke af sig selv, men tidsrum med fast lys virker stadig.
+- **Tidsplan** — ugen med én række pr. dag. Nederst ligger **Hele døgnet**, rummets eget lys, som gælder,
   når intet tidsrum gør; det kan ikke slettes. Tidsrummene ligger oven på det, fx *Nat* 22:00–06:30 med
   scenen Natlys, og hvert har sit eget lys, sine dage (Alle dage, Hverdage, Weekend eller enkelte dage) og
   eventuelt sin egen sluk-tid. Et lys kan være en scene, en farve, hvidt lys eller kun lysstyrke.
-- **Når ingen er i rummet** (i Automatik) — hvornår lys tændt af sensoren, og lys nogen selv har valgt, slukker.
-- **Hold lys tændt** (i Automatik) — hvor længe.
+- **Når ingen er i rummet** — hvornår lys tændt af sensoren, og lys nogen selv har valgt, slukker. Her
+  sættes også blød tænd og sluk.
+- **Hold lys tændt** — hvor længe.
 - **Kort** — rummets kort på alle betjeningspaneler, i den rækkefølge de står, og hvor de står. **«Tilføj kort til
   en fane»** sætter kortet ind nederst på den fane, du vælger, og i kortets boks vælger du fanen igen for at flytte
   det — eller «Fjern kortet». Hvert kort står som én linje med, hvad det viser; tryk på linjen for at folde den ud.
@@ -79,13 +92,14 @@ Siden har to halvdele. **Automatik** er det, der sker af sig selv, og **Kort** e
   eget id. Listen følger selv
   med, når et betjeningspanel gemmes. Et kort, der fjernes, forsvinder fra listen, men Rumlys husker dets valg,
   så et kort, der kommer igen — fx med Fortryd — stadig viser sine lamper.
-- **Knapper** — rummets vægknapper. Et tryk tænder og slukker, to hurtige tryk holder lyset tændt, og
-  holdes knappen nede, dæmpes lyset — ned, hvis det lyser kraftigt, ellers op, i 10 %-skridt hvert
-  tiendedels sekund. Under **«Styrer»** vælger du, hvad knappen gælder: hele rummet, eller ét af rummets
-  kort — så styrer knappen præcis de lamper, kortet viser. Fjernes kortet, overtager knappen dets lamper,
-  så knappen på væggen bliver ved med at gøre det samme. Ingen knapper er valgt på forhånd: Rumlys skal
-  først overtage knappen, når den gamle automatisering på den er slået fra.
-  Rækken siger **«Nede nu»**, mens knappen er trykket — tryk på den i rummet for at se, hvilken række den er.
+**Knapperne hører til kortet** (fra 0.7.0) og står som en gruppe i kortets boks — det er jo kortet, de
+betjener. Et tryk tænder og slukker, to hurtige tryk holder lyset tændt, og holdes knappen nede, dæmpes
+lyset — ned, hvis det lyser kraftigt, ellers op, i 10 %-skridt hvert tiendedels sekund. Et flueben både
+vælger knappen og peger den på kortet; følger den et andet kort, siger rækken det, og et klik flytter den.
+Fjernes kortet, overtager knappen dets lamper, så knappen på væggen bliver ved med at gøre det samme. Ingen
+knapper er valgt på forhånd: Rumlys skal først overtage knappen, når den gamle automatisering på den er
+slået fra. Rækken siger **«Nede nu»**, mens knappen er trykket — tryk på den i rummet for at se, hvilken
+række den er.
 - **Seneste hændelser** — fx «Slukket: ingen i rummet, valgt lys».
 
 ### Kortet
@@ -177,15 +191,22 @@ stadig; de skifter til `omraade`, når rummet vælges igen i opsætningen.
 
 ## Entiteter
 
-Hvert rum er en enhed med fem entiteter. Id'erne dannes af nøglen, så de er ens på alle sprog:
+Hvert rum er én enhed. Rummet har to entiteter, der gælder det hele, og **hver automatik har sine egne
+fem** (fra 0.7.0). Id'erne dannes af nøglen, så de er ens på alle sprog, og automatikkens nummer står i
+dem, så de bliver stående, når den får flere eller færre lamper:
 
 | Entitet | Hvad den gør |
 |---|---|
-| `switch.<rum>_hold_lys` — Hold lys | Holder lyset tændt i hold-tiden; attributten `slutter` siger hvornår |
-| `number.<rum>_sluk_efter_bevaegelse` — Automatisk lys slukker efter | Sekunder (standard 30) |
-| `number.<rum>_sluk_efter_tryk` — Valgt lys slukker efter | Minutter (standard 5; 0 = aldrig) |
-| `number.<rum>_hold_tid` — Hold lys i | Timer (standard 4) |
-| `sensor.<rum>_tilstand` — Tilstand | Slukket, Tændt af sensor, Valgt lys eller Holdes tændt; attributten `slukker` |
+| `sensor.<rum>_tilstand` — Tilstand | **Opsummering:** den højeste af automatikkernes, i rækkefølgen Holdes tændt, Valgt lys, Tændt af sensor, Slukket. Attributterne `slukker` og `automatikker` |
+| `switch.<rum>_hold_lys` — Hold lys | Holder lyset i **hele** rummet — alle automatikker på én gang |
+| `sensor.<rum>_automatik_N_tilstand` | Netop den automatiks tilstand — den, der faktisk tæller ned. Attributterne `slukker`, `lamper` og `navn` |
+| `switch.<rum>_automatik_N_hold_lys` | Holder lyset i den ene automatik; de andre går videre som de plejer |
+| `number.<rum>_automatik_N_sluk_efter_bevaegelse` | Sekunder (standard 30) |
+| `number.<rum>_automatik_N_sluk_efter_tryk` | Minutter (standard 5; 0 = aldrig) |
+| `number.<rum>_automatik_N_hold_tid` | Timer (standard 4) |
+
+De tre `number.<rum>_*` uden nummer fandtes indtil 0.6.3. Tiderne hører til automatikken nu, og et rum med
+én automatik har dem som `…_automatik_1_…`.
 
 ## Tjenester
 
