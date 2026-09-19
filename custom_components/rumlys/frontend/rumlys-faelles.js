@@ -4,7 +4,12 @@
   ha-martin: hvidt lys tegnes som i Hue-appen, og en hvid scene genkendes på pærerne.
 */
 
-export const VERSION = "0.6.1";
+// Ikonsættet står i sin egen fil, fordi menuen i venstre side skal kunne nå det, før resten
+// af Rumlys er hentet. Home Assistant indlæser den selv fra dens faste adresse; her hentes den
+// relativt, så Rumlys' egne ikoner også virker på testsiden og i node-testen.
+import "./ikoner/rumlys-ikoner.js";
+
+export const VERSION = "0.6.2";
 // Mappen, filen selv ligger i — i Home Assistant med versionen i stien, på testsiden repoets egen.
 export const FILER = new URL("./", import.meta.url).href;
 // Scenerne ligger i Rumlys selv. I Home Assistant har de en fast adresse uden version, så et kort,
@@ -247,13 +252,14 @@ const TEKSTER = {
     vaelg_rum: "Rum",
     rum_findes_ikke: "Rummet findes ikke i Rumlys",
     stoerrelse: "Størrelse",
+    automatisk: "Automatisk",
     lille: "Lille",
     mellem: "Mellem",
     stor: "Stor",
     scenefelter: "Scenefelter",
     smaa: "Små",
     store: "Store med navn",
-    kort_hint: "Lamper, hold lys og scener hentes fra rummet. Hvilke lamper kortet viser, vælger du i Rumlys under rummet, når kortet er gemt. Har rummet allerede et kort på fanen, viser et nyt kort ingen lamper, til de er valgt.",
+    kort_hint: "Lamper, hold lys og scener hentes fra rummet. Hvilke lamper kortet viser, og hvilke scener det har, vælger du i Rumlys under rummet, når kortet er gemt. Indtil da viser kortet hele rummet. «Automatisk» lader kortet følge den bredde, du trækker det ud i.",
     vaelg_rum_hint: "Vælg rummet i kortets opsætning",
     kort_ikke_sat_op: "Ikke sat op i Rumlys",
     saet_op: "Sæt op i Rumlys",
@@ -491,13 +497,14 @@ const TEKSTER = {
     vaelg_rum: "Room",
     rum_findes_ikke: "The room does not exist in Rumlys",
     stoerrelse: "Size",
+    automatisk: "Automatic",
     lille: "Small",
     mellem: "Medium",
     stor: "Large",
     scenefelter: "Scene tiles",
     smaa: "Small",
     store: "Large with name",
-    kort_hint: "Lights, keep light on and scenes come from the room. Which lights the card shows is chosen in Rumlys under the room once the card is saved. If the room already has a card on this tab, a new card shows no lights until they are chosen.",
+    kort_hint: "Lights, keep light on and scenes come from the room. Which lights the card shows, and which scenes it has, is chosen in Rumlys under the room once the card is saved. Until then the card shows the whole room. «Automatic» lets the card follow the width you drag it to.",
     vaelg_rum_hint: "Choose the room in the card's settings",
     kort_ikke_sat_op: "Not set up in Rumlys",
     saet_op: "Set up in Rumlys",
@@ -827,7 +834,7 @@ export function kanFarve(hass, lamper) {
 // Rumlys' lampe i én farve, som ikonsættet «rumlys»: til menuen i venstre side og de steder, Rumlys selv
 // viser sit ikon. Den er tegnet efter brand-ikonet, som beholder sine farver og vises af Home Assistant
 // selv. Kortfilen indlæses på alle sider, så ikonet er klar, før menuen tegnes.
-export const RUMLYS_IKON = "rumlys:lampe";
+export const RUMLYS_IKON = "rumlys:lampe";  // selve ikonet står i ikoner/rumlys-ikoner.js
 
 // Et korts id, som Rumlys kender kortet på. crypto.randomUUID findes kun over https; getRandomValues
 // findes også, når Home Assistant åbnes over almindelig http på husets netværk.
@@ -899,19 +906,6 @@ export function kortetsValg(kortConfig, rumLamper, valg, rumScener) {
     ikon: gemt ? gemt.ikon || null : null,
   };
 }
-const IKONER = {
-  lampe:
-    "M11 1H13V4.5H11ZM8.8 4H15.2V7.4H8.8ZM1.5 13.6A10.5 7.1 0 0 1 22.5 13.6ZM20.4 11.9A8.4 3.6 0 0 0 3.6 11.9Z" +
-    "M14.7 13.6A2.7 2.7 0 0 1 9.3 13.6ZM10.87 18.46L9.87 22.16A1 1 0 0 1 7.93 21.64L8.93 17.94A1 1 0 0 1 10.87 18.46Z" +
-    "M15.07 17.94L16.07 21.64A1 1 0 0 1 14.13 22.16L13.13 18.46A1 1 0 0 1 15.07 17.94Z" +
-    "M6.85 17.99L3.25 19.79A1 1 0 0 1 2.35 18.01L5.95 16.21A1 1 0 0 1 6.85 17.99Z" +
-    "M18.05 16.21L21.65 18.01A1 1 0 0 1 20.75 19.79L17.15 17.99A1 1 0 0 1 18.05 16.21Z",
-};
-window.customIcons = window.customIcons || {};
-window.customIcons.rumlys = {
-  getIcon: async (navn) => ({ path: IKONER[navn] || "" }),
-  getIconList: async () => Object.keys(IKONER).map((name) => ({ name, keywords: ["rumlys", "lampe", "loftlampe"] })),
-};
 
 // Rummets ikoner: det valgte ikon, ellers lampernes egne i rummets rækkefølge. En lampe uden eget ikon —
 // fx en Zigbee2MQTT-gruppe — får sine pærers; hvert ikon vises én gang.

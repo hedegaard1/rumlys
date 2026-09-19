@@ -1,6 +1,6 @@
 // Reglen for et korts lamper, scener og ikon — den samme, sidepanelet og kortene bruger:
 //   node tests/frontend/fordel.test.mjs
-// Uden browser: den fælles fil sætter kun et ikonsæt på `window`.
+// Uden browser: den fælles fil henter ikonsættet, som sætter sig på `window`.
 //
 // Fra 0.6.0 deler kortene ikke længere rummets lamper mellem sig. Et kort er en betjeningsflade,
 // ikke en ejer, så to kort må gerne vise den samme lampe — og så er der ikke noget at fordele.

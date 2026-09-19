@@ -39,6 +39,17 @@ import {
 const NAVN = "rumlys-card";
 // Så bred skal skyderen mindst kunne være mellem ikonerne og knapperne; ellers kommer den under.
 const SKYDER_MIN = 100;
+// Vælger man ikke selv en størrelse, følger tætheden kortets egen bredde: under TAET_LILLE er
+// kortet en lille flise, fra TAET_STOR fylder det en hel bredde. Tallene er valgt efter Home
+// Assistants afsnit-gitter — fire kolonner er 161 px, otte er 331 px, og tolv er 500 px.
+const TAET_LILLE = 300;
+const TAET_STOR = 640;
+// Så meget skal navn og status have ved siden af ikoner og knapper. Er der mindre, får de
+// øverste række for sig selv.
+const TEKST_MIN = 90;
+// Og så meget skal skyderen have på den nederste række. Under det er den ikke til at ramme,
+// og så får den sin egen række under knapperne.
+const SKYDER_SMAL = 72;
 const FARVE_TILSTANDE = ["xy", "hs", "rgb", "rgbw"];
 
 /* ---------- rummene ---------- */
@@ -224,6 +235,16 @@ const STYLE = KONTROL_STYLE + `
   .top.skyder-under { flex-wrap:wrap; row-gap:0; }
   .top.skyder-under .tekst { flex:1 1 0; max-width:none; }
   .top.skyder-under .skyder { order:1; flex:1 1 100%; }
+  /* Et smalt kort: navn og status får øverste række alene, hold, skyder og kontakt den næste. */
+  .brud { display:none; }
+  .top.smal { flex-wrap:wrap; row-gap:8px; }
+  .top.smal .brud { display:block; flex:0 0 100%; height:0; order:1; }
+  .top.smal .tekst { flex:1 1 0; max-width:none; }
+  .top.smal .saet-op { order:2; }
+  .top.smal .hold { order:2; }
+  .top.smal .skyder { order:3; flex:1 1 0; min-width:40px; }
+  .top.smal .kontakt { order:4; margin-left:auto; }
+  .top.smal.skyder-egen .skyder { flex:1 1 100%; order:5; }
   .scener { display:grid; grid-template-columns:repeat(auto-fill, minmax(var(--rl-scene), 1fr)); justify-content:start; gap:var(--rl-scene-gap); margin-top:var(--rl-scene-top); cursor:default; }
   .scener.skjult { display:none; }
   .scener:not(.med-navne) .scene .n { display:none; }
@@ -284,6 +305,7 @@ class RumlysCard extends HTMLElement {
     window.addEventListener(OPDATERET, this._vedOpdatering);
     if (window.ResizeObserver && !this._ro) {
       this._ro = new ResizeObserver(() => {
+        this._saetTaethed();
         this._placerSkyder();
         this._tilpasScener();
       });
@@ -305,11 +327,14 @@ class RumlysCard extends HTMLElement {
   }
 
   getCardSize() {
-    return (this._config && this._config.size === "large" ? 2 : 1) + 1;
+    return (this._taethed() === "stor" ? 2 : 1) + 1;
   }
 
   getGridOptions() {
-    return { columns: 12, rows: "auto", min_columns: this._config && this._config.size === "small" ? 4 : 6 };
+    // Fire kolonner er 161 px. Så smalt et kort er kun til at læse, når tætheden må følge med ned,
+    // så den grænse gælder både «Automatisk» og «Lille».
+    const fast = this._config && this._config.size;
+    return { columns: 12, rows: "auto", min_columns: !fast || fast === "small" ? 4 : 6 };
   }
 
   t(noegle, vaerdier) {
@@ -381,11 +406,44 @@ class RumlysCard extends HTMLElement {
   }
 
   // Ikonerne tegnes kun forfra, når de har ændret sig.
+  // Tætheden: hvor store ikoner, tekst og knapper er. Vælges den ikke i kortets opsætning, følger
+  // den kortets egen bredde, så det samme design holder fra fire kolonner i et afsnit til et kort
+  // i fuld bredde på et panel.
+  _taethed() {
+    const valgt = this._config && this._config.size;
+    if (valgt === "small") return "lille";
+    if (valgt === "medium") return "mellem";
+    if (valgt === "large") return "stor";
+    const bredde = this.clientWidth || (this._el ? this._el.kort.clientWidth : 0);
+    if (!bredde) return this._taet || "mellem";
+    return bredde < TAET_LILLE ? "lille" : bredde >= TAET_STOR ? "stor" : "mellem";
+  }
+
+  _saetTaethed() {
+    const e = this._el;
+    if (!e) return;
+    const bredde = this.clientWidth || e.kort.clientWidth || 0;
+    const taet = this._taethed();
+    // Stakken af ikoner følger kortets bredde, ikke tætheden: vælger man «Stor» på en smal flise,
+    // ville stakken tage pladsen fra navnet, og vælger man «Lille» på et bredt kort, er der plads
+    // til den. Bredden kan ikke svinge af det, den selv bestemmer — derfor måles kortet, ikke
+    // rækken inde i det.
+    const enIkon = !!bredde && bredde < TAET_LILLE;
+    if (taet === this._taet && enIkon === this._enIkon) return;
+    this._taet = taet;
+    this._enIkon = enIkon;
+    e.kort.classList.toggle("lille", taet === "lille");
+    e.kort.classList.toggle("stor", taet === "stor");
+    if (this._ikonerne) this._visIkoner(this._ikonerne);
+  }
+
   _visIkoner(ikoner) {
-    const noegle = ikoner.join("|");
+    this._ikonerne = ikoner;
+    const vist = this._enIkon ? ikoner.slice(0, 1) : ikoner;
+    const noegle = this._taet + "|" + this._enIkon + "|" + vist.join("|");
     if (noegle === this._ikonNoegle) return;
     this._ikonNoegle = noegle;
-    this._el.ikoner.replaceChildren(...[...ikonStak(ikoner).children]);
+    this._el.ikoner.replaceChildren(...[...ikonStak(vist).children]);
   }
 
   _byg() {
@@ -402,7 +460,9 @@ class RumlysCard extends HTMLElement {
     e.tekst = h("div", { class: "tekst" }, e.navn, e.status);
     e.saetOp = h("button", { class: "saet-op", type: "button" });
     e.saetOp.hidden = true;
-    e.top = h("div", { class: "top" }, e.ikoner, e.tekst, e.saetOp, e.skyder, e.hold, e.kontakt);
+    // Tomt element, der kun fylder på et smalt kort, hvor det tvinger linjeskiftet det rigtige sted.
+    e.brud = h("div", { class: "brud" });
+    e.top = h("div", { class: "top" }, e.ikoner, e.tekst, e.saetOp, e.brud, e.skyder, e.hold, e.kontakt);
     e.scener = h("div", { class: "scener skjult" });
     e.kort = h("ha-card", {}, h("div", { class: "inhold" }, e.top, e.scener));
     r.append(h("style", {}, STYLE), e.kort);
@@ -454,8 +514,22 @@ class RumlysCard extends HTMLElement {
     const e = this._el;
     if (!e || !e.top.isConnected) return;
     const bredde = e.top.clientWidth;
-    // Et kort uden rum, eller som ikke kan bruges, har ingen skyder — kun navn, status og knappen.
-    if (!bredde || e.skyder.classList.contains("skjult") || !this._rum()) {
+    const gap = parseFloat(getComputedStyle(e.top).columnGap) || 0;
+    // Et kort uden rum har hverken skyder eller knapper — kun navn, status og knappen, der sætter op.
+    if (!bredde || !this._rum()) {
+      e.top.classList.remove("skyder-under", "skyder-egen");
+      const plads = bredde - (e.ikoner.offsetWidth + e.saetOp.offsetWidth + 2 * gap);
+      e.top.classList.toggle("smal", !!bredde && plads < TEKST_MIN);
+      e.tekst.style.flex = e.tekst.style.maxWidth = "";
+      return;
+    }
+    const knapper = e.ikoner.offsetWidth + e.hold.offsetWidth + e.kontakt.offsetWidth + 3 * gap;
+    // Er der ikke plads til navnet ved siden af knapperne, får navn og status rækken for sig selv,
+    // og hold, skyder og kontakt flytter ned på deres egen. Samme dele, anden opstilling.
+    const smal = bredde - knapper < TEKST_MIN;
+    e.top.classList.toggle("smal", smal);
+    e.top.classList.toggle("skyder-egen", smal && bredde - (knapper - e.ikoner.offsetWidth - gap) < SKYDER_SMAL);
+    if (smal || e.skyder.classList.contains("skjult")) {
       e.top.classList.remove("skyder-under");
       e.tekst.style.flex = e.tekst.style.maxWidth = "";
       return;
@@ -478,9 +552,7 @@ class RumlysCard extends HTMLElement {
         ]
       : [e.status.textContent];
     const tekst = Math.ceil(Math.max(maal(e.navn.textContent, e.navn), ...status.map((s) => maal(s, e.status))));
-    const gap = parseFloat(getComputedStyle(e.top).columnGap) || 0;
-    const plads = bredde - (e.ikoner.offsetWidth + tekst + e.hold.offsetWidth + e.kontakt.offsetWidth + 4 * gap);
-    const under = plads < SKYDER_MIN;
+    const under = bredde - (knapper + tekst + gap) < SKYDER_MIN;
     e.top.classList.toggle("skyder-under", under);
     // Mellem ikonerne og knapperne får teksten den målte bredde, så den står helt og ikke flytter skyderen.
     e.tekst.style.flex = under ? "" : "0 0 " + tekst + "px";
@@ -563,8 +635,7 @@ class RumlysCard extends HTMLElement {
     const c = this._config;
     const e = this._el;
     if (!hass || !c || !e) return;
-    e.kort.classList.toggle("lille", c.size === "small");
-    e.kort.classList.toggle("stor", c.size === "large");
+    this._saetTaethed();
     const rum = this._rum();
     e.kort.classList.toggle("uden-rum", !rum);
     if (!rum) {
@@ -1312,7 +1383,7 @@ class RumlysCardEditor extends HTMLElement {
     r.append(
       h("style", {}, EDITOR_STYLE),
       h("div", { class: "felt" }, h("label", {}, t("vaelg_rum")), vaelger, ikkeSatOp ? h("p", {}, t("ikke_sat_op_hint")) : null),
-      h("div", { class: "felt" }, h("span", { class: "etiket" }, t("stoerrelse")), knapper("size", [["small", "lille"], ["medium", "mellem"], ["large", "stor"]], "medium")),
+      h("div", { class: "felt" }, h("span", { class: "etiket" }, t("stoerrelse")), knapper("size", [["auto", "automatisk"], ["small", "lille"], ["medium", "mellem"], ["large", "stor"]], "auto")),
       h("div", { class: "felt" }, h("span", { class: "etiket" }, t("scenefelter")), knapper("scene_size", [["small", "smaa"], ["large", "store"]], "small")),
       h("p", {}, t("kort_hint"))
     );

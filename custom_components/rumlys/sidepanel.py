@@ -21,6 +21,12 @@ URL = f"/rumlys_filer/{VERSION}"
 # Scenerne har en fast adresse uden version: de ændrer sig ikke mellem versionerne, og et kort,
 # der har stået åbent under en opdatering, kører stadig forrige versions kode og beder om dem dér.
 SCENER_URL = "/rumlys_scener"
+# Ikonsættet har også en fast adresse, og af samme grund som det står i sin egen fil uden
+# import: menuen i venstre side tegner Rumlys' ikon, mens resten af Rumlys stadig hentes, og
+# Home Assistant slår et eget ikonsæt op én gang og prøver aldrig igen. Med en fast adresse
+# ligger filen i browseren fra sidste besøg i stedet for at blive hentet forfra efter hver
+# opdatering. Filen rydder selv op, hvis den alligevel kom for sent.
+IKON_URL = "/rumlys_ikoner"
 
 
 # Beskeden efter en opdatering. En fane, der stod åben, beder om filerne under den gamle versions sti,
@@ -62,8 +68,14 @@ async def async_register(hass: HomeAssistant) -> None:
         [
             StaticPathConfig(URL, str(MAPPE / "frontend"), cache_headers=False),
             StaticPathConfig(SCENER_URL, str(MAPPE / "frontend" / "scener"), cache_headers=False),
+            # Den eneste med cache-headere: browseren må gerne gemme den i en måned, for
+            # det er hele pointen. Ændres et ikon, skal filen have et nyt navn.
+            StaticPathConfig(IKON_URL, str(MAPPE / "frontend" / "ikoner"), cache_headers=True),
         ]
     )
+    # Ikonerne først. Home Assistant gemmer adresserne i et frozenset og lover ingen
+    # rækkefølge, så det er ikke den, der afgør kapløbet — det gør størrelsen og cachen.
+    frontend.add_extra_js_url(hass, f"{IKON_URL}/rumlys-ikoner.js")
     frontend.add_extra_js_url(hass, f"{URL}/rumlys-card.js")
     if DOMAIN not in hass.data.get(frontend.DATA_PANELS, {}):
         await panel_custom.async_register_panel(
@@ -71,11 +83,7 @@ async def async_register(hass: HomeAssistant) -> None:
             frontend_url_path=DOMAIN,
             webcomponent_name="rumlys-panel",
             sidebar_title="Rumlys",
-            # Home Assistant slår et eget ikonsæt op én gang, netop som ikonet tegnes (ha-icon.ts),
-            # og prøver aldrig igen. Menuen kan nå at tegne, før rumlys-card.js har registreret
-            # «rumlys:lampe», og så står Rumlys uden ikon — det samme sker for HACS. Et mdi-ikon
-            # er bygget ind i Home Assistant og er der altid. Vores egen lampe bruges inde i Rumlys.
-            sidebar_icon="mdi:ceiling-light",
+            sidebar_icon="rumlys:lampe",
             module_url=f"{URL}/rumlys-panel.js",
             require_admin=True,
             config={},

@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rumlys kort i alle størrelser (test)</title>
+<style>
+  :root {
+    --primary-color: #f39200; --text-primary-color: #fff; --primary-text-color: #1d1b19; --secondary-text-color: #6b645d;
+    --primary-background-color: #efedea; --secondary-background-color: #f6f4f1; --card-background-color: #fff;
+    --divider-color: #e0dad2; --ha-card-border-radius: 16px; --ha-font-family-body: Figtree, system-ui, sans-serif;
+  }
+  body { margin: 0; padding: 16px 24px 48px; background: var(--primary-background-color); font-family: var(--ha-font-family-body); color: var(--primary-text-color); }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  p.hint { font-size: 13px; color: var(--secondary-text-color); margin: 0 0 20px; max-width: 70ch; }
+  .raekke { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 20px 16px; }
+  .maal { display: grid; gap: 6px; }
+  .maal > span { font-size: 11px; color: var(--secondary-text-color); font-variant-numeric: tabular-nums; }
+  .valg { display: flex; gap: 8px; align-items: center; margin: 0 0 20px; font-size: 13px; }
+  .valg button { border: 1px solid var(--divider-color); background: #fff; border-radius: 999px; padding: 5px 14px; cursor: pointer; font: inherit; }
+  .valg button[aria-pressed="true"] { background: var(--primary-color); color: #fff; border-color: transparent; }
+  h2 { font-size: 13px; color: var(--secondary-text-color); font-weight: 600; margin: 28px 0 10px; }
+</style>
+</head>
+<body>
+<h1>Rumlys kort i alle størrelser</h1>
+<p class="hint">
+  Bredderne er dem, Home Assistants afsnit-gitter giver: 12 kolonner i et afsnit på 500 px med 8 px mellemrum.
+  Kortet kan trækkes fra 4 til 12 kolonner. Nederst står kortet, som det ser ud i en gammeldags kolonne og på et panel i fuld bredde.
+</p>
+<div class="valg">
+  <span>Størrelse:</span>
+  <button data-size="">Automatisk</button>
+  <button data-size="small">Lille</button>
+  <button data-size="medium">Mellem</button>
+  <button data-size="large">Stor</button>
+  <span style="margin-left:16px">Scenefelter:</span>
+  <button data-scene="small">Små</button>
+  <button data-scene="large">Store</button>
+</div>
+
+<h2>Afsnit-gitteret</h2>
+<div class="raekke" id="gitter"></div>
+
+<h2>Kolonne og fuld bredde</h2>
+<div class="raekke" id="brede"></div>
+
+<script type="module">
+  const { hass, vedOpdatering } = await import("./mock.js");
+  await import("../../custom_components/rumlys/frontend/rumlys-card.js");
+
+  const KOL = 12, AFSNIT = 500, MELLEM = 8;
+  const bredde = (n) => Math.round((AFSNIT - (KOL - 1) * MELLEM) / KOL * n + (n - 1) * MELLEM);
+
+  const kortene = [];
+  function saet(vaert, etiket, w, grund) {
+    const boks = document.createElement("div");
+    boks.className = "maal";
+    const navn = document.createElement("span");
+    navn.textContent = etiket + " · " + w + " px";
+    const el = document.createElement("rumlys-card");
+    el.style.width = w + "px";
+    boks.append(navn, el);
+    vaert.append(boks);
+    kortene.push([el, grund]);
+  }
+
+  const gitter = document.getElementById("gitter");
+  for (let n = 4; n <= KOL; n += 1) saet(gitter, n + " kolonner", bredde(n), { omraade: "office", kort: "k111111111111" });
+
+  const brede = document.getElementById("brede");
+  saet(brede, "kolonne", 480, { omraade: "office", kort: "k111111111111" });
+  saet(brede, "panel", 960, { omraade: "office", kort: "k111111111111" });
+  saet(brede, "én lampe, 6 kolonner", bredde(6), { omraade: "office", kort: "k333333333333" });
+  saet(brede, "uden Rumlys, 6 kolonner", bredde(6), { omraade: "living_room" });
+
+  let size = "", scene = "small";
+  function tegn() {
+    kortene.forEach(([el, grund]) => {
+      const config = Object.assign({ type: "custom:rumlys-card", scene_size: scene }, grund);
+      if (size) config.size = size;
+      el.setConfig(config);
+      el.hass = hass;
+    });
+    document.querySelectorAll("[data-size]").forEach((b) => b.setAttribute("aria-pressed", b.dataset.size === size));
+    document.querySelectorAll("[data-scene]").forEach((b) => b.setAttribute("aria-pressed", b.dataset.scene === scene));
+  }
+  document.querySelectorAll("[data-size]").forEach((b) => b.addEventListener("click", () => { size = b.dataset.size; tegn(); }));
+  document.querySelectorAll("[data-scene]").forEach((b) => b.addEventListener("click", () => { scene = b.dataset.scene; tegn(); }));
+  tegn();
+  vedOpdatering(() => kortene.forEach(([el]) => { el.hass = hass; }));
+</script>
+</body>
+</html>

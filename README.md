@@ -30,6 +30,13 @@ Sidepanelet har Rumlys' lampe som ikon i én farve, så det passer til de andre 
 farver bruges af Home Assistant under Enheder og tjenester og i HACS. Ikonet kan også bruges andre steder,
 fx på et kort, som `rumlys:lampe`.
 
+Ikonet står i sin egen fil, `frontend/ikoner/rumlys-ikoner.js`, uden en eneste import, og den serveres på
+`/rumlys_ikoner/` — en adresse, der er den samme fra version til version. Det er der en grund til: Home
+Assistant slår et eget ikonsæt op én gang, netop som ikonet tegnes, og prøver aldrig igen. Menuen tegnes,
+mens resten af Rumlys stadig hentes, så der er et kapløb, og det tabte vi efter hver opdatering, fordi alle
+filerne havde fået en ny adresse og skulle hentes forfra. Nu ligger ikonet i browseren fra sidste besøg.
+Kommer den alligevel for sent, opdager filen det selv og beder menuens ikon om at tegne sig igen.
+
 ### Et rum er et område
 
 **Nyt rum** — i sidepanelet eller under integrationen — spørger kun om området i Home Assistant.
@@ -92,9 +99,18 @@ udseendet:
 type: custom:rumlys-card
 omraade: <områdets id>             # vælges i kortets opsætning
 kort: k1a2b3c4d5e6                 # kortets id — sættes af sig selv
-size: medium                       # small, medium eller large
+size: medium                       # udelades: kortet følger selv sin bredde. Ellers small, medium eller large
 scene_size: small                  # small eller large (med navn)
 ```
+
+**Kortet tilpasser sig den bredde, det bliver trukket ud i** (fra 0.6.2). Det er det samme design hele
+vejen — de samme dele, stillet op efter pladsen. Under 300 px er kortet en lille flise: mindre ikoner og
+tekst, ét ikon i stedet for stakken, og navnet får øverste række for sig selv, mens hold, skyder og kontakt
+står på den næste. Fra 640 px bliver alt større. Derimellem står skyderen enten ved siden af navnet eller
+på sin egen linje, alt efter om navn og den længste status kan stå helt.
+
+Vælger du selv **Lille**, **Mellem** eller **Stor** i kortets opsætning, gælder dit valg i stedet, uanset
+bredden. Opstillingen følger stadig pladsen — ellers ville et stort kort på fire kolonner ikke kunne læses.
 
 **Kortet ejer sine lamper, sine scener og sit ikon**, og de vælges i sidepanelet under rummets **Kort**,
 efter kortets id. Viser kortet nogle af lamperne, gælder tænd og sluk, skyder, scener og menuen dem, og et
