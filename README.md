@@ -99,7 +99,7 @@ udseendet:
 type: custom:rumlys-card
 omraade: <områdets id>             # vælges i kortets opsætning
 kort: k1a2b3c4d5e6                 # kortets id — sættes af sig selv
-size: medium                       # scenefelternes størrelse. Udelades: følger kortets bredde
+size: medium                       # scenefelterne: xsmall, small, medium, large eller xlarge
 scene_size: small                  # large sætter scenernes navne under dem
 ```
 
@@ -112,13 +112,19 @@ stedet for stakken. Er der plads til navnet, den længste status og skyderen på
 mellem dem; ellers lige nedenunder.
 
 **Scenefelterne er det eneste, der skifter størrelse** (fra 0.6.3), og kortets opsætning har derfor to valg:
-**Scenefelter** og **Navne på scenerne**. Lades størrelsen ude, følger felterne kortets bredde — små på en
-smal flise, større på et kort i fuld bredde. **Lille**, **Mellem** og **Stor** sætter dem fast.
+**Scenefelter** og **Navne på scenerne**.
 
-**Felterne er altid kvadratiske.** De strækkes ikke ud i bredden, når der er få: de står til venstre i deres
-egen størrelse, og der kommer så mange på en række, som der er plads til. Er der flere, deles de på så få,
-lige lange rækker som muligt, så de står i en blok frem for en lang række og en enkelt nedenunder. Sættes
-navnene på, bliver felterne fire gange så store — et navn som «Koncentration» skal kunne læses.
+Scenefelterne har fem trin — **Mindst**, **Lille**, **Mellem**, **Stor** og **Størst** — på 20, 40, 60, 80 og
+100 px. Trinnet er dit valg og **følger aldrig kortets bredde**: trækker du kortet bredere, bliver felterne
+ikke større, der kommer bare flere på en række.
+
+**Felterne er altid kvadratiske,** og de strækkes ikke ud, når der er få: er der plads til dem alle på én
+række, står de i den størrelse, du har valgt, og rækken slutter, hvor scenerne slutter. Skal de derimod
+deles på flere rækker, strækkes de lige så meget, at rækkerne går helt ud til højre kant — ellers står der
+et hul i hjørnet, og det ligner en fejl frem for et valg.
+
+**Navnene retter sig efter knappen, ikke omvendt.** Teksten skrumper for at passe i feltet; vil du kunne
+læse navnene, vælger du et større felt.
 
 Kortet bliver selv så højt, som scenerne kræver, og det melder samtidig en bund til afsnittets gitter, så
 de nederste scener ikke kan trækkes væk, hvis du selv tager fat i kortets højde.

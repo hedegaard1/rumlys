@@ -39,11 +39,16 @@ import {
 const NAVN = "rumlys-card";
 // Så bred skal skyderen mindst kunne være mellem ikonerne og knapperne; ellers kommer den under.
 const SKYDER_MIN = 100;
-// Vælger man ikke selv en størrelse, følger tætheden kortets egen bredde: under TAET_LILLE er
-// kortet en lille flise, fra TAET_STOR fylder det en hel bredde. Tallene er valgt efter Home
-// Assistants afsnit-gitter — fire kolonner er 161 px, otte er 331 px, og tolv er 500 px.
-const TAET_LILLE = 300;
-const TAET_STOR = 640;
+// Scenefelternes fem størrelser i pixels. Der skal være rigtig forskel på trinnene: de tre, der
+// var før, lå på 20, 24 og 29 px, og så kunne man ikke se hvilket man havde valgt. Lige trin på
+// 20 px hele vejen, så forskellen er den samme fra et trin til det næste.
+const SCENE_STR = { xsmall: 20, small: 40, medium: 60, large: 80, xlarge: 100 };
+// Størrelsen følger aldrig kortets bredde — den er dit valg og bliver stående (Martin 19-09-2026).
+// Uden et valg er det «Lille».
+const SCENE_STANDARD = SCENE_STR.small;
+// Under så bredt et kort står rummets første ikon alene i stedet for stakken. Det handler om
+// pladsen til navnet, ikke om scenefelterne, og har derfor sin egen grænse.
+const IKON_STAK_MIN = 300;
 // Så meget skal navn og status have ved siden af ikoner og knapper. Er der mindre, får de
 // øverste række for sig selv.
 const TEKST_MIN = 90;
@@ -161,7 +166,7 @@ const KONTROL_STYLE = `
   .scene .n {
     position:absolute; left:0; right:0; bottom:0; box-sizing:border-box;
     border-radius:0 0 var(--rl-scene-radius) var(--rl-scene-radius);
-    padding:2px 2px 3px; line-height:1; text-align:center;
+    padding:0.2em 0.2em 0.3em; line-height:1; text-align:center;
     font-weight:var(--ha-font-weight-medium, 500); font-size:var(--rl-scene-fs, 9px); color:#fff;
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
     background-color:rgba(40, 42, 46, 0.35);
@@ -179,7 +184,8 @@ const STYLE = KONTROL_STYLE + `
     --rl-navn:14px; --rl-status:12px; --rl-knap:30px; --rl-knap-ikon:16px;
     --rl-kontakt-b:38px; --rl-kontakt-h:22px; --rl-knop:16px;
     --rl-skyder-h:22px; --rl-spor-h:4px; --rl-tommel:14px;
-    --rl-scene:24px; --rl-scene-gap:4px; --rl-scene-top:8px; --rl-scene-radius:5px;
+    /* --rl-scene saettes af kortet selv efter den valgte stoerrelse; her staar kun en start. */
+    --rl-scene:40px; --rl-scene-gap:4px; --rl-scene-top:8px; --rl-scene-radius:5px;
     display:block; position:relative; box-sizing:border-box; overflow:hidden; cursor:pointer;
     padding:var(--rl-pad);
     border-radius:var(--ha-card-border-radius, 12px);
@@ -192,8 +198,6 @@ const STYLE = KONTROL_STYLE + `
     --rl-fyld:var(--primary-color); --rl-spor:rgba(127, 127, 127, 0.3); --rl-paa-fyld:var(--text-primary-color, #fff);
     -webkit-tap-highlight-color:transparent; transition:background .4s ease, color .4s ease;
   }
-  ha-card.scener-lille { --rl-scene:20px; --rl-scene-gap:3px; --rl-scene-radius:4px; }
-  ha-card.scener-stor { --rl-scene:29px; --rl-scene-gap:5px; --rl-scene-top:10px; --rl-scene-radius:6px; }
   ha-card.taendt { background:var(--rl-baggrund); color:var(--rl-tekst); border-color:transparent; }
   .inhold { container-type:inline-size; }
   .top { display:flex; align-items:center; gap:var(--rl-gap); min-height:calc(var(--rl-ikon) + 8px); }
@@ -234,7 +238,7 @@ const STYLE = KONTROL_STYLE + `
   .scener { display:grid; grid-template-columns:repeat(auto-fill, var(--rl-scene)); justify-content:start; gap:var(--rl-scene-gap); margin-top:var(--rl-scene-top); cursor:default; }
   .scener.skjult { display:none; }
   .scener:not(.med-navne) .scene .n { display:none; }
-  .scener.med-navne .scene .n { padding:3px 4px 4px; }
+  .scener.med-navne .scene .n { padding:0.25em 0.35em 0.35em; }
   /* Uden et rum i Rumlys er der intet at styre — kun knappen, der sætter rummet op. */
   ha-card.uden-rum { cursor:default; }
   ha-card.uden-rum .skyder, ha-card.uden-rum .hold, ha-card.uden-rum .kontakt, ha-card.uden-rum .scener { display:none; }
@@ -291,7 +295,7 @@ class RumlysCard extends HTMLElement {
     window.addEventListener(OPDATERET, this._vedOpdatering);
     if (window.ResizeObserver && !this._ro) {
       this._ro = new ResizeObserver(() => {
-        this._saetTaethed();
+        this._saetScener();
         this._placerSkyder();
         this._tilpasScener();
       });
@@ -396,41 +400,31 @@ class RumlysCard extends HTMLElement {
   }
 
   // Ikonerne tegnes kun forfra, når de har ændret sig.
-  // Hvor store scenefelterne er. Vælges det ikke i kortets opsætning, følger det kortets egen
-  // bredde, så en smal flise får mindre felter end et kort i fuld bredde. Kortets øvrige dele
-  // har samme størrelse hele vejen.
-  _taethed() {
-    const valgt = this._config && this._config.size;
-    if (valgt === "small") return "lille";
-    if (valgt === "medium") return "mellem";
-    if (valgt === "large") return "stor";
-    const bredde = this.clientWidth || (this._el ? this._el.kort.clientWidth : 0);
-    if (!bredde) return this._taet || "mellem";
-    return bredde < TAET_LILLE ? "lille" : bredde >= TAET_STOR ? "stor" : "mellem";
+  // Scenefelternes størrelse i pixels — kortets eget valg, uanset hvor bredt det er trukket ud.
+  _sceneStoerrelse() {
+    return (this._config && SCENE_STR[this._config.size]) || SCENE_STANDARD;
   }
 
-  _saetTaethed() {
+  _saetScener() {
     const e = this._el;
     if (!e) return;
     const bredde = this.clientWidth || e.kort.clientWidth || 0;
-    const taet = this._taethed();
-    // Stakken af ikoner følger kortets bredde, ikke tætheden: vælger man «Stor» på en smal flise,
-    // ville stakken tage pladsen fra navnet, og vælger man «Lille» på et bredt kort, er der plads
-    // til den. Bredden kan ikke svinge af det, den selv bestemmer — derfor måles kortet, ikke
-    // rækken inde i det.
-    const enIkon = !!bredde && bredde < TAET_LILLE;
-    if (taet === this._taet && enIkon === this._enIkon) return;
-    this._taet = taet;
+    const str = this._sceneStoerrelse();
+    // Stakken af ikoner følger kortets bredde, ikke scenefelterne: vælger man store felter på en
+    // smal flise, ville stakken tage pladsen fra navnet. Bredden kan ikke svinge af det, den selv
+    // bestemmer — derfor måles kortet, ikke rækken inde i det.
+    const enIkon = !!bredde && bredde < IKON_STAK_MIN;
+    if (str === this._sceneStr && enIkon === this._enIkon) return;
+    this._sceneStr = str;
     this._enIkon = enIkon;
-    e.kort.classList.toggle("scener-lille", taet === "lille");
-    e.kort.classList.toggle("scener-stor", taet === "stor");
+    e.kort.style.setProperty("--rl-scene", str + "px");
     if (this._ikonerne) this._visIkoner(this._ikonerne);
   }
 
   _visIkoner(ikoner) {
     this._ikonerne = ikoner;
     const vist = this._enIkon ? ikoner.slice(0, 1) : ikoner;
-    const noegle = this._taet + "|" + this._enIkon + "|" + vist.join("|");
+    const noegle = this._enIkon + "|" + vist.join("|");
     if (noegle === this._ikonNoegle) return;
     this._ikonNoegle = noegle;
     this._el.ikoner.replaceChildren(...[...ikonStak(vist).children]);
@@ -558,19 +552,24 @@ class RumlysCard extends HTMLElement {
     if (!e || !n) return;
     const w = e.scener.getBoundingClientRect().width;
     if (!w) return;
-    const cs = getComputedStyle(e.kort);
-    const maal = (navn) => parseFloat(cs.getPropertyValue(navn)) || 0;
     const medNavne = this._config.scene_size === "large";
-    const gap = maal("--rl-scene-gap");
-    // Med navne under skal feltet være meget større — et navn som «Koncentration» kræver omkring
-    // 80 px for at kunne læses. Halveringen af felterne gælder dem uden navn; med navn er de, hvad
-    // de altid har været.
-    const felt = maal("--rl-scene") * (medNavne ? 4 : 1);
-    const plads = Math.max(1, Math.floor((w + gap) / (felt + gap)));
-    const kol = Math.min(n, Math.ceil(n / Math.ceil(n / plads)));
-    e.scener.style.gridTemplateColumns = "repeat(" + kol + ", " + felt + "px)";
+    // Navnet retter sig efter knappen, ikke omvendt: feltet er den størrelse, du har valgt, og
+    // teksten skrumper for at passe ind (Martins ønske 19-09-2026). Vil du kunne læse navnene,
+    // vælger du en større knap.
+    const valgt = this._sceneStr || SCENE_STANDARD;
+    // Mellemrum og hjørner følger feltet, så de fem størrelser ser ens ud, bare i hver sin skala.
+    const gap = Math.max(3, Math.min(9, Math.round(valgt * 0.1)));
+    const plads = Math.max(1, Math.floor((w + gap) / (valgt + gap)));
+    const kol = Math.min(n, plads);
+    // Er der plads til dem alle på én række, står de i den størrelse, du har valgt, og rækken
+    // slutter, hvor scenerne slutter. Skal de deles på flere rækker, strækkes de lige så meget,
+    // at rækkerne går helt ud til højre kant — ellers står der et hul i hjørnet, og det ligner
+    // en fejl frem for et valg (Martins ønske 19-09-2026).
+    const felt = n <= plads ? valgt : (w - (kol - 1) * gap) / kol;
+    e.scener.style.gap = gap + "px";
+    e.scener.style.gridTemplateColumns = "repeat(" + kol + ", " + felt.toFixed(2) + "px)";
+    e.scener.style.setProperty("--rl-scene-radius", Math.max(4, Math.min(16, Math.round(felt * 0.17))) + "px");
     e.scener.classList.toggle("med-navne", medNavne);
-    e.scener.style.setProperty("--rl-scene-radius", medNavne ? maal("--rl-scene-radius") * 1.5 + "px" : "");
     if (!medNavne) return;
     const label = e.scener.querySelector(".n");
     if (!label) return;
@@ -581,7 +580,7 @@ class RumlysCard extends HTMLElement {
     let bredest = 0;
     this._navne.forEach((t) => { bredest = Math.max(bredest, ctx.measureText(t).width / 100); });
     if (!bredest) return;
-    e.scener.style.setProperty("--rl-scene-fs", Math.max(8, Math.min(13, (felt - 6) / (bredest * 1.04))).toFixed(2) + "px");
+    e.scener.style.setProperty("--rl-scene-fs", Math.max(6, Math.min(14, (felt - 4) / (bredest * 1.04))).toFixed(2) + "px");
   }
 
   _startUr() {
@@ -621,7 +620,7 @@ class RumlysCard extends HTMLElement {
     const c = this._config;
     const e = this._el;
     if (!hass || !c || !e) return;
-    this._saetTaethed();
+    this._saetScener();
     const rum = this._rum();
     e.kort.classList.toggle("uden-rum", !rum);
     if (!rum) {
@@ -1372,7 +1371,7 @@ class RumlysCardEditor extends HTMLElement {
       // Scenefelterne er det eneste på kortet, der skifter størrelse, så det er dét, valget hedder.
       // Navnene er ikke en størrelse, men et til og fra — de stod før som «Store med navn» i samme
       // række som størrelserne, og så var der to valg om det samme (Martin fangede det 19-09-2026).
-      h("div", { class: "felt" }, h("span", { class: "etiket" }, t("scenefelter")), knapper("size", [["auto", "automatisk"], ["small", "lille"], ["medium", "mellem"], ["large", "stor"]], "auto")),
+      h("div", { class: "felt" }, h("span", { class: "etiket" }, t("scenefelter")), knapper("size", [["xsmall", "mindst"], ["small", "lille"], ["medium", "mellem"], ["large", "stor"], ["xlarge", "stoerst"]], "small")),
       h("div", { class: "felt" }, h("span", { class: "etiket" }, t("scenenavne")), knapper("scene_size", [["small", "uden_navn"], ["large", "med_navn"]], "small")),
       h("p", {}, t("kort_hint"))
     );
