@@ -146,6 +146,35 @@ async def test_lamperne_kommer_fra_omraadet(
     assert svar["result"]["automatik"][0]["lamper"] == [SPOTS]
 
 
+async def test_gruppens_paerer_taeller_ikke_med_som_egne_lamper(
+    hass: HomeAssistant, hass_ws_client: WebSocketGenerator
+) -> None:
+    """En gruppes paerer er ikke rummets lamper - gruppen er.
+
+    Det kan foerst afgoeres, naar gruppens tilstand findes: pærerne staar i dens `group_entities`.
+    Ved indlaesningen under Home Assistants opstart er den der ikke, og saa tog rummet de seks
+    spots med som seks selvstaendige lamper. Maalt paa Kontor 19-09-2026: «0 af 8 lamper taendt ·
+    6 uden automatik», mens sidepanelet - som spoerger bagefter - viste to.
+    """
+    await opsaet(hass)
+    entiteter = er.async_get(hass)
+    for navn in ("gang_gruppe", "gang_paere"):
+        entiteter.async_get_or_create("light", "test", navn, suggested_object_id=navn)
+        entiteter.async_update_entity(f"light.{navn}", area_id="gang")
+    hass.states.async_set("light.gang_paere", "off", {"friendly_name": "Gang Paere"})
+    hass.states.async_set(
+        "light.gang_gruppe",
+        "off",
+        {"friendly_name": "Gang Gruppe", "group_entities": ["light.gang_paere"]},
+    )
+    klient = await hass_ws_client(hass)
+
+    svar = await kommando(klient, type="rumlys/rum/hent", rum_id="gang")
+    lamper = [lampe["entity_id"] for lampe in svar["result"]["lamper"]]
+    assert "light.gang_gruppe" in lamper
+    assert "light.gang_paere" not in lamper, "gruppens paere kom med som sin egen lampe"
+
+
 async def test_hent_folder_automatikken_ud(
     hass: HomeAssistant, hass_ws_client: WebSocketGenerator
 ) -> None:

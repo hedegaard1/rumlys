@@ -77,7 +77,10 @@ button { font: inherit; color: inherit; }
 .knap { border: 0; border-radius: 999px; padding: 9px 16px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; font-weight: 500; font-size: 14px; background: var(--rl-flade2); }
 .knap.p { background: var(--rl-p); color: var(--rl-paa-p); }
 .knap.t { background: transparent; color: var(--rl-p); padding: 9px 8px; }
-.knap.farlig { background: transparent; color: var(--error-color, #db4437); padding: 9px 8px; }
+/* En handling, der afslutter et område — «Fjern kortet», «Ny automatik», «Slet rummet» — er en
+   rigtig knap som «Gem rum» nederst på siden, ikke et tekstlink (Martins ønske 19-09-2026). De små
+   tilføj-handlinger inde i et område bliver ved med at være links: de er ikke det, man går efter. */
+.knap.farlig { background: var(--rl-flade2); color: var(--error-color, #db4437); }
 .knap[disabled] { opacity: .45; cursor: default; }
 .knap ha-icon { --mdc-icon-size: 18px; }
 .ikonknap { border: 0; background: transparent; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; cursor: pointer; color: inherit; }
@@ -105,10 +108,16 @@ button { font: inherit; color: inherit; }
 
 /* rummets side */
 .hoved { background: var(--rl-flade); border-radius: var(--rl-radius); box-shadow: var(--rl-skygge); padding: 14px 16px; margin-bottom: 14px; }
-.hoved .linje1 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.hoved h1 { font-size: 22px; margin: 0; flex: 1; font-weight: 600; }
-/* Områdets eget ikon foran navnet, som i rumlisten. */
-.hoved .omraadeikon { color: var(--rl-p); --mdc-icon-size: 26px; flex: none; display: flex; }
+.hoved .hovedrad { display: flex; align-items: flex-start; gap: 12px; }
+.hoved .hovedtekst { flex: 1; min-width: 0; }
+.hoved h1 { font-size: 22px; margin: 0 0 2px; font-weight: 600; }
+.hoved b { font-size: 14px; }
+.hoved small { display: block; color: var(--rl-daempet); font-size: 12px; }
+/* Områdets eget ikon i samme lyse cirkel som lampernes, så hovedet hænger sammen med listerne. */
+.hoved .omraadeikon {
+  width: 40px; height: 40px; border-radius: 50%; flex: none; display: grid; place-items: center;
+  background: var(--rl-flade2); color: var(--rl-p); --mdc-icon-size: 24px;
+}
 /* Én prik pr. lampe med lampens eget ikon og den farve, den lyser med lige nu. En gruppe viser
    sine pærers farver som en overgang. Slukket er den en tom ring. */
 .paerer { display: flex; gap: 6px; flex: none; flex-wrap: wrap; }
@@ -130,16 +139,25 @@ button { font: inherit; color: inherit; }
 .knapvalg { border-left: 2px solid var(--rl-linje); margin: 0 0 10px 16px; }
 /* Mærkerne ud for knappen: ét pr. tryk, knappen faktisk gør noget ved. Samme lyse cirkel som
    lampernes ikoner, bare mindre, så de passer i rækken (Martins ønske 19-09-2026). */
+/* Rækken og dens udvidelse hører sammen, men skal blive ved med at være søskende med de andre
+   rækker — ellers forsvinder stregen over dem, og mellemrummet bliver forskelligt. */
+.raekkepar { display: contents; }
+.raekkechev {
+  width: 24px; height: 24px; border-radius: 50%; border: 0; padding: 0; flex: none; cursor: pointer;
+  display: grid; place-items: center; background: transparent; color: var(--rl-daempet); --mdc-icon-size: 20px;
+}
+.raekkechev:hover { background: var(--rl-flade2); }
 .knapmaerker { display: inline-flex; gap: 6px; flex: none; }
 .knapmaerke {
-  width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; flex: none;
-  background: var(--rl-flade2); color: inherit; --mdc-icon-size: 17px;
+  width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; flex: none;
+  background: var(--rl-flade2); color: inherit; --mdc-icon-size: 15px;
 }
+/* Knaprækkerne står lige langt fra hinanden, uanset om en af dem har mærker, en «Nede nu»-pille
+   eller ingen af delene. Ellers hopper listen, i takt med hvad der tilfældigvis er tændt. */
+/* 45 og ikke 44: rækkerne er border-box, så stregen over dem tæller med i højden. */
+.knapliste .raekke { min-height: 45px; }
 .knapvalg .naar { border-top: 0; }
 .knapvalg .hint { margin: 6px 0 10px; }
-.levende { display: flex; align-items: center; gap: 12px; margin-top: 10px; font-size: 14px; }
-.glod { width: 36px; height: 36px; border-radius: 50%; background: var(--rl-flade2); flex: none; transition: background .3s; }
-.levende small { display: block; color: var(--rl-daempet); font-size: 12px; }
 .sek { background: var(--rl-flade); border-radius: var(--rl-radius); box-shadow: var(--rl-skygge); padding: 16px; margin-bottom: 14px; }
 .sek > h2 { font-size: 16px; margin: 0; display: flex; align-items: center; gap: 8px; font-weight: 600; }
 .sek > h2 ha-icon { color: var(--rl-p); --mdc-icon-size: 20px; }
@@ -214,6 +232,10 @@ select, input[type=text], input[type=time], input[type=search] {
 .kortboks { border: 1px solid var(--rl-linje); border-radius: 12px; padding: 12px; display: grid; gap: 8px; justify-items: start; }
 .kortboks .raekke { width: 100%; box-sizing: border-box; }
 .kortboks .hint { margin: 0; }
+/* Kortets boks er delt i områder — placering, hvad det viser, udseende, knapper — med en hårfin
+   streg imellem, så man kan se hvor det ene holder op (Martins ønske 19-09-2026). */
+.kortdel { width: 100%; display: grid; gap: 8px; justify-items: start; }
+.kortdel + .kortdel { border-top: 1px solid var(--rl-linje); padding-top: 12px; margin-top: 2px; }
 .korthoved { display: flex; align-items: center; gap: 8px; width: 100%; box-sizing: border-box; padding: 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
 .korthoved .kt { flex: 1; min-width: 0; display: grid; gap: 2px; }
 .korthoved .kt1 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -251,6 +273,8 @@ select, input[type=text], input[type=time], input[type=search] {
 .fod { position: fixed; left: var(--mdc-drawer-width, 0px); right: 0; bottom: 0; z-index: 3; display: flex; align-items: center; gap: 10px; justify-content: flex-end; padding: 12px 16px;
   background: var(--rl-flade); border-top: 1px solid var(--rl-linje); box-shadow: 0 -2px 10px rgba(0,0,0,.05); }
 .fod .besked2 { margin-right: auto; font-size: 13px; color: var(--rl-daempet); }
+/* «Slet rummet» yderst til venstre, så den ikke står ved siden af «Gem rum». */
+.fod .farlig { margin-right: 12px; }
 
 /* dialog */
 .slor { position: fixed; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.45); padding: 16px; }
@@ -881,7 +905,20 @@ class RumlysPanel extends HTMLElement {
       const f = k.steder[0];
       const stoerrelse = this.t({ xsmall: "mindst", small: "lille", medium: "mellem", large: "stor", xlarge: "stoerst" }[f.config.size] || "automatisk");
       const steder = [...new Set(k.steder.map((s) => s.sted))].join(" · ");
+      // Boksen deles i områder — placering, hvad kortet viser, udseende, knapper — med en streg
+      // imellem, så man kan se hvor det ene holder op og det næste begynder (Martins ønske
+      // 19-09-2026). `del()` begynder et nyt område, `iDel()` lægger noget i det, der er i gang.
       const dele = [];
+      let naervaerende = null;
+      const del = (...boern) => {
+        naervaerende = h("div", { class: "kortdel" }, ...boern.filter(Boolean));
+        dele.push(naervaerende);
+        return naervaerende;
+      };
+      const iDel = (...boern) => {
+        if (!naervaerende) del();
+        boern.filter(Boolean).forEach((b) => naervaerende.appendChild(b));
+      };
       // Kortets eget valg i kladden. Et kort uden id har sit valg i sin egen opsætning.
       const gemt = k.id && k.id in d.kort ? d.kort[k.id] : null;
       const oenskede = gemt ? gemt.lamper : Array.isArray(f.config.lamper) ? f.config.lamper : [];
@@ -934,15 +971,15 @@ class RumlysPanel extends HTMLElement {
           const maal = fund.faner.find((m) => noegleFor(m) === vaelger.value);
           if (maal && noegleFor(maal) !== noegleFor(f)) this._flytKort(f, maal);
         });
-        dele.push(h("div", { class: "felt" }, h("label", {}, this.t("fane")), vaelger));
+        del(h("div", { class: "felt" }, h("label", {}, this.t("fane")), vaelger));
       }
       if (!k.id) {
-        if (f.skrivbar) dele.push(hint(this.t("kort_uden_id")), h("button", { class: "knap", type: "button", onclick: () => this._nytIdTilKort(f, false) }, this.t("giv_id")));
-        else dele.push(hint(this.t("kort_uden_id_yaml", { linje: "kort: " + forslag(f) })));
+        if (f.skrivbar) del(hint(this.t("kort_uden_id")), h("button", { class: "knap", type: "button", onclick: () => this._nytIdTilKort(f, false) }, this.t("giv_id")));
+        else del(hint(this.t("kort_uden_id_yaml", { linje: "kort: " + forslag(f) })));
         return h("div", { class: "kortboks" }, hoved, dele);
       }
       // Står kortet flere steder, er det det samme kort — samme lamper, samme scener, samme ikon.
-      if (k.steder.length > 1) dele.push(hint(this.t("flere_steder", { n: k.steder.length })));
+      if (k.steder.length > 1) iDel(hint(this.t("flere_steder", { n: k.steder.length })));
 
       // Viser: hele rummet eller bestemte lamper. To kort må gerne vise den samme lampe.
       const vaelger = h("select", {});
@@ -970,7 +1007,7 @@ class RumlysPanel extends HTMLElement {
         }
         if (v !== "eget") saetLamper(v === "hele" ? [] : [v]);
       });
-      dele.push(h("div", { class: "felt" }, h("label", {}, this.t("viser")), vaelger));
+      del(h("div", { class: "felt" }, h("label", {}, this.t("viser")), vaelger));
 
       // Et kort for hele rummet kan fravælge enkelte lamper — fx lyset i en 3D-printer — og er
       // stadig «Alt lys»: en ny lampe i området er med, uden at nogen retter kortet. Derfor gemmes
@@ -989,18 +1026,18 @@ class RumlysPanel extends HTMLElement {
           },
           fortryd: () => this._genTegn("kort"),
         }));
-        dele.push(h("div", { class: "felt" }, h("label", {}, this.t("undtagen")), knap, h("small", { class: "hint" }, this.t("undtagen_hint"))));
+        iDel(h("div", { class: "felt" }, h("label", {}, this.t("undtagen")), knap, h("small", { class: "hint" }, this.t("undtagen_hint"))));
       }
 
       // Kortets eget ikon. «Automatisk» tegner kortets egne lampers ikoner.
-      dele.push(this._kortIkon(k.id, hele ? lamper : valgte));
+      del(this._kortIkon(k.id, hele ? lamper : valgte));
       // Kortets scener.
-      dele.push(h("div", { class: "felt" }, h("label", {}, this.t("scener_paa_kortet"))), this._kortScener(k.id, hele ? lamper : valgte));
+      iDel(h("div", { class: "felt" }, h("label", {}, this.t("scener_paa_kortet"))), this._kortScener(k.id, hele ? lamper : valgte));
       // Og kortets vægknapper. De hører til kortet, ikke til rummet: det er kortet, de betjener.
-      dele.push(this._somGruppe(this._sekKortKnapper(k.id)));
+      del(this._somGruppe(this._sekKortKnapper(k.id)));
 
       if (k.steder.length === 1 && f.skrivbar) {
-        dele.push(h("button", { class: "knap farlig", type: "button", onclick: () => this._fjernKort(f) }, ikon("mdi:close"), this.t("fjern_kort")));
+        del(h("button", { class: "knap farlig", type: "button", onclick: () => this._fjernKort(f) }, ikon("mdi:close"), this.t("fjern_kort")));
       }
       return h("div", { class: "kortboks" }, hoved, dele);
     };
@@ -1011,7 +1048,7 @@ class RumlysPanel extends HTMLElement {
     if (!liste.children.length) liste.appendChild(h("p", { class: "hint" }, this.t("ingen_kort")));
     // Rumlys sætter selv kortet ind på den fane, du vælger, så det kender kortet fra første sekund.
     const tilfoej = fund.faner.length
-      ? h("button", { class: "knap t", type: "button", onclick: () => this._vaelgFaneTilKort() }, ikon("mdi:plus"), this.t("tilfoej_kort"))
+      ? h("button", { class: "knap", type: "button", onclick: () => this._vaelgFaneTilKort() }, ikon("mdi:plus"), this.t("tilfoej_kort"))
       : h("p", { class: "hint" }, this.t("ingen_skrivbare_faner"));
     return this._sektion(...titel, fund.fuld ? null : h("p", { class: "hint" }, this.t("kort_ufuldstaendig")), liste, tilfoej);
   }
@@ -1388,7 +1425,9 @@ class RumlysPanel extends HTMLElement {
     this._fodBesked = h("span", { class: "besked2" });
     this._fortrydKnap = h("button", { class: "knap", onclick: () => { this._kladde = JSON.parse(this._original); this._tegnRum(); } }, this.t("fortryd"));
     this._gemKnap = h("button", { class: "knap p", onclick: () => this._gem() }, this.t("gem_rum"));
-    const fod = h("div", { class: "fod" }, this._fodBesked, this._fortrydKnap, this._gemKnap);
+    // Yderst til venstre, langt fra «Gem rum»: det er rummets farligste knap.
+    const slet = h("button", { class: "knap farlig", onclick: () => this._sletRum() }, ikon("mdi:delete-outline"), this.t("slet_rum"));
+    const fod = h("div", { class: "fod" }, slet, this._fodBesked, this._fortrydKnap, this._gemKnap);
     setTimeout(() => this._aendret());
     return fod;
   }
@@ -1425,7 +1464,6 @@ class RumlysPanel extends HTMLElement {
   // der kunne forveksles med en indstilling.
   _hovedet() {
     const e = this._detalje.entiteter;
-    const glod = h("span", { class: "glod" });
     const status = h("b", {});
     const detaljer = h("small", {});
     // Områdets eget ikon foran navnet, som i rumlisten, og til højre én prik pr. lampe: lampens
@@ -1435,8 +1473,6 @@ class RumlysPanel extends HTMLElement {
     const prikker = h("div", { class: "paerer" });
     this._levende.push((hass) => {
       const lamper = this._kladde.data.lamper.map((l) => l.entity_id);
-      const farver = rummetsFarver(hass, lamper);
-      glod.style.background = farver.length ? overgang(farver, "135deg") : "";
       const omraade = (hass.areas || {})[this._kladde.data.omraade];
       omraadeIkon.replaceChildren(ikon((omraade && omraade.icon) || RUMLYS_IKON));
       prikker.replaceChildren(...lamper.map((id) => this._lampeprik(hass, id)));
@@ -1451,11 +1487,17 @@ class RumlysPanel extends HTMLElement {
       if ((s.uden_automatik || []).length) dele.push(this.t("uden_automatik", { n: s.uden_automatik.length }));
       detaljer.textContent = dele.join(" · ");
     });
+    // Ikonet til venstre, navn og status i én søjle ved siden af, lampernes prikker til højre. Så
+    // starter statusteksten lodret samme sted som overskriften (Martins ønske 19-09-2026). Den
+    // store farveblob, der stod før statussen, er væk: hver lampe har sin egen prik nu, og så
+    // sagde den ikke andet end det, prikkerne allerede siger.
     return h(
       "div",
       { class: "hoved" },
-      h("div", { class: "linje1" }, omraadeIkon, h("h1", {}, this._detalje.navn), prikker),
-      h("div", { class: "levende" }, glod, h("div", {}, status, detaljer))
+      h("div", { class: "hovedrad" },
+        omraadeIkon,
+        h("div", { class: "hovedtekst" }, h("h1", {}, this._detalje.navn), status, detaljer),
+        prikker)
     );
   }
 
@@ -1497,7 +1539,7 @@ class RumlysPanel extends HTMLElement {
     if (!this._aabneAut) this._aabneAut = new Set();
     const liste = h("div", {});
     d.automatik.forEach((aut) => liste.appendChild(this._automatikBoks(aut)));
-    const ny = h("button", { class: "knap t", type: "button" }, ikon("mdi:plus"), this.t("ny_automatik"));
+    const ny = h("button", { class: "knap", type: "button" }, ikon("mdi:plus"), this.t("ny_automatik"));
     ny.addEventListener("click", () => {
       // Et nyt nummer, der aldrig har været brugt: entiteternes id'er hænger på det.
       const nummer = d.automatik.reduce((hoejest, a) => Math.max(hoejest, a.id), 0) + 1;
@@ -1651,7 +1693,7 @@ class RumlysPanel extends HTMLElement {
       const lamper = (k && k.lamper) || [];
       return lamper.length ? lamper.map((l) => this._lampeNavn(l)).join(", ") : this.t("hele_rummet");
     };
-    const liste = h("div", {});
+    const liste = h("div", { class: "knapliste" });
     const raekke = (entityId, navn, under) => {
       const peger = (maal[entityId] || {}).kort;
       const valgt = peger === kortId;
@@ -1692,7 +1734,7 @@ class RumlysPanel extends HTMLElement {
       if (!this._aabneKnapper) this._aabneKnapper = new Set();
       const aaben = this._aabneKnapper.has(entityId);
       const chev = h("button", {
-        class: "knap t", type: "button", "aria-expanded": String(aaben),
+        class: "raekkechev", type: "button", "aria-expanded": String(aaben),
         title: this.t(aaben ? "knap_skjul_valg" : "knap_vis_valg"),
         "aria-label": this.t(aaben ? "knap_skjul_valg" : "knap_vis_valg"),
       }, ikon(aaben ? "mdi:chevron-down" : "mdi:chevron-right"));
@@ -1703,7 +1745,10 @@ class RumlysPanel extends HTMLElement {
       });
       selve.appendChild(this._knapMaerker(entityId, kortId));
       selve.appendChild(chev);
-      return h("div", {}, selve, aaben ? this._knapvalg(entityId, kortId) : null);
+      // «display: contents» på indpakningen, så rækken bliver ved med at være søskende med de andre
+      // rækker: ellers er den `:first-child` i sin egen kasse og mister stregen over sig, og kassen
+      // giver den sit eget mellemrum, så rækkerne ikke står lige langt fra hinanden (Martin 19-09-2026).
+      return h("div", { class: "raekkepar" }, selve, aaben ? this._knapvalg(entityId, kortId) : null);
     };
     omraadets.forEach((k) => liste.appendChild(raekke(k.entity_id, k.navn)));
     knapper.forEach((k) => {
@@ -1883,14 +1928,14 @@ class RumlysPanel extends HTMLElement {
       d.omraade = vaelger.value;
       this._genTegn("lamper", "sensorer");
     });
-    const slet = h("button", { class: "knap farlig", onclick: () => this._sletRum() }, ikon("mdi:delete-outline"), this.t("slet_rum"));
+    // «Slet rummet» står i bundbjælken sammen med «Fortryd» og «Gem rum» — det er rummets
+    // handlinger, ikke en indstilling under «Rummet» (Martins ønske 19-09-2026).
     return this._sektion(
       "mdi:home-outline",
       this.t("rummet"),
       null,
       h("div", { class: "felt", style: { marginTop: "10px" } }, h("label", {}, this.t("omraade")), vaelger),
-      h("p", { class: "hint" }, this.t("omraade_hint")),
-      slet
+      h("p", { class: "hint" }, this.t("omraade_hint"))
     );
   }
 

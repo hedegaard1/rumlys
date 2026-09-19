@@ -116,6 +116,8 @@ from .const import (
     STANDARD_LYS,
 )
 from . import scener
+from homeassistant.helpers.start import async_at_started
+
 from .omraade import lamper_og_sensorer, omraadets_navn
 
 UKENDT = (STATE_UNAVAILABLE, STATE_UNKNOWN)
@@ -564,7 +566,10 @@ class Rum:
         self.id = subentry.subentry_id
         self.omraade: str | None = data.get(CONF_OMRAADE)
         self._titel = subentry.title
-        lamper = rummets_lamper(hass, data)
+        # Kun det gemte her. Områdets lamper toppes på ved «started» — se _top_op_lamper(): en
+        # gruppes pærer kan først kendes fra gruppens tilstand, og den findes ikke endnu.
+        self._data = data
+        lamper = list(data.get(CONF_LAMPER, []))
         self.lys: list[str] = [lampe[CONF_ENTITY_ID] for lampe in lamper]
         # Lamperne, bevægelse tænder. De andre hører til deres automatik og slukker med den.
         self.bevaegelseslamper: list[str] = [
@@ -661,10 +666,37 @@ class Rum:
         return any(aut.bevaegelse for aut in self.automatik)
 
     @callback
+    def _top_op_lamper(self, _hass: HomeAssistant | None = None) -> None:
+        """Områdets lamper med i rummet — når tilstandene findes.
+
+        Det kan ikke gøres ved indlæsningen. En gruppes pærer står i gruppens egen tilstand
+        (`group_entities`), og den er der ikke endnu, når integrationen sættes op under Home
+        Assistants opstart. Uden den ser Rumlys ikke, at de seks spots hører til «Loftspots», og
+        tager dem med som seks selvstændige lamper. Målt på Kontor 19-09-2026: «0 af 8 lamper
+        tændt · 6 uden automatik», mens sidepanelet — som spørger bagefter — viste to.
+        """
+        lamper = rummets_lamper(self.hass, self._data)
+        nye = [lampe[CONF_ENTITY_ID] for lampe in lamper]
+        if nye == self.lys:
+            return
+        self.lys = nye
+        self.bevaegelseslamper = [
+            lampe[CONF_ENTITY_ID] for lampe in lamper if lampe.get(CONF_BEVAEGELSE, True)
+        ]
+        # Lyt med på de nye lamper. Den gamle lytter dækkede kun dem, rummet kendte ved starten.
+        self._afmeld.append(
+            async_track_state_change_event(self.hass, self.lys, self._lys_aendret)
+        )
+        self._opdater()
+
+    @callback
     def start(self) -> None:
         self._afmeld.append(
             async_track_state_change_event(self.hass, self.lys, self._lys_aendret)
         )
+        # Områdets lamper kan først læses, når tilstandene er der. Er Home Assistant allerede oppe,
+        # sker det med det samme.
+        self._afmeld.append(async_at_started(self.hass, self._top_op_lamper))
         if self.sensorer:
             self._afmeld.append(
                 async_track_state_change_event(
