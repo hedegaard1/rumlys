@@ -821,7 +821,7 @@ class RumlysPanel extends HTMLElement {
 
     const boks = (k) => {
       const f = k.steder[0];
-      const stoerrelse = this.t({ small: "lille", large: "stor" }[f.config.size] || "mellem");
+      const stoerrelse = this.t({ small: "lille", medium: "mellem", large: "stor" }[f.config.size] || "automatisk");
       const steder = [...new Set(k.steder.map((s) => s.sted))].join(" · ");
       const dele = [];
       // Kortets eget valg i kladden. Et kort uden id har sit valg i sin egen opsætning.

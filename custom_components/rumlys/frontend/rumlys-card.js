@@ -155,7 +155,6 @@ const KONTROL_STYLE = `
     background-color:rgba(127, 127, 127, 0.2); box-shadow:0 1px 2px rgba(0, 0, 0, 0.18);
     -webkit-appearance:none; appearance:none; transition:transform .12s ease;
   }
-  .scener.fyldt .scene { aspect-ratio:auto; height:var(--rl-scene-hoejde); }
   .scene:active { transform:scale(.94); }
   .scene.blink { animation:rl-blink .6s ease; }
   @keyframes rl-blink { 0% { filter:brightness(1.35); } 100% { filter:brightness(1); } }
@@ -180,8 +179,7 @@ const STYLE = KONTROL_STYLE + `
     --rl-navn:14px; --rl-status:12px; --rl-knap:30px; --rl-knap-ikon:16px;
     --rl-kontakt-b:38px; --rl-kontakt-h:22px; --rl-knop:16px;
     --rl-skyder-h:22px; --rl-spor-h:4px; --rl-tommel:14px;
-    --rl-scene:24px; --rl-scene-min:18px; --rl-scene-maks:28px;
-    --rl-scene-gap:4px; --rl-scene-top:8px; --rl-scene-radius:5px;
+    --rl-scene:24px; --rl-scene-gap:4px; --rl-scene-top:8px; --rl-scene-radius:5px;
     display:block; position:relative; box-sizing:border-box; overflow:hidden; cursor:pointer;
     padding:var(--rl-pad);
     border-radius:var(--ha-card-border-radius, 12px);
@@ -194,14 +192,8 @@ const STYLE = KONTROL_STYLE + `
     --rl-fyld:var(--primary-color); --rl-spor:rgba(127, 127, 127, 0.3); --rl-paa-fyld:var(--text-primary-color, #fff);
     -webkit-tap-highlight-color:transparent; transition:background .4s ease, color .4s ease;
   }
-  ha-card.scener-lille {
-    --rl-scene:20px; --rl-scene-min:15px; --rl-scene-maks:23px;
-    --rl-scene-gap:3px; --rl-scene-radius:4px;
-  }
-  ha-card.scener-stor {
-    --rl-scene:29px; --rl-scene-min:28px; --rl-scene-maks:34px;
-    --rl-scene-gap:5px; --rl-scene-top:10px; --rl-scene-radius:6px;
-  }
+  ha-card.scener-lille { --rl-scene:20px; --rl-scene-gap:3px; --rl-scene-radius:4px; }
+  ha-card.scener-stor { --rl-scene:29px; --rl-scene-gap:5px; --rl-scene-top:10px; --rl-scene-radius:6px; }
   ha-card.taendt { background:var(--rl-baggrund); color:var(--rl-tekst); border-color:transparent; }
   .inhold { container-type:inline-size; }
   .top { display:flex; align-items:center; gap:var(--rl-gap); min-height:calc(var(--rl-ikon) + 8px); }
@@ -239,7 +231,7 @@ const STYLE = KONTROL_STYLE + `
   .top.smal .skyder { order:3; flex:1 1 0; min-width:40px; }
   .top.smal .kontakt { order:4; margin-left:auto; }
   .top.smal.skyder-egen .skyder { flex:1 1 100%; order:5; }
-  .scener { display:grid; grid-template-columns:repeat(auto-fill, minmax(var(--rl-scene), 1fr)); justify-content:start; gap:var(--rl-scene-gap); margin-top:var(--rl-scene-top); cursor:default; }
+  .scener { display:grid; grid-template-columns:repeat(auto-fill, var(--rl-scene)); justify-content:start; gap:var(--rl-scene-gap); margin-top:var(--rl-scene-top); cursor:default; }
   .scener.skjult { display:none; }
   .scener:not(.med-navne) .scene .n { display:none; }
   .scener.med-navne .scene .n { padding:3px 4px 4px; }
@@ -557,9 +549,9 @@ class RumlysCard extends HTMLElement {
     e.tekst.style.maxWidth = under ? "" : "none";
   }
 
-  // Scenerne skal gøre kortet så lidt højere som muligt: kan alle stå på én række i felter på mindst
-  // --rl-scene-min, gør de det; ellers deles de på så få, lige lange rækker som muligt. Felterne fylder
-  // hele bredden, men bliver ikke højere end --rl-scene-maks — på et bredt kort bliver de aflange.
+  // Scenefelterne er altid kvadratiske og lige store — de strækkes ikke ud i bredden, når der er få
+  // (Martins ønske 19-09-2026). Der kommer så mange på en række, som der er plads til, og er der flere,
+  // deles de på så få, lige lange rækker som muligt, så de står i en blok. Kortet bliver højere efter behov.
   _tilpasScener() {
     const e = this._el;
     const n = this._navne.length;
@@ -568,22 +560,18 @@ class RumlysCard extends HTMLElement {
     if (!w) return;
     const cs = getComputedStyle(e.kort);
     const maal = (navn) => parseFloat(cs.getPropertyValue(navn)) || 0;
-    const stor = this._config.scene_size === "large";
-    const x = stor ? 2 : 1;
+    const medNavne = this._config.scene_size === "large";
     const gap = maal("--rl-scene-gap");
-    let kol = n;
-    let felt = (w - (n - 1) * gap) / n;
-    if (felt < maal("--rl-scene-min") * x) {
-      const plads = Math.max(1, Math.floor((w + gap) / (maal("--rl-scene") * x + gap)));
-      kol = Math.ceil(n / Math.ceil(n / plads));
-      felt = (w - (kol - 1) * gap) / kol;
-    }
-    e.scener.style.gridTemplateColumns = "repeat(" + kol + ", minmax(0, 1fr))";
-    e.scener.style.setProperty("--rl-scene-hoejde", Math.min(felt, maal("--rl-scene-maks") * x).toFixed(2) + "px");
-    e.scener.classList.add("fyldt");
-    e.scener.classList.toggle("med-navne", stor);
-    e.scener.style.setProperty("--rl-scene-radius", stor ? maal("--rl-scene-radius") * 1.5 + "px" : "");
-    if (!stor) return;
+    // Med navne under skal feltet være meget større — et navn som «Koncentration» kræver omkring
+    // 80 px for at kunne læses. Halveringen af felterne gælder dem uden navn; med navn er de, hvad
+    // de altid har været.
+    const felt = maal("--rl-scene") * (medNavne ? 4 : 1);
+    const plads = Math.max(1, Math.floor((w + gap) / (felt + gap)));
+    const kol = Math.min(n, Math.ceil(n / Math.ceil(n / plads)));
+    e.scener.style.gridTemplateColumns = "repeat(" + kol + ", " + felt + "px)";
+    e.scener.classList.toggle("med-navne", medNavne);
+    e.scener.style.setProperty("--rl-scene-radius", medNavne ? maal("--rl-scene-radius") * 1.5 + "px" : "");
+    if (!medNavne) return;
     const label = e.scener.querySelector(".n");
     if (!label) return;
     if (!this._canvas) this._canvas = document.createElement("canvas");
@@ -593,7 +581,7 @@ class RumlysCard extends HTMLElement {
     let bredest = 0;
     this._navne.forEach((t) => { bredest = Math.max(bredest, ctx.measureText(t).width / 100); });
     if (!bredest) return;
-    e.scener.style.setProperty("--rl-scene-fs", Math.max(9, Math.min(13, (felt - 8) / (bredest * 1.04))).toFixed(2) + "px");
+    e.scener.style.setProperty("--rl-scene-fs", Math.max(8, Math.min(13, (felt - 6) / (bredest * 1.04))).toFixed(2) + "px");
   }
 
   _startUr() {
@@ -1381,8 +1369,11 @@ class RumlysCardEditor extends HTMLElement {
     r.append(
       h("style", {}, EDITOR_STYLE),
       h("div", { class: "felt" }, h("label", {}, t("vaelg_rum")), vaelger, ikkeSatOp ? h("p", {}, t("ikke_sat_op_hint")) : null),
-      h("div", { class: "felt" }, h("span", { class: "etiket" }, t("stoerrelse")), knapper("size", [["auto", "automatisk"], ["small", "lille"], ["medium", "mellem"], ["large", "stor"]], "auto")),
-      h("div", { class: "felt" }, h("span", { class: "etiket" }, t("scenefelter")), knapper("scene_size", [["small", "smaa"], ["large", "store"]], "small")),
+      // Scenefelterne er det eneste på kortet, der skifter størrelse, så det er dét, valget hedder.
+      // Navnene er ikke en størrelse, men et til og fra — de stod før som «Store med navn» i samme
+      // række som størrelserne, og så var der to valg om det samme (Martin fangede det 19-09-2026).
+      h("div", { class: "felt" }, h("span", { class: "etiket" }, t("scenefelter")), knapper("size", [["auto", "automatisk"], ["small", "lille"], ["medium", "mellem"], ["large", "stor"]], "auto")),
+      h("div", { class: "felt" }, h("span", { class: "etiket" }, t("scenenavne")), knapper("scene_size", [["small", "uden_navn"], ["large", "med_navn"]], "small")),
       h("p", {}, t("kort_hint"))
     );
   }

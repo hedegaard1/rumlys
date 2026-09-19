@@ -100,7 +100,7 @@ type: custom:rumlys-card
 omraade: <områdets id>             # vælges i kortets opsætning
 kort: k1a2b3c4d5e6                 # kortets id — sættes af sig selv
 size: medium                       # scenefelternes størrelse. Udelades: følger kortets bredde
-scene_size: small                  # small eller large (med navn)
+scene_size: small                  # large sætter scenernes navne under dem
 ```
 
 **Kortet tilpasser sig den bredde, det bliver trukket ud i** (fra 0.6.2). Det er det samme design hele
@@ -111,8 +111,14 @@ næste; bliver skyderen for kort dér, får den sin egen linje. Under 300 px st�
 stedet for stakken. Er der plads til navnet, den længste status og skyderen på én række, står skyderen
 mellem dem; ellers lige nedenunder.
 
-**Størrelsen gælder kun scenefelterne** (fra 0.6.3). Lades den ude, følger felterne kortets bredde — små på
-en smal flise, større på et kort i fuld bredde. **Lille**, **Mellem** og **Stor** sætter dem fast.
+**Scenefelterne er det eneste, der skifter størrelse** (fra 0.6.3), og kortets opsætning har derfor to valg:
+**Scenefelter** og **Navne på scenerne**. Lades størrelsen ude, følger felterne kortets bredde — små på en
+smal flise, større på et kort i fuld bredde. **Lille**, **Mellem** og **Stor** sætter dem fast.
+
+**Felterne er altid kvadratiske.** De strækkes ikke ud i bredden, når der er få: de står til venstre i deres
+egen størrelse, og der kommer så mange på en række, som der er plads til. Er der flere, deles de på så få,
+lige lange rækker som muligt, så de står i en blok frem for en lang række og en enkelt nedenunder. Sættes
+navnene på, bliver felterne fire gange så store — et navn som «Koncentration» skal kunne læses.
 
 Kortet bliver selv så højt, som scenerne kræver, og det melder samtidig en bund til afsnittets gitter, så
 de nederste scener ikke kan trækkes væk, hvis du selv tager fat i kortets højde.
