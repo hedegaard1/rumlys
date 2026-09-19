@@ -1837,7 +1837,12 @@ class RumlysPanel extends HTMLElement {
     });
     if (!liste.children.length) liste.appendChild(h("p", { class: "hint" }, this.t("ingen_lamper")));
     const andre = h("button", { class: "knap t", onclick: () => this._andreLamper() }, ikon("mdi:plus"), this.t("vis_andre"));
-    const udenSensorHint = udenSensor && d.lamper.length ? h("p", { class: "hint advarsel" }, this.t("bevaegelse_uden_sensor")) : null;
+    // «Ingen sensor valgt» og «ingen sensor i området» er to forskellige ting, og det var kun den
+    // sidste, teksten sagde. Villads har en sensor, den var bare ikke sat flueben ved, og så stod
+    // der at rummet ingen havde (Martin 19-09-2026).
+    const udenSensorHint = udenSensor && d.lamper.length
+      ? h("p", { class: "hint advarsel" }, this.t(omraade.sensorer.length ? "sensor_ikke_valgt" : "bevaegelse_uden_sensor"))
+      : null;
     return this._sektion(RUMLYS_IKON, this.t("lamper"), this.t("lamper_hint"), liste, udenSensorHint, andre);
   }
 
