@@ -2,6 +2,8 @@
 //   python tests/frontend/server.py 8766   og åbn /tests/frontend/panel.html
 // Home Assistants egne elementer (ha-icon, ha-menu-button) er erstattet af simple udgaver.
 
+import { VERSION } from "../../custom_components/rumlys/frontend/rumlys-faelles.js";
+
 const STANDARD = [
   ["b6f58e22-677f-4670-8677-3dea4ac60383", "Nightlight", 2200, 25],
   ["8f55e62a-e5f8-456a-9e8b-61f314bd4e99", "Dimmed", 2700, 77],
@@ -112,6 +114,9 @@ export const hass = {
       return () => { haendelsesLyttere = haendelsesLyttere.filter((l) => l !== lytter); };
     },
     addEventListener: () => {},
+    // Versionstjekket spørger bagenden, hvad den kører. Her svarer den det samme som siden, så
+    // genindlæs-beskeden ikke kommer frem i en mockup.
+    sendMessagePromise: async () => ({ version: VERSION }),
   },
   // Entitetsregistret, som frontenden ser det: kun lamper med et id kan få et andet ikon.
   entities: {
