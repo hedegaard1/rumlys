@@ -156,6 +156,25 @@ class _Tryk:
         self.daemper = None
 
 
+def byt_entitets_id(vaerdi: Any, gammelt: str, nyt: str) -> Any:
+    """Samme opsætning, med ét entitets-id byttet ud — også hvor det står som nøgle.
+
+    Gennemgangen er blind med vilje. Id'erne står otte steder i et rum — lamperne, sensorerne,
+    tilstedeværelse, knapperne, knappernes mål, hver automatiks egne to lister og kortenes to —
+    og en liste over dem ville blive glemt, næste gang der kommer et felt til.
+    """
+    if isinstance(vaerdi, str):
+        return nyt if vaerdi == gammelt else vaerdi
+    if isinstance(vaerdi, Mapping):
+        return {
+            (nyt if navn == gammelt else navn): byt_entitets_id(v, gammelt, nyt)
+            for navn, v in vaerdi.items()
+        }
+    if isinstance(vaerdi, list):
+        return [byt_entitets_id(v, gammelt, nyt) for v in vaerdi]
+    return vaerdi
+
+
 @callback
 def rummets_lamper(hass: HomeAssistant, data: Mapping[str, Any]) -> list[dict[str, Any]]:
     """Rummets lamper: alle områdets, plus dem der står i opsætningen og ikke er der længere.
@@ -734,6 +753,24 @@ class Rum:
         for aut in self.automatik:
             aut.synk()
             aut.taend_hvis_set()
+
+    @callback
+    def byt_entitet(self, gammelt: str, nyt: str) -> bool:
+        """Et entitets-id er skiftet: ret det, Rumlys selv gemmer.
+
+        Rummets egen opsætning — lamper, sensorer, knapper, automatikker — ligger i
+        underopsætningen og rettes dér. Her er kun lageret: kortenes lamper og det lys, hver
+        lampe sidst blev tændt med.
+        """
+        aendret = False
+        if (kort := byt_entitets_id(self.kort, gammelt, nyt)) != self.kort:
+            self.kort = kort
+            aendret = True
+        for aut in self.automatik:
+            if (husket := byt_entitets_id(aut.husket, gammelt, nyt)) != aut.husket:
+                aut.husket = husket
+                aendret = True
+        return aendret
 
     @callback
     def start(self) -> None:

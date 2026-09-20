@@ -10,6 +10,7 @@ from homeassistant.const import Platform
 from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.helpers import (
     area_registry as ar,
+    entity_registry as er,
     config_validation as cv,
     device_registry as dr,
 )
@@ -39,7 +40,7 @@ from .const import (
     RUM,
 )
 from . import scener, sidepanel, tjenester, websocket
-from .rum import Rum
+from .rum import Rum, byt_entitets_id
 
 PLATFORMS = [Platform.NUMBER, Platform.SENSOR, Platform.SWITCH]
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
@@ -146,6 +147,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: RumlysConfigEntry) -> bo
     entry.async_on_unload(
         hass.bus.async_listen(ar.EVENT_AREA_REGISTRY_UPDATED, omraade_aendret)
     )
+
+    @callback
+    def entitet_aendret(event: Event) -> None:
+        _entitet_aendret(hass, entry, event)
+
+    entry.async_on_unload(
+        hass.bus.async_listen(er.EVENT_ENTITY_REGISTRY_UPDATED, entitet_aendret)
+    )
     return True
 
 
@@ -170,6 +179,32 @@ def _omraade_aendret(hass: HomeAssistant, entry: RumlysConfigEntry, event: Event
     for subentry in entry.get_subentries_of_type(RUM):
         if subentry.data.get(CONF_OMRAADE) == omraade.id and subentry.title != omraade.name:
             hass.config_entries.async_update_subentry(entry, subentry, title=omraade.name)
+
+
+@callback
+def _entitet_aendret(hass: HomeAssistant, entry: RumlysConfigEntry, event: Event) -> None:
+    """En entitet har fået nyt id: rummene skal pege på det nye.
+
+    Rumlys gemmer lamper, sensorer og knapper ved entitets-id, og uden det her falder de ud af
+    rummet, så snart nogen omdøber dem. Det sker oftere end man tror: hver gang en enhed
+    flyttes til Zigbee2MQTT, skifter id'et. Martins FP2 i Alrum tabte sin sensor tre gange på
+    én eftermiddag 20-09-2026, og hver gang skulle rummet og automatikken sættes op i hånden.
+
+    Lageret rettes med det samme, underopsætningen bagefter — den udløser en genindlæsning, og
+    `async_unload_entry` gemmer lageret, før det læses igen.
+    """
+    if event.data["action"] != "update":
+        return
+    gammelt = event.data.get("old_entity_id")
+    nyt = event.data["entity_id"]
+    if not gammelt or gammelt == nyt:
+        return
+    data = entry.runtime_data
+    if any([rum.byt_entitet(gammelt, nyt) for rum in data.rum.values()]):
+        data.lager.async_delay_save(data.til_lagring, 1)
+    for subentry in entry.get_subentries_of_type(RUM):
+        if (nye := byt_entitets_id(subentry.data, gammelt, nyt)) != dict(subentry.data):
+            hass.config_entries.async_update_subentry(entry, subentry, data=nye)
 
 
 async def _genindlaes(hass: HomeAssistant, entry: RumlysConfigEntry) -> None:

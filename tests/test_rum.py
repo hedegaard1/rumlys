@@ -16,6 +16,7 @@ from pytest_homeassistant_custom_component.common import (
 from homeassistant.config_entries import ConfigSubentryData
 from homeassistant.core import Context, HomeAssistant
 from homeassistant.exceptions import ServiceValidationError
+from homeassistant.helpers import entity_registry as er
 from homeassistant.util import dt as dt_util
 
 from custom_components.rumlys import scener
@@ -1328,3 +1329,49 @@ async def test_sensoren_ser_ingen_ved_start_taender_ikke(hus: Hus) -> None:
     await hus.saet_op()
     assert hus.taend == []
     assert hus.tilstand() == "slukket"
+
+
+async def test_rummet_foelger_med_naar_en_sensor_omdoebes(hass: HomeAssistant, hus: Hus) -> None:
+    """Skifter en sensor id, skal rummet OG automatikken pege på det nye.
+
+    Rumlys gemmer sensorerne ved entitets-id. Uden det her falder sensoren ud af rummet, så
+    snart nogen omdøber den — og id'et skifter hver gang en enhed flyttes til Zigbee2MQTT.
+    Martins FP2 i Alrum tabte sin sensor tre gange på én eftermiddag 20-09-2026.
+    """
+    registret = er.async_get(hass)
+    # Fixturen har allerede sat en tilstand, og så tæller id'et som optaget: registret ville
+    # give den «_2». Tag tilstanden væk, mens sensoren skrives ind, og sæt den igen bagefter.
+    hass.states.async_remove(SENSOR)
+    post = registret.async_get_or_create(
+        "binary_sensor", "demo", "fp2", suggested_object_id="bevaegelse_traeningsrum"
+    )
+    assert post.entity_id == SENSOR
+    hass.states.async_set(SENSOR, "off")
+    entry = await hus.saet_op()
+    assert entry.runtime_data.rum["traeningsrum"].sensorer == [SENSOR]
+
+    nyt = "binary_sensor.traeningsrum_tilstedevaerelse"
+    registret.async_update_entity(SENSOR, new_entity_id=nyt)
+    await hass.async_block_till_done()
+
+    # Genindlæsningen har bygget rummet om, så det er et nyt objekt.
+    rum = entry.runtime_data.rum["traeningsrum"]
+    assert rum.sensorer == [nyt]
+    assert rum.automatik[0].sensorer == [nyt]
+    assert entry.subentries["traeningsrum"].data["sensorer"] == [nyt]
+
+
+async def test_et_id_der_ikke_er_rummets_roerer_ingenting(hass: HomeAssistant, hus: Hus) -> None:
+    """En omdøbning et andet sted i huset må ikke skrive i rummet."""
+    registret = er.async_get(hass)
+    registret.async_get_or_create(
+        "binary_sensor", "demo", "andet", suggested_object_id="noget_helt_andet"
+    )
+    hass.states.async_set("binary_sensor.noget_helt_andet", "off")
+    entry = await hus.saet_op()
+    foer = dict(entry.subentries["traeningsrum"].data)
+    registret.async_update_entity(
+        "binary_sensor.noget_helt_andet", new_entity_id="binary_sensor.noget_tredje"
+    )
+    await hass.async_block_till_done()
+    assert dict(entry.subentries["traeningsrum"].data) == foer
