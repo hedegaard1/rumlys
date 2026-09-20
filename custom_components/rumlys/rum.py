@@ -374,6 +374,32 @@ class Automatik:
         self.opdater()
 
     @callback
+    def taend_hvis_set(self) -> None:
+        """Ved start: «ser nogen nu» tæller lige så meget som «begyndte lige at se nogen».
+
+        `sensor_aendret()` duer ikke her. Den svarer kun på skift, og `start()` har allerede sat
+        `bevaegelse`, så den vender om på sin første linje. En bevægelsessensor skifter hele tiden,
+        og derfor mærkes det ikke på den; en tilstedeværelsessensor kan stå tændt i timer, og så
+        bliver rummet mørkt efter en genstart, til man går ud og ind igen. Målt i Alrum
+        20-09-2026: sensoren gik til «on» kl. 15:29:13 og stod der, integrationen blev genindlæst
+        kl. 15:29:44, og lyset blev ved med at være slukket.
+
+        Kun når ingen har valgt noget, og lamperne kan ses og er slukkede. Er lyset tændt, har
+        `synk()` allerede rettet tilstanden ind efter det.
+        """
+        if self.hold_slutter is not None or self.kilde is not None:
+            return
+        if not self.sensorer or not self.sensor_taendt():
+            return
+        if self.lys_status() is not False:
+            return
+        self.kilde = BEVAEGELSE
+        self.taend_ved_bevaegelse()
+        # Sensoren ser nogen nu, så der er ingen nedtælling — den begynder, når den holder op.
+        self.slukker = None
+        self.opdater()
+
+    @callback
     def taend_ved_bevaegelse(self) -> None:
         lamper = self.foelger
         if not lamper:
@@ -707,16 +733,13 @@ class Rum:
         self._oppe = True
         for aut in self.automatik:
             aut.synk()
+            aut.taend_hvis_set()
 
     @callback
     def start(self) -> None:
         self._afmeld.append(
             async_track_state_change_event(self.hass, self.lys, self._lys_aendret)
         )
-        # Områdets lamper kan først læses, når tilstandene er der. Er Home Assistant allerede oppe,
-        # sker det med det samme.
-        self._afmeld.append(async_at_started(self.hass, self._top_op_lamper))
-        self._afmeld.append(async_at_started(self.hass, self._nu_er_vi_oppe))
         if self.sensorer:
             self._afmeld.append(
                 async_track_state_change_event(
@@ -735,6 +758,16 @@ class Rum:
                     )
                 )
             aut.start()
+        # Områdets lamper kan først læses, når tilstandene er der.
+        #
+        # De to kroge står sidst med vilje. Er Home Assistant allerede oppe — en genindlæsning
+        # efter «Gem rum» — kalder `async_at_started` en @callback **synkront, med det samme**.
+        # Stod de først, kørte begge færdigt, og bagefter nulstillede `aut.start()` det hele:
+        # `synk()` så en slukket lampe og ryddede den kilde, `taend_hvis_set()` lige havde sat.
+        # Ved en kold opstart ventede de til «started» og skjulte fejlen. Fanget af en test
+        # 20-09-2026: kommandoen blev sendt, men rummet stod «slukket» bagefter.
+        self._afmeld.append(async_at_started(self.hass, self._top_op_lamper))
+        self._afmeld.append(async_at_started(self.hass, self._nu_er_vi_oppe))
 
     @callback
     def stop(self) -> None:

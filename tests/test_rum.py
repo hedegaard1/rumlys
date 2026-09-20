@@ -1160,6 +1160,9 @@ async def test_lamper_uden_for_rummet_afvises(hus: Hus) -> None:
 async def test_haendelserne_overlever_genindlaesning(hass: HomeAssistant, hus: Hus) -> None:
     entry = await hus.saet_op()
     await hus.bevaegelse("on")
+    # Lampen skal melde tilbage, ellers står den slukket med sensoren tændt ved genindlæsningen,
+    # og så tænder Rumlys den igen — med rette. Det er en rigtig lampe, prøven skal ligne.
+    await hus.lampen_svarer()
     assert await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
     rum = entry.runtime_data.rum["traeningsrum"]
@@ -1294,3 +1297,34 @@ async def test_trappen_maa_ikke_laese_sin_egen_daemper_som_en_slukning(
     await trap_faerdigt(hus)
     await hus.lys("on", hus.taend[-1].context, brightness=255, **BRIGHTNESS)
     assert hus.tilstand() == "bevaegelse"
+
+
+async def test_sensoren_ser_nogen_allerede_ved_start(hus: Hus) -> None:
+    """Stod sensoren tændt, da Rumlys blev indlæst, skal lyset tænde alligevel.
+
+    Rumlys tænder ellers kun på et skift fra fri til set. En bevægelsessensor skifter hele tiden,
+    så det mærkes ikke på den — men en tilstedeværelsessensor kan stå tændt i timer, og så blev
+    rummet mørkt efter en genstart, til man gik ud og ind igen. Målt i Alrum 20-09-2026.
+    """
+    hus.hass.states.async_set(SENSOR, "on")
+    await hus.saet_op()
+    assert [k.data["entity_id"] for k in hus.taend] == [[SPOTS]]
+    assert hus.tilstand() == "bevaegelse"
+    # Sensoren ser nogen nu, så nedtællingen er ikke begyndt.
+    assert hus.slukker() is None
+
+
+async def test_lyset_taendes_ikke_igen_naar_det_allerede_er_taendt(hus: Hus) -> None:
+    """Er lyset tændt ved start, har synk() allerede rettet ind — der skal ikke sendes en kommando."""
+    hus.hass.states.async_set(SENSOR, "on")
+    hus.hass.states.async_set(SPOTS, "on")
+    await hus.saet_op()
+    assert hus.taend == []
+    assert hus.tilstand() == "haand"
+
+
+async def test_sensoren_ser_ingen_ved_start_taender_ikke(hus: Hus) -> None:
+    """Uden nogen i rummet sker der som før ingenting ved start."""
+    await hus.saet_op()
+    assert hus.taend == []
+    assert hus.tilstand() == "slukket"
