@@ -2460,7 +2460,10 @@ class RumlysPanel extends HTMLElement {
   }
 
   _retTidsrum(aut, plads) {
-    const d = this._kladde.data;
+    // Samme «d» som listen ovenfor: automatikken ejer sin tidsplan. Læste dialogen rummets
+    // tidsrum i stedet, slog den op i en tom liste og kastede, før den nåede at åbne — og
+    // gemte det forkerte sted, så tidsplanen slet ikke kunne laves fra sidepanelet (0.12.2).
+    const d = aut;
     const ny = plads === null;
     const tr = ny
       ? { navn: "", start: "22:00:00", slut: "06:30:00", lys: Object.assign(kopi(d.lys), { lysstyrke: 20 }) }
