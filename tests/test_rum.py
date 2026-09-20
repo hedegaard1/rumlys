@@ -21,6 +21,7 @@ from homeassistant.util import dt as dt_util
 
 from custom_components.rumlys import scener
 from custom_components.rumlys.const import DOMAIN, RUM
+from custom_components.rumlys.rum import automatikkerne, lysaftryk
 
 SPOTS = "light.traeningsrum_spots"
 STENLAMPE = "light.traeningsrum_stenlampe"
@@ -63,6 +64,16 @@ WEEKEND = {
     "dage": [5, 6],
     "lys": {"type": "hvid", "lysstyrke": 60, "kelvin": 2700},
 }
+
+
+def husket(lamper: dict[str, Any], rummet: dict[str, Any] = None, til: str | None = None) -> dict[str, Any]:
+    """Et minde, som Rumlys ville have gemt det under netop denne opsætning.
+
+    Aftrykket skal med: uden det kasserer Rumlys mindet ved indlæsningen, fordi det så ikke kan
+    vide, om opsætningen er lavet om siden. Se `lysaftryk`.
+    """
+    data = automatikkerne(rummet if rummet is not None else RUMMET)[0]
+    return {"lamper": lamper, "til": til, "aftryk": lysaftryk(data)}
 
 
 class Hus:
@@ -975,7 +986,7 @@ async def test_husket_lys_overlever_genstart(hus: Hus) -> None:
             "kilde": None,
             "slukker": None,
             "hold_slutter": None,
-            "husket": {"lamper": {SPOTS: {"state": "on", "brightness": 40, "color_temp_kelvin": 2200}}, "til": None},
+            "husket": husket({SPOTS: {"state": "on", "brightness": 40, "color_temp_kelvin": 2200}}),
         }
     )
     await hus.bevaegelse("on")
@@ -1398,7 +1409,7 @@ async def test_en_lampe_uden_minde_faar_automatikkens_eget_lys(hus: Hus) -> None
             "kilde": None,
             "slukker": None,
             "hold_slutter": None,
-            "husket": {"lamper": {SPOTS: {"state": "on", "brightness": 40, "color_temp_kelvin": 2200}}, "til": None},
+            "husket": husket({SPOTS: {"state": "on", "brightness": 40, "color_temp_kelvin": 2200}}),
         },
     )
     await hus.bevaegelse("on")
@@ -1440,13 +1451,13 @@ async def test_en_lampe_husket_som_slukket_bliver_slukket(hus: Hus) -> None:
             "kilde": None,
             "slukker": None,
             "hold_slutter": None,
-            "husket": {
-                "lamper": {
+            "husket": husket(
+                {
                     SPOTS: {"state": "off"},
                     STENLAMPE: {"state": "on", "brightness": 255, "color_temp_kelvin": 3000},
                 },
-                "til": None,
-            },
+                rummet,
+            ),
         },
     )
     await hus.bevaegelse("on")
@@ -1482,10 +1493,60 @@ async def test_ingen_af_lamperne_er_husket_taendt_saa_faar_alle_automatikkens_ly
             "kilde": None,
             "slukker": None,
             "hold_slutter": None,
-            "husket": {"lamper": {SPOTS: {"state": "off"}, STENLAMPE: {"state": "off"}}, "til": None},
+            "husket": husket({SPOTS: {"state": "off"}, STENLAMPE: {"state": "off"}}, rummet),
         },
     )
     await hus.bevaegelse("on")
 
     kaldte = [e for k in hus.taend for e in k.data["entity_id"]]
     assert SPOTS in kaldte and STENLAMPE in kaldte
+async def test_et_rettet_tidsrum_kasserer_det_huskede_lys(hus: Hus) -> None:
+    """Retter nogen tidsplanens lys, skal bevægelse bruge det nye - ikke et minde fra før.
+
+    Martins Alrum 20-09-2026: nattidsrummet blev rettet fra 15 % til 40 %, og bevægelse blev ved
+    med at tænde på 15 %. Mindet spørges før `scenarie()`, og `til` fanger kun, at et tidsrum
+    *udløber* - ikke at det bliver lavet om. Det skete tre gange samme aften, og der er ingen
+    vej ud for en bruger: mindet kan ikke ses nogen steder, og tidsplanen ser rigtig ud.
+    """
+    hus.freezer.move_to(lokal("2026-09-14 23:00:00"))
+    foer = RUMMET | {"tidsrum": [NAT]}
+    efter = RUMMET | {"tidsrum": [NAT | {"lys": {"type": "hvid", "lysstyrke": 40, "kelvin": 3000}}]}
+    await hus.saet_op(
+        efter, gemt={"husket": husket({SPOTS: {"state": "on", "brightness": 38}}, foer)}
+    )
+    await hus.bevaegelse("on")
+
+    assert hus.taend[-1].data["brightness_pct"] == 40
+
+
+async def test_samme_opsaetning_beholder_det_huskede_lys(hus: Hus) -> None:
+    """Og omvendt: er opsætningen den samme, overlever det håndvalgte lys en genstart.
+
+    Aftrykket må ikke blive så bredt, at mindet forsvinder ved enhver indlæsning - så var det
+    ikke et minde længere.
+    """
+    hus.freezer.move_to(lokal("2026-09-14 23:00:00"))
+    rummet = RUMMET | {"tidsrum": [NAT]}
+    await hus.saet_op(
+        rummet, gemt={"husket": husket({SPOTS: {"state": "on", "brightness": 38}}, rummet)}
+    )
+    await hus.bevaegelse("on")
+
+    assert hus.taend[-1].data["brightness"] == 38
+
+
+async def test_et_minde_uden_aftryk_kasseres(hus: Hus) -> None:
+    """Et minde fra før 0.12.4 bærer intet aftryk, og så kan der ikke stoles på det.
+
+    Rumlys kan ikke vide, om opsætningen er lavet om siden, og den dyre fejl er at beholde det:
+    så bliver tidsplanen ved med at være tavs efter opdateringen. At kassere det koster én
+    tænding på automatikkens eget lys.
+    """
+    hus.freezer.move_to(lokal("2026-09-14 23:00:00"))
+    await hus.saet_op(
+        RUMMET | {"tidsrum": [NAT]},
+        gemt={"husket": {"lamper": {SPOTS: {"state": "on", "brightness": 38}}, "til": None}},
+    )
+    await hus.bevaegelse("on")
+
+    assert hus.taend[-1].data["brightness_pct"] == 10

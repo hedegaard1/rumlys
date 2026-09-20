@@ -17,6 +17,7 @@ samme klokkeslæt i start og slut er et helt døgn. Uden for tidsrummene gælder
 
 from __future__ import annotations
 
+import json
 from collections import deque
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
@@ -220,6 +221,29 @@ def automatikkerne(data: dict[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
+def lysaftryk(data: dict[str, Any]) -> str:
+    """Det ved opsætningen, der bestemmer lyset: automatikkens eget lys og dens tidsplan.
+
+    Aftrykket gemmes sammen med det huskede lys, og mindet kasseres, når de to ikke passer
+    sammen. Ændrer nogen tidsplanens lys, har de **netop sagt**, hvad lyset skal være — og et
+    minde fra før ville tie den besked ihjel, uden at det kan ses nogen steder.
+
+    `til` alene rækker ikke. Det fanger, at et tidsrum *udløber*, men ikke at det bliver
+    lavet om, og slet ikke at der kommer et til: uden tidsrum giver `naeste_skift()` None,
+    som betyder «udløber aldrig». Et minde skrevet før tidsplanen fandtes, levede derfor
+    evigt. Martins Alrum 20-09-2026: nattidsrummet blev rettet fra 15 % til 40 %, og
+    bevægelse blev ved med at tænde på 15 % - tre gange samme aften.
+
+    Aftrykket rummer med vilje **kun** det, der bestemmer lyset. Retter man lamper, sensorer,
+    overgangen eller automatikkens sluk-tider, overlever et håndvalgt lys. Et tidsrums eget
+    `sluk_efter` er derimod en del af tidsrummet og kasserer mindet med - det er lidt bredere end
+    nødvendigt, men et aftryk, der plukker felter ud, bliver glemt næste gang der kommer et til.
+    """
+    return json.dumps(
+        [data.get(AUT_LYS), data.get(AUT_TIDSRUM)], sort_keys=True, separators=(",", ":")
+    )
+
+
 class Automatik:
     """En gruppe af rummets lamper, der opfører sig ens — med sin egen nedtælling.
 
@@ -254,7 +278,13 @@ class Automatik:
         self.kilde: str | None = gemt.get("kilde")
         self.slukker = _tidspunkt(gemt.get("slukker"))
         self.hold_slutter = _tidspunkt(gemt.get("hold_slutter"))
+        # Aftrykket af den opsætning, mindet blev skrevet under. Se lysaftryk().
+        self._lysaftryk = lysaftryk(data)
         self.husket: dict[str, Any] | None = gemt.get("husket")
+        if self.husket is not None and self.husket.get("aftryk") != self._lysaftryk:
+            # Opsætningen er lavet om, siden lyset blev husket - eller mindet er fra før 0.12.4
+            # og bærer intet aftryk. Begge dele betyder, at det ikke kan stoles på.
+            self.husket = None
         # Tidsrummet, der gjaldt ved sidste skift — et klokkeslæt er ikke et skift alle dage.
         self._aktivt: dict[str, Any] | None = None
         # Lamperne, bevægelse sidst tændte — dem gælder et skift af tidsrum.
@@ -462,7 +492,11 @@ class Automatik:
                 continue
             lamper[entity_id] = _gengivelse(tilstand)
         til = self.naeste_skift()
-        self.husket = {"lamper": lamper, "til": til and til.isoformat()}
+        self.husket = {
+            "lamper": lamper,
+            "til": til and til.isoformat(),
+            "aftryk": self._lysaftryk,
+        }
         self.opdater()
 
     @staticmethod
