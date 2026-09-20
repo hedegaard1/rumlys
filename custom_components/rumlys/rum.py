@@ -618,6 +618,11 @@ class Rum:
         self._sidste_kommando: datetime | None = None
         # Lamper, Rumlys selv trapper op eller ned lige nu, og hvordan trappen stoppes igen.
         self._trapper: dict[str, CALLBACK_TYPE] = {}
+        # Home Assistant er oppe, og lampernes tilstande er til at stole på. Før det melder en
+        # IHC-lampe «off», før integrationen har læst den rigtige tilstand — og en nulstilling
+        # på den melding smider automatikkens kilde væk. Målt på Alrum 20-09-2026: lampen gik
+        # off og on igen inden for 0,75 sekund ved opstart, og rummet mistede sin «bevægelse».
+        self._oppe = False
 
     @property
     def navn(self) -> str:
@@ -697,6 +702,13 @@ class Rum:
         self._opdater()
 
     @callback
+    def _nu_er_vi_oppe(self, _hass: HomeAssistant | None = None) -> None:
+        """Nu står lamperne rigtigt. Ret automatikkerne ind, og begynd at lytte for alvor."""
+        self._oppe = True
+        for aut in self.automatik:
+            aut.synk()
+
+    @callback
     def start(self) -> None:
         self._afmeld.append(
             async_track_state_change_event(self.hass, self.lys, self._lys_aendret)
@@ -704,6 +716,7 @@ class Rum:
         # Områdets lamper kan først læses, når tilstandene er der. Er Home Assistant allerede oppe,
         # sker det med det samme.
         self._afmeld.append(async_at_started(self.hass, self._top_op_lamper))
+        self._afmeld.append(async_at_started(self.hass, self._nu_er_vi_oppe))
         if self.sensorer:
             self._afmeld.append(
                 async_track_state_change_event(
@@ -1044,6 +1057,10 @@ class Rum:
 
     @callback
     def _lys_aendret(self, event: Event[EventStateChangedData]) -> None:
+        # Under opstarten er lampernes tilstande ikke til at stole på: en IHC-lampe melder
+        # «off», før integrationen har læst den. _nu_er_vi_oppe() retter ind, når alt står rigtigt.
+        if not self._oppe:
+            return
         # Trapper Rumlys selv lampen lige nu, er alt hvad den melder vores egen gerning. En
         # daemper, der falder ud ved lav lysstyrke, maa ikke laeses som «slukket i haanden» -
         # og det gjorde den: maalt paa Alrum 20-09-2026, hvor foerste skridt paa 17 af 255

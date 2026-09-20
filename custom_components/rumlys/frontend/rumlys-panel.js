@@ -298,7 +298,12 @@ select, input[type=text], input[type=time], input[type=search] {
 .scenefelt.valgt { outline: 3px solid var(--rl-p); outline-offset: 2px; }
 .haendelse { display: grid; grid-template-columns: 70px 1fr; gap: 2px 10px; font-size: 13px; padding: 3px 0; }
 .haendelse time { color: var(--rl-daempet); font-variant-numeric: tabular-nums; }
-.fod { position: fixed; left: var(--mdc-drawer-width, 0px); right: 0; bottom: 0; z-index: 3; display: flex; align-items: center; gap: 10px; justify-content: flex-end; padding: 12px 16px;
+/* Bundlinjen er fastgjort til vinduet, så den skal selv holde sig fri af Home Assistants
+   sidebar. Variablen hed før --mdc-drawer-width; den sætter Home Assistant ikke længere,
+   så den faldt tilbage på 0, og «Slet rummet» og beskeden lå under sidebaren på en PC —
+   synlige på mobil, hvor sidebaren er væk (Martin 20-09-2026). Det gamle navn står stadig
+   som reserve, og 0px dækker mobil og den overlappende sidebar, hvor bredden er «unset». */
+.fod { position: fixed; left: var(--ha-sidebar-width, var(--mdc-drawer-width, 0px)); right: 0; bottom: 0; z-index: 3; display: flex; align-items: center; gap: 10px; justify-content: flex-end; padding: 12px 16px;
   background: var(--rl-flade); border-top: 1px solid var(--rl-linje); box-shadow: 0 -2px 10px rgba(0,0,0,.05); }
 .fod .besked2 { margin-right: auto; font-size: 13px; color: var(--rl-daempet); }
 /* «Slet rummet» yderst til venstre, så den ikke står ved siden af «Gem rum». */
@@ -1511,15 +1516,24 @@ class RumlysPanel extends HTMLElement {
     // ingenting — det er ren information — men pladsen ved siden af navnet stod tom.
     const omraadeIkon = h("span", { class: "omraadeikon" });
     const prikker = h("div", { class: "paerer" });
+    // Sensorprikkerne bor for sig selv og bygges aldrig om: en replaceChildren river
+    // elementet ud af DOM'en, og saa starter pulsanimationen forfra hvert 15. sekund.
+    const sensorprikker = h("div", { class: "paerer" });
+    const sensorElementer = new Map();
     this._levende.push((hass) => {
       const lamper = this._kladde.data.lamper.map((l) => l.entity_id);
       const omraade = (hass.areas || {})[this._kladde.data.omraade];
       omraadeIkon.replaceChildren(ikon((omraade && omraade.icon) || RUMLYS_IKON));
       const sensorer = this._kladde.data.sensorer || [];
-      prikker.replaceChildren(
-        ...sensorer.map((id) => this._sensorprik(hass, id)),
-        ...lamper.map((id) => this._lampeprik(hass, id)),
-      );
+      const noegle = sensorer.join(",");
+      if (sensorprikker.dataset.noegle !== noegle) {
+        sensorprikker.dataset.noegle = noegle;
+        sensorElementer.clear();
+        sensorer.forEach((id) => sensorElementer.set(id, this._sensorprik(id)));
+        sensorprikker.replaceChildren(...sensorElementer.values());
+      }
+      sensorer.forEach((id) => this._opdaterSensorprik(sensorElementer.get(id), hass, id));
+      prikker.replaceChildren(...lamper.map((id) => this._lampeprik(hass, id)));
       const s = this._detalje.status || {};
       const dele = [];
       if (s.lamper) dele.push(this.t("taendte_lamper", { n: s.taendte || 0, i: s.lamper }));
@@ -1541,6 +1555,7 @@ class RumlysPanel extends HTMLElement {
       h("div", { class: "hovedrad" },
         omraadeIkon,
         h("div", { class: "hovedtekst" }, h("h1", {}, this._detalje.navn), status, detaljer),
+        sensorprikker,
         prikker)
     );
   }
@@ -1564,22 +1579,26 @@ class RumlysPanel extends HTMLElement {
     return prik;
   }
 
-  // Én sensor som en rund boks: orange og pulserende, når den ser nogen. Ikonet er sensorens
-  // eget, hvis den har et — ellers et, der passer til hvad den kan se.
-  _sensorprik(hass, entityId) {
+  // Én sensor som en rund boks: orange og pulserende, når den ser nogen. Elementet laves én
+  // gang og opdateres derefter i sig selv — bliver det bygget om, starter pulsen forfra.
+  _sensorprik(entityId) {
+    return h("span", { class: "sensor-prik" }, h("ha-state-icon", {}));
+  }
+
+  // Ikonet kommer fra Home Assistant selv: `ha-state-icon` kender enhedsklassen og tegner det
+  // samme, som HA viser alle andre steder — også forskellen på set og fri. Gætter man selv,
+  // rammer man ved siden af, og det gjorde jeg: `mdi:account` til en «occupancy»-sensor.
+  _opdaterSensorprik(prik, hass, entityId) {
+    if (!prik) return;
     const st = hass.states[entityId];
     const aktiv = !!st && st.state === "on";
-    const klasse = st && (st.attributes.device_class || "");
-    const navn = (st && st.attributes.friendly_name) || entityId;
-    const standard = klasse === "motion" ? "mdi:motion-sensor" : "mdi:account";
-    return h(
-      "span",
-      {
-        class: "sensor-prik" + (aktiv ? " aktiv" : ""),
-        title: navn + " — " + this.t(aktiv ? "sensor_ser" : "sensor_fri"),
-      },
-      ikon((st && st.attributes.icon) || standard)
-    );
+    prik.classList.toggle("aktiv", aktiv);
+    prik.title = ((st && st.attributes.friendly_name) || entityId) + " — " + this.t(aktiv ? "sensor_ser" : "sensor_fri");
+    const ikonEl = prik.firstElementChild;
+    if (ikonEl) {
+      ikonEl.hass = hass;
+      ikonEl.stateObj = st;
+    }
   }
 
   _sektion(ikonNavn, titel, hint, ...indhold) {
