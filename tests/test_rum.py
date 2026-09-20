@@ -1410,3 +1410,82 @@ async def test_en_lampe_uden_minde_faar_automatikkens_eget_lys(hus: Hus) -> None
     # ... og den nye med automatikkens eget lys, ikke sprunget over.
     assert (STENLAMPE,) in kald
     assert kald[(STENLAMPE,)]["brightness_pct"] == RUMMET["lys"]["lysstyrke"]
+
+
+async def test_en_lampe_husket_som_slukket_bliver_slukket(hus: Hus) -> None:
+    """Husker mindet en lampe som SLUKKET, taender bevaegelse den ikke. Det er meningen.
+
+    Martins Alrum 20-09-2026: loftet blev slukket i haanden under en maaling, og fire sekunder
+    senere huskede Rumlys billedet - loftet slukket, spisebordslampen taendt. Derefter taendte
+    sensoren kun spisebordslampen, hver gang. Det er ikke en fejl, men det er staerkt klaebende:
+    en lampe husket som slukket kommer aldrig igen af sig selv. Vejen ud er at taende den i
+    haanden, saa mindet skrives om.
+
+    SPOTS staar for IHC-loftet (kun brightness, skal trappes), STENLAMPE for spisebordslampen
+    (kan selv transition).
+    """
+    rummet = RUMMET | {
+        "lamper": [
+            {"entity_id": SPOTS, "bevaegelse": True},
+            {"entity_id": STENLAMPE, "bevaegelse": True},
+        ],
+        "overgang": 3,
+    }
+    hus.hass.states.async_set(SPOTS, "off", BRIGHTNESS)
+    hus.hass.states.async_set(STENLAMPE, "off", {"supported_features": 32})
+    await hus.saet_op(
+        rummet,
+        gemt={
+            "indstillinger": {},
+            "kilde": None,
+            "slukker": None,
+            "hold_slutter": None,
+            "husket": {
+                "lamper": {
+                    SPOTS: {"state": "off"},
+                    STENLAMPE: {"state": "on", "brightness": 255, "color_temp_kelvin": 3000},
+                },
+                "til": None,
+            },
+        },
+    )
+    await hus.bevaegelse("on")
+
+    kaldte = [e for k in hus.taend for e in k.data["entity_id"]]
+    assert SPOTS not in kaldte
+    # Og den huskede faar sit lys MED overgangen. Rumlys sender den; springer lampen alligevel,
+    # er det lampen: en overgang gaelder niveauet, ikke taendingen, og staar paeren i forvejen
+    # paa det niveau, mindet beder om, er der ingenting at gaa til.
+    assert hus.taend[-1].data["transition"] == 3
+    assert hus.taend[-1].data["entity_id"] == [STENLAMPE]
+
+
+async def test_ingen_af_lamperne_er_husket_taendt_saa_faar_alle_automatikkens_lys(hus: Hus) -> None:
+    """Kan mindet ikke taende noget, er det ubrugeligt - saa faar alle lamper standardlyset.
+
+    Det er forskellen paa «husket som slukket» og «mindet kan ikke bruges». Uden den skelnen
+    ville et rum, hvor alt blev slukket i haanden, aldrig taende igen.
+    """
+    rummet = RUMMET | {
+        "lamper": [
+            {"entity_id": SPOTS, "bevaegelse": True},
+            {"entity_id": STENLAMPE, "bevaegelse": True},
+        ],
+        "overgang": 3,
+    }
+    hus.hass.states.async_set(SPOTS, "off", BRIGHTNESS)
+    hus.hass.states.async_set(STENLAMPE, "off", {"supported_features": 32})
+    await hus.saet_op(
+        rummet,
+        gemt={
+            "indstillinger": {},
+            "kilde": None,
+            "slukker": None,
+            "hold_slutter": None,
+            "husket": {"lamper": {SPOTS: {"state": "off"}, STENLAMPE: {"state": "off"}}, "til": None},
+        },
+    )
+    await hus.bevaegelse("on")
+
+    kaldte = [e for k in hus.taend for e in k.data["entity_id"]]
+    assert SPOTS in kaldte and STENLAMPE in kaldte
