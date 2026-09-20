@@ -134,6 +134,27 @@ button { font: inherit; color: inherit; }
   border: 2px solid var(--rl-linje); color: var(--rl-daempet); transition: background .3s, color .3s, border-color .3s;
 }
 .paere-prik.taendt { border-color: transparent; }
+/* Sensoren som sin egen runde boks ved siden af lamperne (Martins ønske 20-09-2026). Slukket er
+   den temaets tekstfarve i en tom ring; ser den nogen, fyldes den med temaets farve, og en ring
+   pulser udad. Pulsen er det eneste, der siger «lige nu» uden at man skal læse noget. */
+.sensor-prik {
+  width: 32px; height: 32px; border-radius: 50%; flex: none; box-sizing: border-box;
+  display: grid; place-items: center; --mdc-icon-size: 18px; position: relative;
+  border: 2px solid var(--rl-linje); color: var(--primary-text-color);
+  transition: background .3s, color .3s, border-color .3s;
+}
+.sensor-prik.aktiv { border-color: transparent; background: var(--rl-p); color: var(--rl-paa-p); }
+.sensor-prik.aktiv::after {
+  content: ""; position: absolute; inset: -2px; border-radius: 50%;
+  border: 2px solid var(--rl-p); animation: sensorpuls 1.6s ease-out infinite;
+}
+@keyframes sensorpuls {
+  0%   { transform: scale(1);   opacity: .7; }
+  100% { transform: scale(1.7); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sensor-prik.aktiv::after { animation: none; opacity: .35; }
+}
 /* Hvad lampen kan, som små runde mærker ud for den: en cirkel fra gult til køligt hvidt for lys,
    der kan stilles, farvehjulet for farver, og en enkelt gul bolle for en pære, der hverken kan
    det ene eller det andet. Designet kommer fra mockuppen (Martins ønske 19-09-2026). */
@@ -1479,7 +1500,11 @@ class RumlysPanel extends HTMLElement {
       const lamper = this._kladde.data.lamper.map((l) => l.entity_id);
       const omraade = (hass.areas || {})[this._kladde.data.omraade];
       omraadeIkon.replaceChildren(ikon((omraade && omraade.icon) || RUMLYS_IKON));
-      prikker.replaceChildren(...lamper.map((id) => this._lampeprik(hass, id)));
+      const sensorer = this._kladde.data.sensorer || [];
+      prikker.replaceChildren(
+        ...sensorer.map((id) => this._sensorprik(hass, id)),
+        ...lamper.map((id) => this._lampeprik(hass, id)),
+      );
       status.textContent = statusTekst(hass, e);
       const s = this._detalje.status || {};
       const dele = [];
@@ -1522,6 +1547,24 @@ class RumlysPanel extends HTMLElement {
       prik.style.color = lyst ? "rgba(0, 0, 0, .82)" : "#fff";
     }
     return prik;
+  }
+
+  // Én sensor som en rund boks: orange og pulserende, når den ser nogen. Ikonet er sensorens
+  // eget, hvis den har et — ellers et, der passer til hvad den kan se.
+  _sensorprik(hass, entityId) {
+    const st = hass.states[entityId];
+    const aktiv = !!st && st.state === "on";
+    const klasse = st && (st.attributes.device_class || "");
+    const navn = (st && st.attributes.friendly_name) || entityId;
+    const standard = klasse === "motion" ? "mdi:motion-sensor" : "mdi:account";
+    return h(
+      "span",
+      {
+        class: "sensor-prik" + (aktiv ? " aktiv" : ""),
+        title: navn + " — " + this.t(aktiv ? "sensor_ser" : "sensor_fri"),
+      },
+      ikon((st && st.attributes.icon) || standard)
+    );
   }
 
   _sektion(ikonNavn, titel, hint, ...indhold) {
