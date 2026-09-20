@@ -464,6 +464,7 @@ class RumlysPanel extends HTMLElement {
     this._omraader = null;
     this._katalog = { scener: [], efterId: {}, kategorier: [] };
     this._levende = [];
+    this._tikkende = [];
     this._visAlle = false;
     // Rumlys-kortene på betjeningspanelerne, og kortene der var nye, da rummet blev åbnet.
     this._kortfund = null;
@@ -507,12 +508,16 @@ class RumlysPanel extends HTMLElement {
 
   connectedCallback() {
     this._ur = setInterval(() => this._opdaterLevende(), 15000);
+    // Nedtællingen skal tælle ned, ikke springe. Den har sit eget ur, fordi det langsomme
+    // bygger prikkerne om — og en ombygning starter sensorprikkens puls forfra hvert tik.
+    this._tik = setInterval(() => this._opdaterTikkende(), 1000);
     window.addEventListener(OPDATERET, this._vedOpdatering);
     this._lytTilPaneler();
   }
 
   disconnectedCallback() {
     clearInterval(this._ur);
+    clearInterval(this._tik);
     window.removeEventListener(OPDATERET, this._vedOpdatering);
     if (this._afmeldPaneler) {
       this._afmeldPaneler.then((afmeld) => afmeld(), () => {});
@@ -582,6 +587,7 @@ class RumlysPanel extends HTMLElement {
       return;
     }
     this._levende = [];
+    this._tikkende = [];
     this._nyeKort = new Set();
     this._aabneKort = new Set();
     this._kendteKort = new Set();
@@ -1275,11 +1281,19 @@ class RumlysPanel extends HTMLElement {
     this._levende.forEach((fn) => fn(this._hass));
   }
 
+  // Kun tekst, hvert sekund. Det, der skal tælle ned, ligger her; alt hvad der bygger noget om
+  // hører til det langsomme ur.
+  _opdaterTikkende() {
+    if (!this._hass) return;
+    (this._tikkende || []).forEach((fn) => fn(this._hass));
+  }
+
   /* ---------- oversigten ---------- */
 
   _tegnOversigt() {
     if (!this._hass) return;
     this._levende = [];
+    this._tikkende = [];
     const indhold = h("div", {});
     indhold.appendChild(h("div", { class: "overskrift" }, h("h1", {}, this.t("titel"))));
     if (this._fejl) {
@@ -1321,7 +1335,6 @@ class RumlysPanel extends HTMLElement {
     this._levende.push((hass) => {
       const farver = rummetsFarver(hass, rum.lamper.map((l) => l.entity_id));
       farve.style.background = farver.length ? overgang(farver, "135deg") : "";
-      status.textContent = statusTekst(hass, rum.entiteter);
       // Rummets ikon i bjælken: områdets eget, som det står i Home Assistant. Ikke lampernes —
       // dem viser kortet, og her er det rummet, man skal kunne kende. Har området intet ikon,
       // står Rumlys' egen lampe.
@@ -1332,6 +1345,7 @@ class RumlysPanel extends HTMLElement {
       const lyst = !farver.length || farver.some((f) => luminans(lysFarve(f)) > 0.179);
       farve.style.color = lyst ? "rgba(0, 0, 0, .82)" : "#fff";
     });
+    this._tikkende.push((hass) => { status.textContent = statusTekst(hass, rum.entiteter); });
     return felt;
   }
 
@@ -1393,6 +1407,7 @@ class RumlysPanel extends HTMLElement {
   _tegnRum() {
     if (!this._detalje || !this._kladde) return;
     this._levende = [];
+    this._tikkende = [];
     const indhold = h("div", {});
     this._sektioner = {};
     indhold.appendChild(this._hovedet());
@@ -1505,7 +1520,6 @@ class RumlysPanel extends HTMLElement {
         ...sensorer.map((id) => this._sensorprik(hass, id)),
         ...lamper.map((id) => this._lampeprik(hass, id)),
       );
-      status.textContent = statusTekst(hass, e);
       const s = this._detalje.status || {};
       const dele = [];
       if (s.lamper) dele.push(this.t("taendte_lamper", { n: s.taendte || 0, i: s.lamper }));
@@ -1516,6 +1530,7 @@ class RumlysPanel extends HTMLElement {
       if ((s.uden_automatik || []).length) dele.push(this.t("uden_automatik", { n: s.uden_automatik.length }));
       detaljer.textContent = dele.join(" · ");
     });
+    this._tikkende.push((hass) => { status.textContent = statusTekst(hass, e); });
     // Ikonet til venstre, navn og status i én søjle ved siden af, lampernes prikker til højre. Så
     // starter statusteksten lodret samme sted som overskriften (Martins ønske 19-09-2026). Den
     // store farveblob, der stod før statussen, er væk: hver lampe har sin egen prik nu, og så
