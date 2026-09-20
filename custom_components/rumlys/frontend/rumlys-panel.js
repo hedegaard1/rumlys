@@ -360,6 +360,11 @@ const ALLE_DAGE = [0, 1, 2, 3, 4, 5, 6];
 const ANBEFALET_BEVAEGELSE = 300;
 const ANBEFALET_TILSTEDE = 30;
 
+// Sensorprikkens ikon. Det er panelets eget — det samme som overskriften «Sensorer» og
+// «Ingen i rummet» bruger — og ikke enhedens eget fra Home Assistant.
+const SENSOR_IKON_SER = "mdi:motion-sensor";
+const SENSOR_IKON_FRI = "mdi:motion-sensor-off";
+
 // Navne, der skal kunne sammenlignes på tværs af store bogstaver, æøå og bindestreger: «Træningsrum» og
 // stien «traeningsrum» er den samme fane.
 function enkeltNavn(tekst) {
@@ -1582,12 +1587,12 @@ class RumlysPanel extends HTMLElement {
   // Én sensor som en rund boks: orange og pulserende, når den ser nogen. Elementet laves én
   // gang og opdateres derefter i sig selv — bliver det bygget om, starter pulsen forfra.
   _sensorprik(entityId) {
-    return h("span", { class: "sensor-prik" }, h("ha-state-icon", {}));
+    return h("span", { class: "sensor-prik" }, ikon(SENSOR_IKON_FRI));
   }
 
-  // Ikonet kommer fra Home Assistant selv: `ha-state-icon` kender enhedsklassen og tegner det
-  // samme, som HA viser alle andre steder — også forskellen på set og fri. Gætter man selv,
-  // rammer man ved siden af, og det gjorde jeg: `mdi:account` til en «occupancy»-sensor.
+  // Prikken bruger panelets eget sensorikon — det samme som overskriften «Sensorer» — og ikke
+  // enhedens eget fra Home Assistant. `ha-state-icon` tegner et hus for en «occupancy»-sensor,
+  // fordi det er HA's ikon for enhedsklassen, og et hus siger ingenting om, at nogen er set.
   _opdaterSensorprik(prik, hass, entityId) {
     if (!prik) return;
     const st = hass.states[entityId];
@@ -1595,10 +1600,7 @@ class RumlysPanel extends HTMLElement {
     prik.classList.toggle("aktiv", aktiv);
     prik.title = ((st && st.attributes.friendly_name) || entityId) + " — " + this.t(aktiv ? "sensor_ser" : "sensor_fri");
     const ikonEl = prik.firstElementChild;
-    if (ikonEl) {
-      ikonEl.hass = hass;
-      ikonEl.stateObj = st;
-    }
+    if (ikonEl) ikonEl.setAttribute("icon", aktiv ? SENSOR_IKON_SER : SENSOR_IKON_FRI);
   }
 
   _sektion(ikonNavn, titel, hint, ...indhold) {
