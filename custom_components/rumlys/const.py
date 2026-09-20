@@ -128,5 +128,12 @@ DOBBELT_FELTER = {"vindue": (KNAP_DOBBELT, 0.1, 1)}
 # Pausen er det ene tal, der betyder noget: antallet af skridt følger af overgangstiden divideret
 # med pausen. For kort oversvømmer en IHC-controller med kald; for lang hakker lyset synligt.
 BLOED_PAUSE = 0.2  # sekunder mellem skridtene
+# Bunden i trappen, i procent. En daemper slukker helt under sit eget minimum, og saa laeser
+# Rumlys det som en slukning. Maalt paa Alrums IHC-lys 20-09-2026: 17 af 255 - knap 7 procent -
+# slukkede den. Bunden er hardware, saa den skal kunne saettes pr. automatik.
+BLOED_MINDSTE = 15
 AUT_TRAPPE = "trappe"  # automatikkens finindstilling af den trappede overgang
-TRAPPE_FELTER = {"pause": (BLOED_PAUSE, 0.05, 2)}
+TRAPPE_FELTER = {
+    "pause": (BLOED_PAUSE, 0.05, 2),
+    "mindste": (BLOED_MINDSTE, 1, 60),
+}

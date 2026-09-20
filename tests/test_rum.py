@@ -1193,14 +1193,15 @@ async def test_trappe_naar_lampen_ikke_selv_kan_lave_overgang(hass: HomeAssistan
     # Første skridt: en lav lysstyrke, og ingen `transition` — den ville alligevel blive tabt.
     assert len(hus.taend) == 1
     assert hus.taend[0].data["entity_id"] == [SPOTS]
-    assert hus.taend[0].data["brightness"] == 17
+    # Bunden er 15 % = 38 af 255, og derfra 15 skridt op til 255.
+    assert hus.taend[0].data["brightness"] == 52
     assert "transition" not in hus.taend[0].data
     assert "brightness_pct" not in hus.taend[0].data
     # Farven følger med hele vejen, så lampen ikke skifter farve til sidst.
     assert hus.taend[0].data["color_temp_kelvin"] == 3500
 
     await hus.vent(0.2)
-    assert hus.taend[-1].data["brightness"] == 34
+    assert hus.taend[-1].data["brightness"] == 67
 
     await trap_faerdigt(hus)
     assert hus.taend[-1].data["brightness"] == 255
@@ -1271,3 +1272,25 @@ async def test_ny_kommando_stopper_trappen(hass: HomeAssistant, hus: Hus) -> Non
     assert hus.sluk
     efter = [k.data.get("brightness", 0) for k in hus.taend[antal:]]
     assert efter == sorted(efter, reverse=True)
+
+
+async def test_trappen_maa_ikke_laese_sin_egen_daemper_som_en_slukning(
+    hass: HomeAssistant, hus: Hus
+) -> None:
+    """En dæmper, der falder ud ved lav lysstyrke, er ikke «slukket i hånden».
+
+    Ramt på Alrum 20-09-2026: første skridt drev IHC-lampen under dens minimum, den meldte
+    «off», og Rumlys nulstilled rummet midt i optændingen. Lampen tændte færdig bagefter, så
+    rummet stod «slukket» med lyset tændt."""
+    hass.states.async_set(SPOTS, "off", BRIGHTNESS)
+    await hus.saet_op()
+    await hus.bevaegelse("on")
+    assert hus.tilstand() == "bevaegelse"
+
+    # Lampen melder selv «off» midt i trappen — uden Rumlys' context, som en dæmper der falder ud.
+    await hus.lys("off", None, **BRIGHTNESS)
+    assert hus.tilstand() == "bevaegelse"
+
+    await trap_faerdigt(hus)
+    await hus.lys("on", hus.taend[-1].context, brightness=255, **BRIGHTNESS)
+    assert hus.tilstand() == "bevaegelse"

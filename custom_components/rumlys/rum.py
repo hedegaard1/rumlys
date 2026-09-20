@@ -60,6 +60,7 @@ from .const import (
     AUT_TIDSRUM,
     AUT_TRAPPE,
     BEVAEGELSE,
+    BLOED_MINDSTE,
     BLOED_PAUSE,
     CONF_AUTOMATIK,
     CONF_BEVAEGELSE,
@@ -1043,6 +1044,12 @@ class Rum:
 
     @callback
     def _lys_aendret(self, event: Event[EventStateChangedData]) -> None:
+        # Trapper Rumlys selv lampen lige nu, er alt hvad den melder vores egen gerning. En
+        # daemper, der falder ud ved lav lysstyrke, maa ikke laeses som «slukket i haanden» -
+        # og det gjorde den: maalt paa Alrum 20-09-2026, hvor foerste skridt paa 17 af 255
+        # slukkede IHC-lampen og nulstillede rummet midt i optaendingen.
+        if event.data["entity_id"] in self._trapper:
+            return
         gammel = event.data["old_state"]
         ny = event.data["new_state"]
         if ny is None or ny.state in UKENDT:
@@ -1273,10 +1280,14 @@ class Rum:
         finindstilles."""
         for entity_id in lamper:
             aut = self.automatik_for(entity_id)
-            pause = float((aut.trappe if aut is not None else {}).get("pause") or BLOED_PAUSE)
+            valg = aut.trappe if aut is not None else {}
+            pause = float(valg.get("pause") or BLOED_PAUSE)
+            # Under bunden slukker en daemper helt. Trappen gaar derfor fra bunden og op,
+            # ikke fra nul: det sidste stykke ned tager slukningen til sidst.
+            bund = max(1, round(float(valg.get("mindste") or BLOED_MINDSTE) * 255 / 100))
             antal = max(1, round(overgang / pause))
-            fra = self._lysstyrken_paa(entity_id)
-            til = 0 if tjeneste == "turn_off" else _maal_lysstyrke(data)
+            fra = self._lysstyrken_paa(entity_id) or bund
+            til = bund if tjeneste == "turn_off" else max(bund, _maal_lysstyrke(data))
             # Farve og andet følger med hvert skridt; lysstyrken sætter trappen selv.
             grund = {
                 n: v

@@ -9,7 +9,7 @@
 // relativt, så Rumlys' egne ikoner også virker på testsiden og i node-testen.
 import "./ikoner/rumlys-ikoner.js";
 
-export const VERSION = "0.10.0";
+export const VERSION = "0.10.1";
 // Mappen, filen selv ligger i — i Home Assistant med versionen i stien, på testsiden repoets egen.
 export const FILER = new URL("./", import.meta.url).href;
 // Scenerne ligger i Rumlys selv. I Home Assistant har de en fast adresse uden version, så et kort,
@@ -138,6 +138,8 @@ const TEKSTER = {
     f_skridt_sub: "Så meget flytter lysstyrken sig pr. skridt",
     f_pause: "Pause",
     f_pause_sub: "Så længe er der mellem to skridt — kortere er hurtigere",
+    f_mindste: "Bund",
+    f_mindste_sub: "Så lavt går trappen ned. Under sit eget minimum slukker en dæmper helt",
     f_overgang: "Overgang",
     f_overgang_sub: "Pærens egen bløde overgang pr. skridt. Nogle pærer hakker, hvis den er 0",
     f_vend: "Vendepunkt",
@@ -435,6 +437,8 @@ const TEKSTER = {
     f_skridt_sub: "How far the brightness moves per step",
     f_pause: "Pause",
     f_pause_sub: "How long there is between two steps — shorter is faster",
+    f_mindste: "Floor",
+    f_mindste_sub: "How low the ramp goes. Below its own minimum a dimmer switches off entirely",
     f_overgang: "Transition",
     f_overgang_sub: "The bulb's own soft transition per step. Some bulbs stutter if it is 0",
     f_vend: "Turning point",
@@ -953,7 +957,10 @@ export const DOBBELT_FELTER = [["vindue", 0.3, 0.1, 1, 0.05, "sek."]];
 
 // Trappen: Rumlys saetter selv lysstyrken i skridt paa lamper, der ikke kan lave en overgang.
 // Pausen er det ene tal, der betyder noget - antallet af skridt foelger af overgangstiden.
-export const TRAPPE_FELTER = [["pause", 0.2, 0.05, 2, 0.05, "sek."]];
+export const TRAPPE_FELTER = [
+  ["pause", 0.2, 0.05, 2, 0.05, "sek."],
+  ["mindste", 15, 1, 60, 1, "%"],
+];
 
 // Home Assistants farvetilstande, hvor lysstyrken kan saettes. "onoff" og "unknown" kan ikke.
 const LYSSTYRKETILSTANDE = ["brightness", "color_temp", "hs", "rgb", "rgbw", "rgbww", "white", "xy"];
