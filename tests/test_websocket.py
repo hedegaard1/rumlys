@@ -144,6 +144,11 @@ async def test_lamperne_kommer_fra_omraadet(
     assert lamper == [SPOTS, "light.gang_ny"]
     # Den er ikke i nogen automatik - den taendes ikke af bevaegelse, foer nogen laegger den i en.
     assert svar["result"]["automatik"][0]["lamper"] == [SPOTS]
+    # Og den skal staa i «data» ogsaa, ikke kun ved siden af. Sidepanelet retter i «data»:
+    # automatikkens lampeliste og kontakten «Taender ved bevaegelse» tegnes derfra. Stod lampen
+    # kun i «lamper», kunne den ses i rummet, men ikke laegges i en automatik - fundet paa
+    # Alrums spisebordslampe 20-09-2026.
+    assert [l["entity_id"] for l in svar["result"]["data"]["lamper"]] == [SPOTS, "light.gang_ny"]
 
 
 async def test_gruppens_paerer_taeller_ikke_med_som_egne_lamper(

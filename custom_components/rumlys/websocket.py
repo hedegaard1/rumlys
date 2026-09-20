@@ -199,11 +199,22 @@ def ws_hent(
     connection.send_result(
         msg["id"],
         _rum_kort(hass, entry, subentry)
-        # Automatikkerne skal med i selve opsætningen, ikke kun ved siden af den: sidepanelet
-        # retter i «data», og et rum fra før 0.7.0 har dem ikke liggende dér. Uden det her stod
-        # siden med «Rummet kunne ikke hentes», fordi der ikke var nogen automatikker at tegne.
+        # Automatikkerne og lamperne skal med i selve opsætningen, ikke kun ved siden af den:
+        # sidepanelet retter i «data», og det, der ikke står dér, kan det ikke vise frem.
+        #
+        # Automatikkerne kom med først — et rum fra før 0.7.0 har dem ikke liggende, og uden dem
+        # stod siden med «Rummet kunne ikke hentes». Lamperne har nøjagtig samme problem og blev
+        # overset: afsnittet «Lamper» tegner rummets egen, flettede liste, men automatikkens
+        # lampeliste tegner `data.lamper`, og en lampe fra området, ingen havde gemt, stod ikke
+        # dér. Så kunne den ikke lægges i en automatik — og kontakten «Tænder ved bevægelse»
+        # skrev i et midlertidigt objekt, der ikke var i listen, så valget forsvandt uden en lyd.
+        # Fundet på Alrums spisebordslampe 20-09-2026.
         | {
-            "data": dict(subentry.data) | {CONF_AUTOMATIK: automatikkerne(subentry.data)},
+            "data": dict(subentry.data)
+            | {
+                CONF_AUTOMATIK: automatikkerne(subentry.data),
+                CONF_LAMPER: rummets_lamper(hass, subentry.data),
+            },
             "status": rum.status(),
         },
     )
