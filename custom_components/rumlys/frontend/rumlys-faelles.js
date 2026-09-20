@@ -9,7 +9,7 @@
 // relativt, så Rumlys' egne ikoner også virker på testsiden og i node-testen.
 import "./ikoner/rumlys-ikoner.js";
 
-export const VERSION = "0.9.8";
+export const VERSION = "0.10.0";
 // Mappen, filen selv ligger i — i Home Assistant med versionen i stien, på testsiden repoets egen.
 export const FILER = new URL("./", import.meta.url).href;
 // Scenerne ligger i Rumlys selv. I Home Assistant har de en fast adresse uden version, så et kort,
@@ -950,6 +950,25 @@ export const DAEMP_FELTER = [
   ["vend", 51, 1, 99, 1, "%"],
 ];
 export const DOBBELT_FELTER = [["vindue", 0.3, 0.1, 1, 0.05, "sek."]];
+
+// Trappen: Rumlys saetter selv lysstyrken i skridt paa lamper, der ikke kan lave en overgang.
+// Pausen er det ene tal, der betyder noget - antallet af skridt foelger af overgangstiden.
+export const TRAPPE_FELTER = [["pause", 0.2, 0.05, 2, 0.05, "sek."]];
+
+// Home Assistants farvetilstande, hvor lysstyrken kan saettes. "onoff" og "unknown" kan ikke.
+const LYSSTYRKETILSTANDE = ["brightness", "color_temp", "hs", "rgb", "rgbw", "rgbww", "white", "xy"];
+
+// Laver lampen selv overgangen? LightEntityFeature.TRANSITION.
+export function kanSelvOvergang(st) {
+  return Boolean(st && ((st.attributes.supported_features || 0) & 32));
+}
+
+// Kan lampen daempes, men ikke selv lave en overgang? Saa trapper Rumlys den.
+export function kanTrappes(st) {
+  if (!st || kanSelvOvergang(st)) return false;
+  return (st.attributes.supported_color_modes || []).some((m) => LYSSTYRKETILSTANDE.indexOf(String(m)) >= 0);
+}
+
 
 export const STANDARD_TIDER = { sluk_efter_bevaegelse: 30, sluk_efter_tryk: 5, hold_tid: 4 };
 

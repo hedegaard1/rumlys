@@ -1085,7 +1085,7 @@ async def test_vaelg_lys_til_rummet(hus: Hus) -> None:
 
 
 async def test_scene_som_tidsrummets_lys(hass: HomeAssistant, hus: Hus) -> None:
-    hass.states.async_set(SPOTS, "off", {"supported_color_modes": ["color_temp", "xy"]})
+    hass.states.async_set(SPOTS, "off", {"supported_color_modes": ["color_temp", "xy"], "supported_features": 32})
     hus.freezer.move_to(lokal("2026-09-14 23:00:00"))
     hvile = {"type": "scene", "scene": "e03267e7-9914-4f47-97fe-63c0bd317fe7"}
     await hus.saet_op(RUMMET | {"tidsrum": [NAT | {"lys": hvile}]})
@@ -1099,7 +1099,7 @@ async def test_scene_som_tidsrummets_lys(hass: HomeAssistant, hus: Hus) -> None:
 
 
 async def test_vaelg_scene_til_rummet(hass: HomeAssistant, hus: Hus) -> None:
-    hass.states.async_set(SPOTS, "off", {"supported_color_modes": ["color_temp"]})
+    hass.states.async_set(SPOTS, "off", {"supported_color_modes": ["color_temp"], "supported_features": 32})
     await hus.saet_op()
     await hus.tjeneste(DOMAIN, "anvend_scene", rum="traeningsrum", scene="e03267e7-9914-4f47-97fe-63c0bd317fe7", lysstyrke=40)
     data = hus.taend[-1].data
@@ -1143,8 +1143,8 @@ async def test_sluk_kortets_lamper_mens_rummet_lyser(hass: HomeAssistant, hus: H
 
 
 async def test_lys_og_scene_kun_til_kortets_lamper(hass: HomeAssistant, hus: Hus) -> None:
-    hass.states.async_set(SPOTS, "off", {"supported_color_modes": ["color_temp"]})
-    hass.states.async_set(STENLAMPE, "off", {"supported_color_modes": ["color_temp"]})
+    hass.states.async_set(SPOTS, "off", {"supported_color_modes": ["color_temp"], "supported_features": 32})
+    hass.states.async_set(STENLAMPE, "off", {"supported_color_modes": ["color_temp"], "supported_features": 32})
     await hus.saet_op(RUMMET | {"lamper": TO_LAMPER})
     await hus.tjeneste(DOMAIN, "anvend_lys", rum="traeningsrum", lys={"type": "hvid", "lysstyrke": 60, "kelvin": 2700}, lamper=[STENLAMPE])
     await hus.tjeneste(DOMAIN, "anvend_scene", rum="traeningsrum", scene="e03267e7-9914-4f47-97fe-63c0bd317fe7", lamper=[STENLAMPE])
@@ -1164,3 +1164,110 @@ async def test_haendelserne_overlever_genindlaesning(hass: HomeAssistant, hus: H
     await hass.async_block_till_done()
     rum = entry.runtime_data.rum["traeningsrum"]
     assert [h["hvad"] for h in rum.haendelser] == ["taendt"]
+
+
+# --- Blød tænd og sluk på lamper, der ikke selv kan lave en overgang -----------------------
+#
+# Et IHC-lys med dæmper kan stå på 40 %, men ikke glide derhen: Home Assistants `transition`
+# går i gulvet uden en fejl. Rumlys trapper derfor lysstyrken selv. Rummets overgang er 3
+# sekunder og standardpausen 0,2, så det bliver 15 skridt.
+#
+# `vent()` fyrer timerne én gang, og et skridt lægger det næste. Derfor trappes der med en
+# løkke i testene — ikke med ét langt spring.
+
+BRIGHTNESS = {"supported_color_modes": ["brightness"]}
+
+
+async def trap_faerdigt(hus: Hus, skridt: int = 20) -> None:
+    """Lad trappen køre til ende."""
+    for _ in range(skridt):
+        await hus.vent(0.2)
+
+
+async def test_trappe_naar_lampen_ikke_selv_kan_lave_overgang(hass: HomeAssistant, hus: Hus) -> None:
+    """Lampen kan dæmpes, men har ikke TRANSITION: Rumlys sætter lysstyrken i skridt."""
+    hass.states.async_set(SPOTS, "off", BRIGHTNESS)
+    await hus.saet_op()
+    await hus.bevaegelse("on")
+
+    # Første skridt: en lav lysstyrke, og ingen `transition` — den ville alligevel blive tabt.
+    assert len(hus.taend) == 1
+    assert hus.taend[0].data["entity_id"] == [SPOTS]
+    assert hus.taend[0].data["brightness"] == 17
+    assert "transition" not in hus.taend[0].data
+    assert "brightness_pct" not in hus.taend[0].data
+    # Farven følger med hele vejen, så lampen ikke skifter farve til sidst.
+    assert hus.taend[0].data["color_temp_kelvin"] == 3500
+
+    await hus.vent(0.2)
+    assert hus.taend[-1].data["brightness"] == 34
+
+    await trap_faerdigt(hus)
+    assert hus.taend[-1].data["brightness"] == 255
+    assert len(hus.taend) == 15
+    assert not hus.sluk
+
+
+async def test_trappe_slukker_rigtigt_til_sidst(hass: HomeAssistant, hus: Hus) -> None:
+    """Nedtrapningen ender med en rigtig slukning, ikke med lysstyrke 1."""
+    hass.states.async_set(SPOTS, "off", BRIGHTNESS)
+    await hus.saet_op()
+    await hus.bevaegelse("on")
+    await trap_faerdigt(hus)
+    await hus.lys("on", hus.taend[-1].context, brightness=255, **BRIGHTNESS)
+
+    await hus.bevaegelse("off")
+    await hus.vent(31)
+    # Trappen ned kører på turn_on; først det sidste skridt slukker.
+    assert not hus.sluk
+    assert hus.taend[-1].data["brightness"] < 255
+
+    await trap_faerdigt(hus)
+    assert [k.data for k in hus.sluk] == [{"entity_id": [SPOTS]}]
+
+
+async def test_lampe_med_egen_overgang_trappes_ikke(hass: HomeAssistant, hus: Hus) -> None:
+    """Kan lampen selv, bruges `transition` som hidtil — ét kald, ingen skridt."""
+    hass.states.async_set(
+        SPOTS, "off", {"supported_color_modes": ["brightness"], "supported_features": 32}
+    )
+    await hus.saet_op()
+    await hus.bevaegelse("on")
+    assert [k.data for k in hus.taend] == [
+        {
+            "entity_id": [SPOTS],
+            "brightness_pct": 100,
+            "color_temp_kelvin": 3500,
+            "transition": 3,
+        }
+    ]
+    await trap_faerdigt(hus)
+    assert len(hus.taend) == 1
+
+
+async def test_relae_uden_daempning_trappes_ikke(hass: HomeAssistant, hus: Hus) -> None:
+    """Et rent relæ kan hverken dæmpes eller lave en overgang: ét kald, som før."""
+    hass.states.async_set(SPOTS, "off", {"supported_color_modes": ["onoff"]})
+    await hus.saet_op()
+    await hus.bevaegelse("on")
+    assert len(hus.taend) == 1
+    assert hus.taend[0].data["transition"] == 3
+    await trap_faerdigt(hus)
+    assert len(hus.taend) == 1
+
+
+async def test_ny_kommando_stopper_trappen(hass: HomeAssistant, hus: Hus) -> None:
+    """Den næste kommando gælder. En trappe, der stadig kører, må ikke skrive oven i den."""
+    hass.states.async_set(SPOTS, "off", BRIGHTNESS)
+    await hus.saet_op()
+    await hus.bevaegelse("on")
+    await hus.vent(0.2)
+    antal = len(hus.taend)
+
+    await hus.tjeneste(DOMAIN, "daemp", rum="traeningsrum", lysstyrke=0)
+    await trap_faerdigt(hus)
+    # Slukningen er en trappe nedad, der ender med turn_off. Det afgørende er, at den gamle
+    # optrapning er stoppet: lyset går kun nedad efter kommandoen.
+    assert hus.sluk
+    efter = [k.data.get("brightness", 0) for k in hus.taend[antal:]]
+    assert efter == sorted(efter, reverse=True)

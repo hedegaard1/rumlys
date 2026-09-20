@@ -58,7 +58,9 @@ from .const import (
     AUT_OVERGANG,
     AUT_SENSORER,
     AUT_TIDSRUM,
+    AUT_TRAPPE,
     BEVAEGELSE,
+    BLOED_PAUSE,
     CONF_AUTOMATIK,
     CONF_BEVAEGELSE,
     CONF_DAGE,
@@ -118,7 +120,7 @@ from .const import (
 from . import scener
 from homeassistant.helpers.start import async_at_started
 
-from .omraade import lamper_og_sensorer, omraadets_navn
+from .omraade import kan_trappes, lamper_og_sensorer, omraadets_navn
 
 UKENDT = (STATE_UNAVAILABLE, STATE_UNKNOWN)
 
@@ -217,6 +219,8 @@ class Automatik:
         self.sensorer: list[str] = [s for s in data.get(AUT_SENSORER) or [] if s in rum.sensorer]
         self.standard: dict[str, Any] = data.get(AUT_LYS) or dict(STANDARD_LYS)
         self.overgang: float = data.get(AUT_OVERGANG, 0)
+        # Finindstilling af den trappede overgang; tom betyder standarden.
+        self.trappe: dict[str, Any] = dict(data.get(AUT_TRAPPE) or {})
         self.tidsrum = [
             t
             | {
@@ -611,6 +615,8 @@ class Rum:
         self._afmeld: list[CALLBACK_TYPE] = []
         self._egne: deque[str] = deque(maxlen=20)
         self._sidste_kommando: datetime | None = None
+        # Lamper, Rumlys selv trapper op eller ned lige nu, og hvordan trappen stoppes igen.
+        self._trapper: dict[str, CALLBACK_TYPE] = {}
 
     @property
     def navn(self) -> str:
@@ -726,6 +732,9 @@ class Rum:
         for tryk in self._knaptryk.values():
             tryk.stop()
         self._knaptryk.clear()
+        for stands in list(self._trapper.values()):
+            stands()
+        self._trapper.clear()
 
     @callback
     def lyt(self, lytter: Callable[[], None]) -> CALLBACK_TYPE:
@@ -1214,19 +1223,143 @@ class Rum:
             self._egne.append(kontekst.id)
         self._sidste_kommando = dt_util.utcnow()
         data = dict(data)
-        data[ATTR_ENTITY_ID] = list(lamper)
         # Den bløde overgang hører til automatikken bag lamperne. Rammer kaldet flere automatikker,
         # gælder den førstes — de kaldes hver for sig alle de steder, det betyder noget.
         if overgang is None:
             aut = self.automatik_for(lamper[0]) if lamper else None
             overgang = aut.overgang if aut is not None else 0
+        # En igangværende trappe skal altid stoppes: den næste kommando gælder, uanset hvad den er.
+        for entity_id in lamper:
+            if (stands := self._trapper.pop(entity_id, None)) is not None:
+                stands()
         if (valgt := overgang):
+            # Lamper, der kan dæmpes, men ikke selv lave en overgang, trapper Rumlys i stedet.
+            # De øvrige får `transition` med som hidtil; et rent relæ ser bort fra den.
+            trappes = [e for e in lamper if kan_trappes(self.hass, e)]
+            if trappes:
+                lamper = [e for e in lamper if e not in trappes]
+                self._trap(tjeneste, data, trappes, valgt, kontekst)
             data["transition"] = valgt
+        if lamper:
+            self._send(tjeneste, data, lamper, kontekst)
+        return kontekst
+
+    @callback
+    def _send(
+        self, tjeneste: str, data: dict[str, Any], lamper: list[str], kontekst: Context
+    ) -> None:
+        """Selve kaldet til Home Assistant. Ingen overgang, ingen trappe — bare beskeden af sted."""
+        self._sidste_kommando = dt_util.utcnow()
         self.hass.async_create_task(
-            self.hass.services.async_call("light", tjeneste, data, context=kontekst),
+            self.hass.services.async_call(
+                "light", tjeneste, dict(data) | {ATTR_ENTITY_ID: list(lamper)}, context=kontekst
+            ),
             f"rumlys {self.navn} {tjeneste}",
         )
-        return kontekst
+
+    @callback
+    def _trap(
+        self,
+        tjeneste: str,
+        data: dict[str, Any],
+        lamper: list[str],
+        overgang: float,
+        kontekst: Context,
+    ) -> None:
+        """Blød tænd og sluk på lamper, der ikke selv kan lave en overgang.
+
+        Rumlys sætter lysstyrken i små skridt i stedet. Antallet af skridt følger af
+        overgangstiden divideret med automatikkens pause — pausen er det eneste, der skal
+        finindstilles."""
+        for entity_id in lamper:
+            aut = self.automatik_for(entity_id)
+            pause = float((aut.trappe if aut is not None else {}).get("pause") or BLOED_PAUSE)
+            antal = max(1, round(overgang / pause))
+            fra = self._lysstyrken_paa(entity_id)
+            til = 0 if tjeneste == "turn_off" else _maal_lysstyrke(data)
+            # Farve og andet følger med hvert skridt; lysstyrken sætter trappen selv.
+            grund = {
+                n: v
+                for n, v in data.items()
+                if n not in ("brightness", "brightness_pct", "transition", ATTR_ENTITY_ID)
+            }
+            if fra == til:
+                self._trap_slut(tjeneste, grund, entity_id, kontekst, til)
+                continue
+            self._trap_skridt(
+                tjeneste, grund, entity_id, kontekst, fra, til, antal, pause, 1
+            )
+
+    @callback
+    def _trap_skridt(
+        self,
+        tjeneste: str,
+        grund: dict[str, Any],
+        entity_id: str,
+        kontekst: Context,
+        fra: int,
+        til: int,
+        antal: int,
+        pause: float,
+        nr: int,
+        _nu: datetime | None = None,
+    ) -> None:
+        self._trapper.pop(entity_id, None)
+        lysstyrke = round(fra + (til - fra) * nr / antal)
+        if nr >= antal:
+            self._trap_slut(tjeneste, grund, entity_id, kontekst, lysstyrke)
+            return
+        # Nul slukker lampen midt i en nedtrapning, så bunden er 1 hele vejen ned.
+        self._send("turn_on", grund | {"brightness": max(1, lysstyrke)}, [entity_id], kontekst)
+        self._trapper[entity_id] = async_call_later(
+            self.hass,
+            pause,
+            partial(
+                self._trap_skridt,
+                tjeneste,
+                grund,
+                entity_id,
+                kontekst,
+                fra,
+                til,
+                antal,
+                pause,
+                nr + 1,
+            ),
+        )
+
+    @callback
+    def _trap_slut(
+        self,
+        tjeneste: str,
+        grund: dict[str, Any],
+        entity_id: str,
+        kontekst: Context,
+        lysstyrke: int,
+    ) -> None:
+        """Det sidste skridt. En slukning slukker rigtigt til sidst, så lampen ikke står på 1."""
+        if tjeneste == "turn_off":
+            self._send("turn_off", grund, [entity_id], kontekst)
+            return
+        self._send("turn_on", grund | {"brightness": max(1, lysstyrke)}, [entity_id], kontekst)
+
+    @callback
+    def _lysstyrken_paa(self, entity_id: str) -> int:
+        """Lampens lysstyrke 0–255. En slukket lampe er 0, så trappen starter i bund."""
+        tilstand = self.hass.states.get(entity_id)
+        if tilstand is None or tilstand.state != STATE_ON:
+            return 0
+        return int(tilstand.attributes.get("brightness") or 255)
+
+
+def _maal_lysstyrke(data: dict[str, Any]) -> int:
+    """Hvor trappen skal ende. Uden en lysstyrke i kaldet er «tænd» fuldt lys — en dæmper uden
+    niveau har intet andet at gå efter, og det er også det, lampen selv ville gøre."""
+    if (vaerdi := data.get("brightness")) is not None:
+        return max(1, min(255, int(vaerdi)))
+    if (procent := data.get("brightness_pct")) is not None:
+        return max(1, min(255, round(float(procent) * 255 / 100)))
+    return 255
 
 
 def _kortet(

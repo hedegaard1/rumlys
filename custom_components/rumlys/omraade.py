@@ -28,6 +28,30 @@ from .const import (
 )
 
 SENSORKLASSER = ("motion", "occupancy", "presence")
+
+# Farvetilstande, hvor lysstyrken kan sættes. Home Assistant melder dem som ColorMode-værdier,
+# og «onoff» og «unknown» er de to, der ikke kan. Sammenlignes som tekst, fordi attributten kan
+# indeholde både enum og streng afhængigt af integrationen.
+LYSSTYRKETILSTANDE = frozenset(
+    {
+        "brightness",
+        "color_temp",
+        "hs",
+        "rgb",
+        "rgbw",
+        "rgbww",
+        "white",
+        "xy",
+        "ColorMode.BRIGHTNESS",
+        "ColorMode.COLOR_TEMP",
+        "ColorMode.HS",
+        "ColorMode.RGB",
+        "ColorMode.RGBW",
+        "ColorMode.RGBWW",
+        "ColorMode.WHITE",
+        "ColorMode.XY",
+    }
+)
 # En vægknap melder sig som «opening»: IHC giver alle sine indgange den klasse, og en rigtig
 # dør- eller vinduessensor siger «door» eller «window». Det er det nærmeste, der findes.
 KNAPKLASSER = ("opening",)
@@ -95,11 +119,33 @@ def lamper_og_sensorer(hass: HomeAssistant, omraade: str) -> tuple[list[str], li
 
 
 @callback
+def kan_selv_overgang(hass: HomeAssistant, entity_id: str) -> bool:
+    """Laver lampen selv overgangen? Så sendes `transition` med, som Home Assistant vil have det."""
+    tilstand = hass.states.get(entity_id)
+    return (
+        tilstand is not None
+        and bool(tilstand.attributes.get(ATTR_SUPPORTED_FEATURES, 0) & LightEntityFeature.TRANSITION)
+    )
+
+
+@callback
+def kan_trappes(hass: HomeAssistant, entity_id: str) -> bool:
+    """Kan lampen dæmpes, men ikke selv lave en overgang? Så trapper Rumlys lysstyrken i skridt.
+
+    Det er tilfældet for et IHC-lys med dæmper: det kan stå på 40 %, men ikke glide derhen, og
+    et `transition` i kaldet går i gulvet uden en fejl."""
+    tilstand = hass.states.get(entity_id)
+    if tilstand is None or kan_selv_overgang(hass, entity_id):
+        return False
+    tilstande = tilstand.attributes.get("supported_color_modes") or []
+    return any(str(tilstand_) in LYSSTYRKETILSTANDE for tilstand_ in tilstande)
+
+
+@callback
 def _kan_blodt(hass: HomeAssistant, lamper: list[str]) -> bool:
-    """Kan mindst én af lamperne tænde og slukke blødt? Et IHC-relæ kan ikke."""
+    """Kan mindst én af lamperne tænde og slukke blødt? Et rent IHC-relæ kan ikke."""
     return any(
-        (tilstand := hass.states.get(entity_id)) is not None
-        and tilstand.attributes.get(ATTR_SUPPORTED_FEATURES, 0) & LightEntityFeature.TRANSITION
+        kan_selv_overgang(hass, entity_id) or kan_trappes(hass, entity_id)
         for entity_id in lamper
     )
 

@@ -120,3 +120,13 @@ DAEMP_FELTER = {
     "vend": (DAEMP_VEND, 1, 99),
 }
 DOBBELT_FELTER = {"vindue": (KNAP_DOBBELT, 0.1, 1)}
+
+# Blød tænd og sluk på en lampe, der kan dæmpes, men ikke selv lave en overgang — et IHC-lys med
+# dæmper er det typiske. Home Assistants `transition` går i gulvet på dem, så Rumlys sætter
+# lysstyrken i små skridt i stedet.
+#
+# Pausen er det ene tal, der betyder noget: antallet af skridt følger af overgangstiden divideret
+# med pausen. For kort oversvømmer en IHC-controller med kald; for lang hakker lyset synligt.
+BLOED_PAUSE = 0.2  # sekunder mellem skridtene
+AUT_TRAPPE = "trappe"  # automatikkens finindstilling af den trappede overgang
+TRAPPE_FELTER = {"pause": (BLOED_PAUSE, 0.05, 2)}

@@ -24,6 +24,9 @@ import {
   kanFarve,
   DAEMP_FELTER,
   DOBBELT_FELTER,
+  TRAPPE_FELTER,
+  kanSelvOvergang,
+  kanTrappes,
   lampensEvner,
   kanHvid,
   kategoriNavn,
@@ -326,9 +329,6 @@ function kopi(v) {
 
 // Ugedagene, mandag = 0, som Rumlys gemmer dem.
 const ALLE_DAGE = [0, 1, 2, 3, 4, 5, 6];
-
-// Home Assistants LightEntityFeature.TRANSITION: lampen kan tænde og slukke blødt.
-const LYS_OVERGANG = 32;
 
 // Anbefalet tid for lys tændt af sensoren, i sekunder.
 const ANBEFALET_BEVAEGELSE = 300;
@@ -2121,14 +2121,16 @@ class RumlysPanel extends HTMLElement {
     });
   }
 
-  // Blød tænd og sluk virker kun på lamper, der selv melder, at de kan (Home Assistant springer det
-  // over for resten). Kan ingen af rummets lamper, er der ingen skyder.
+  // Blød tænd og sluk på to måder. Melder lampen selv TRANSITION, sender Rumlys den med.
+  // Kan lampen kun dæmpes — et IHC-lys med dæmper — trapper Rumlys lysstyrken i skridt i
+  // stedet, og så er pausen mellem skridtene værd at kunne finindstille. Kan lampen ingen af
+  // delene, er den et rent relæ, og der er intet at gøre.
   _blodFelt(aut) {
     const d = aut;
     if (!d.lamper.length) return null;
-    const ikkeBlod = d.lamper
-      .map((entityId) => this._hass.states[entityId])
-      .filter((st) => !st || !((st.attributes.supported_features || 0) & LYS_OVERGANG));
+    const tilstande = d.lamper.map((entityId) => this._hass.states[entityId]);
+    const ikkeBlod = tilstande.filter((st) => !kanSelvOvergang(st) && !kanTrappes(st));
+    const trappede = tilstande.filter((st) => kanTrappes(st));
     if (ikkeBlod.length === d.lamper.length) {
       return h("div", { class: "felt", style: { marginTop: "14px" } }, h("label", {}, this.t("blod")), h("p", { class: "hint", style: { margin: "0" } }, this.t("blod_ingen")));
     }
@@ -2139,12 +2141,19 @@ class RumlysPanel extends HTMLElement {
       vaerdi.textContent = this.t("sek", { n: String(d.overgang).replace(".", ",") });
       this._aendret();
     });
+    let tandhjul = null;
+    if (trappede.length && d.overgang) {
+      tandhjul = h("button", { class: "knap t", type: "button", title: this.t("finindstil") }, ikon("mdi:cog-outline"), this.t("finindstil"));
+      tandhjul.addEventListener("click", () =>
+        this._finindstil(this.t("blod"), TRAPPE_FELTER, d.trappe, (nye) => { d.trappe = nye; this._aendret(); }));
+    }
     const navne = ikkeBlod.filter(Boolean).map((st) => st.attributes.friendly_name || st.entity_id);
     return h(
       "div",
       { class: "felt", style: { marginTop: "14px" } },
       h("label", {}, this.t("blod")),
       h("div", { class: "skyder" }, skyder, vaerdi),
+      tandhjul,
       navne.length ? h("p", { class: "hint", style: { margin: "0" } }, this.t("virker_ikke", { lamper: navne.join(", ") })) : null
     );
   }

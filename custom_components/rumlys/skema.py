@@ -15,6 +15,7 @@ from .const import (
     AUT_LAMPER,
     AUT_LYS,
     AUT_OVERGANG,
+    AUT_TRAPPE,
     AUT_SENSORER,
     AUT_TIDSRUM,
     CONF_AUTOMATIK,
@@ -28,6 +29,7 @@ from .const import (
     CONF_KNAPPER,
     DAEMP_FELTER,
     DOBBELT_FELTER,
+    TRAPPE_FELTER,
     KNAP_DAEMP,
     KNAP_DAEMPNING,
     KNAP_DOBBELTVALG,
@@ -118,6 +120,20 @@ TIDSRUM = vol.Schema(
 )
 
 
+def _finindstilling(felter: dict[str, tuple[float, float, float]]) -> vol.Schema:
+    """Et opslag med knappens finindstillinger. Hvert felt har sin standard og sine grænser.
+
+    Alt er valgfrit: en knap uden finindstilling kører på standarden, og en knap med én rettet
+    værdi arver resten. Grænserne er der, for at en knap ikke kan gøres umulig at ramme.
+    """
+    return vol.Schema(
+        {
+            vol.Optional(navn): vol.All(vol.Coerce(float), vol.Range(min=mindst, max=mest))
+            for navn, (_standard, mindst, mest) in felter.items()
+        }
+    )
+
+
 AUTOMATIK = vol.Schema(
     {
         vol.Required(AUT_ID): vol.All(vol.Coerce(int), vol.Range(min=1)),
@@ -125,6 +141,9 @@ AUTOMATIK = vol.Schema(
         vol.Optional(AUT_SENSORER, default=list): [cv.entity_domain("binary_sensor")],
         vol.Optional(AUT_LYS, default=lambda: dict(STANDARD_LYS)): LYSVALG,
         vol.Optional(AUT_OVERGANG, default=0): vol.All(vol.Coerce(float), vol.Range(min=0, max=10)),
+        # Finindstilling af den trappede overgang. Tom betyder standarden, som alle
+        # automatikker havde foer 0.10.0.
+        vol.Optional(AUT_TRAPPE, default=dict): _finindstilling(TRAPPE_FELTER),
         vol.Optional(AUT_TIDSRUM, default=list): [TIDSRUM],
     }
 )
@@ -199,20 +218,6 @@ def _kun_rummets(rum: dict[str, Any]) -> dict[str, Any]:
 
 # Et kort i Rumlys' lager: lamper (tom = hele rummet), scener og ikon. Den gamle form — bare
 # lampelisten, eller None for «ingen lamper» — tages stadig imod og bliver til hele rummet.
-def _finindstilling(felter: dict[str, tuple[float, float, float]]) -> vol.Schema:
-    """Et opslag med knappens finindstillinger. Hvert felt har sin standard og sine grænser.
-
-    Alt er valgfrit: en knap uden finindstilling kører på standarden, og en knap med én rettet
-    værdi arver resten. Grænserne er der, for at en knap ikke kan gøres umulig at ramme.
-    """
-    return vol.Schema(
-        {
-            vol.Optional(navn): vol.All(vol.Coerce(float), vol.Range(min=mindst, max=mest))
-            for navn, (_standard, mindst, mest) in felter.items()
-        }
-    )
-
-
 KORT = vol.Any(
     None,
     [cv.entity_domain("light")],
