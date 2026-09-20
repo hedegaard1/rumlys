@@ -424,12 +424,15 @@ class Automatik:
         if not lamper:
             return
         self._sidst_taendt = lamper
-        husket = self.husket_lys()
-        if husket is not None and self.rum._gendan(husket, lamper):
-            self.rum._log("taendt", lys="husket", automatik=self.id)
-            return
+        resten = lamper
+        if (husket := self.husket_lys()) is not None:
+            if (klaret := self.rum._gendan(husket, lamper)) is not None:
+                self.rum._log("taendt", lys="husket", automatik=self.id)
+                resten = [l for l in lamper if l not in klaret]
+                if not resten:
+                    return
         tidsrum = self.aktivt_tidsrum()
-        self.rum._anvend(self.scenarie(), lamper)
+        self.rum._anvend(self.scenarie(), resten)
         if tidsrum is not None:
             self.rum._log("taendt", lys="tidsrum", navn=tidsrum[CONF_NAVN], automatik=self.id)
         else:
@@ -1292,16 +1295,33 @@ class Rum:
             kontekst = self._kald("turn_on", data, ids, kontekst)
 
     @callback
-    def _gendan(self, husket: dict[str, dict[str, Any]], lamper: list[str]) -> bool:
-        """Tænd lamperne, som de var, da lyset blev husket. False, hvis ingen af dem var tændt."""
+    def _gendan(
+        self, husket: dict[str, dict[str, Any]], lamper: list[str]
+    ) -> list[str] | None:
+        """Tænd lamperne, som de var, da lyset blev husket.
+
+        Svaret er de lamper, hukommelsen havde et svar på — også dem, den husker som slukkede,
+        for det er meningen, at de bliver slukket. None, hvis ingen af dem var tændt; så er
+        mindet ubrugeligt, og kalderen giver dem alle automatikkens eget lys, som før.
+
+        **En lampe, der slet ikke står i mindet, er ikke det samme som en, der står som
+        slukket.** Den var ikke i automatikken, dengang lyset blev husket, og den skal derfor
+        have automatikkens eget lys i stedet for at blive sprunget over. Uden den forskel blev
+        Alrums spisebordslampe mørk hver gang: mindet var optaget, da den kun rummede
+        loftspottene, og bevægelse tændte troligt loftet og holdt op der (20-09-2026).
+        """
         kontekst: Context | None = None
+        klaret: list[str] = []
         for entity_id in lamper:
             lampe = husket.get(entity_id)
-            if not lampe or lampe["state"] != STATE_ON:
+            if lampe is None:
+                continue
+            klaret.append(entity_id)
+            if lampe["state"] != STATE_ON:
                 continue
             data = {k: v for k, v in lampe.items() if k != "state"}
             kontekst = self._kald("turn_on", data, [entity_id], kontekst)
-        return kontekst is not None
+        return klaret if kontekst is not None else None
 
     @callback
     def _kald(

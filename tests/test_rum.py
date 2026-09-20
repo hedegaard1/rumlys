@@ -1375,3 +1375,38 @@ async def test_et_id_der_ikke_er_rummets_roerer_ingenting(hass: HomeAssistant, h
     )
     await hass.async_block_till_done()
     assert dict(entry.subentries["traeningsrum"].data) == foer
+
+
+async def test_en_lampe_uden_minde_faar_automatikkens_eget_lys(hus: Hus) -> None:
+    """En lampe, der kom til efter lyset blev husket, skal tændes - ikke springes over.
+
+    Hukommelsen gemmer lampe for lampe. En lampe, der står i den som SLUKKET, skal blive slukket
+    - det er meningen. Men en, der slet ikke er i den, var ikke i automatikken dengang, og den
+    skal have automatikkens eget lys. Uden den forskel blev Alrums spisebordslampe mørk hver
+    gang: mindet var optaget, da det kun rummede loftspottene (20-09-2026).
+    """
+    rummet = RUMMET | {
+        "lamper": [
+            {"entity_id": SPOTS, "bevaegelse": True},
+            {"entity_id": STENLAMPE, "bevaegelse": True},
+        ]
+    }
+    await hus.saet_op(
+        rummet,
+        gemt={
+            "indstillinger": {},
+            "kilde": None,
+            "slukker": None,
+            "hold_slutter": None,
+            "husket": {"lamper": {SPOTS: {"state": "on", "brightness": 40, "color_temp_kelvin": 2200}}, "til": None},
+        },
+    )
+    await hus.bevaegelse("on")
+
+    kald = {tuple(k.data["entity_id"]): k.data for k in hus.taend}
+    # Loftet som husket ...
+    assert kald[(SPOTS,)]["brightness"] == 40
+    assert kald[(SPOTS,)]["color_temp_kelvin"] == 2200
+    # ... og den nye med automatikkens eget lys, ikke sprunget over.
+    assert (STENLAMPE,) in kald
+    assert kald[(STENLAMPE,)]["brightness_pct"] == RUMMET["lys"]["lysstyrke"]

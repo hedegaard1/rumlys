@@ -32,7 +32,6 @@ import {
   kategoriNavn,
   kelvinGraenser,
   klokken,
-  kortNavn,
   lysvalgBaggrund,
   meldOpdateret,
   nytKortId,
@@ -767,10 +766,13 @@ class RumlysPanel extends HTMLElement {
     this._genTegn("kort");
   }
 
-  // Pærens navn uden rummets ord foran: «Kontor Loftspots» i Kontor bliver «Loftspots», som på kortet selv.
+  // Pærens navn, præcis som den hedder i Home Assistant. Sidepanelet skar rummets ord af forrest,
+  // så «Alrum Spisebordslampe» blev til «Spisebordslampe» i automatikken, mens afsnittet «Lamper»
+  // viste det fulde navn — to navne på den samme lampe på den samme side (Martin 20-09-2026).
+  // Navnet er sat i entitetsregistret, og det er dét, der skal stå.
   _lampeNavn(entity_id) {
     const st = this._hass.states[entity_id];
-    return kortNavn((st && st.attributes.friendly_name) || entity_id, this._detalje.navn);
+    return (st && st.attributes.friendly_name) || entity_id;
   }
 
   // Flere lamper valgt ét sted — på et kort eller til en sensor. Fluebenene står i en dialog, så rummets egen
