@@ -128,9 +128,18 @@ DOBBELT_FELTER = {"vindue": (KNAP_DOBBELT, 0.1, 1)}
 # Pausen er det ene tal, der betyder noget: antallet af skridt følger af overgangstiden divideret
 # med pausen. For kort oversvømmer en IHC-controller med kald; for lang hakker lyset synligt.
 BLOED_PAUSE = 0.2  # sekunder mellem skridtene
-# Bunden i trappen, i procent. En daemper slukker helt under sit eget minimum, og saa laeser
-# Rumlys det som en slukning. Maalt paa Alrums IHC-lys 20-09-2026: 17 af 255 - knap 7 procent -
-# slukkede den. Bunden er hardware, saa den skal kunne saettes pr. automatik.
+# Bunden i trappen, i procent. En daemper kan have et minimum, den ikke kan lyse under, og saa
+# laeser Rumlys udfaldet som en slukning.
+#
+# 15 er et forsigtigt gaet, ikke en maaling. Vaerdien kom af en fejl paa Alrums IHC-lys
+# 20-09-2026, som blev laest som om daemperen faldt ud ved knap 7 procent. Daemperen blev maalt
+# samme aften, og den har slet ingen bund: den melder «on» ned til 2 af 255, og den taender fra
+# slukket direkte paa 7 og bliver der. Den falske «off» kom 66 ms efter et «on» - alt for hurtigt
+# til at vaere hardware - og var IHC-integrationen mellem to hurtige lysstyrkekommandoer. Den
+# rigtige rettelse er _trapper-vagten i 0.10.1, som ikke hoerer efter, mens Rumlys selv trapper.
+#
+# Bunden bliver staaende, for en ANDEN daemper kan have en rigtig bund. Men den er hardware og
+# saettes derfor pr. automatik - paa et lys, der er maalt, kan den saettes helt ned.
 BLOED_MINDSTE = 15
 AUT_TRAPPE = "trappe"  # automatikkens finindstilling af den trappede overgang
 TRAPPE_FELTER = {
