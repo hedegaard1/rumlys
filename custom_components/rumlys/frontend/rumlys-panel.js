@@ -168,7 +168,6 @@ button { font: inherit; color: inherit; }
    lampernes ikoner, bare mindre, så de passer i rækken (Martins ønske 19-09-2026). */
 /* Rækken og dens udvidelse hører sammen, men skal blive ved med at være søskende med de andre
    rækker — ellers forsvinder stregen over dem, og mellemrummet bliver forskelligt. */
-.raekkepar { display: contents; }
 .raekkechev {
   width: 24px; height: 24px; border-radius: 50%; border: 0; padding: 0; flex: none; cursor: pointer;
   display: grid; place-items: center; background: transparent; color: var(--rl-daempet); --mdc-icon-size: 20px;
@@ -1938,7 +1937,7 @@ class RumlysPanel extends HTMLElement {
       );
       // Knappens egne valg er foldet sammen, så en side med fire knapper ikke bliver uendelig
       // lang (Martins ønske 19-09-2026). Mærkerne ud for knappen siger, hvad der er slået til.
-      if (!valgt) return selve;
+      if (!valgt) return [selve];
       if (!this._aabneKnapper) this._aabneKnapper = new Set();
       const aaben = this._aabneKnapper.has(entityId);
       const chev = h(
@@ -1952,27 +1951,30 @@ class RumlysPanel extends HTMLElement {
         },
         ikon(aaben ? "mdi:chevron-down" : "mdi:chevron-right")
       );
-      chev.addEventListener("click", () => {
+      selve.appendChild(this._knapMaerker(entityId));
+      selve.appendChild(chev);
+      // Hele rækken folder ud, ikke kun vinklen — den er et lille mål at ramme. Fluebenet
+      // beholder sit eget klik, og vinklen behøver ingen egen lytter: dens klik bobler herop,
+      // så den bliver ved med at virke med tastaturet (Martins ønske 21-09-2026).
+      selve.style.cursor = "pointer";
+      selve.addEventListener("click", (ev) => {
+        if (ev.target.closest(".flueben")) return;
         if (aaben) this._aabneKnapper.delete(entityId);
         else this._aabneKnapper.add(entityId);
         this._genTegn("knapper");
       });
-      selve.appendChild(this._knapMaerker(entityId));
-      selve.appendChild(chev);
-      // «display: contents» på indpakningen, så rækkerne bliver ved med at være søskende.
-      return h(
-        "div",
-        { class: "raekkepar" },
-        selve,
-        aaben ? this._knapMaalRaekke(entityId) : null,
-        aaben ? this._knapvalg(entityId) : null
-      );
+      // Rækkerne er rigtige søskende. Var de pakket ind, ville hver indpakket række være
+      // `:first-child` i sin egen kasse — og `.raekke:first-child` slår stregen over rækken fra,
+      // så den forsvandt, så snart nogen satte flueben (Martin 21-09-2026). `display: contents`
+      // retter layoutet, men CSS-vælgere læser stadig det rigtige DOM-træ.
+      return [selve, aaben ? this._knapMaalRaekke(entityId) : null, aaben ? this._knapvalg(entityId) : null];
     };
-    omraadets.forEach((k) => liste.appendChild(raekke(k.entity_id, k.navn)));
+    const iListen = (knuder) => knuder.forEach((n) => n && liste.appendChild(n));
+    omraadets.forEach((k) => iListen(raekke(k.entity_id, k.navn)));
     knapper.forEach((k) => {
       if (omraadets.some((o) => o.entity_id === k)) return;
       const st = this._hass.states[k];
-      liste.appendChild(raekke(k, st ? st.attributes.friendly_name || k : k, this.t("uden_omraade")));
+      iListen(raekke(k, st ? st.attributes.friendly_name || k : k, this.t("uden_omraade")));
     });
     if (!liste.children.length) liste.appendChild(h("p", { class: "hint" }, this.t("ingen_knapper")));
     const advarsel = knapper.length ? h("p", { class: "hint advarsel" }, this.t("knap_overtaget")) : null;
