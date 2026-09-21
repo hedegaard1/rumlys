@@ -2049,6 +2049,7 @@ class RumlysPanel extends HTMLElement {
         this._somGruppe(this._sekTidsplan(aut)),
         this._somGruppe(this._sekIngen(aut)),
         this._somGruppe(this._sekHold(aut)),
+        this._somGruppe(this._sekMaksTid(aut)),
         fjern
       )
     );
@@ -2728,6 +2729,35 @@ class RumlysPanel extends HTMLElement {
       h("div", { class: "naar" }, h("div", { class: "tx" }, h("b", {}, this.t("valgt_lys")), h("small", {}, this.t("valgt_sub"))), valgt),
       // Blød tænd og sluk hører til automatikken: to grupper lamper i samme rum kan have hver sin.
       this._blodFelt(aut)
+    );
+  }
+
+  // Sikkerhedsnettet under alle de andre tider, og den eneste, der slukker mens sensoren
+  // stadig ser nogen. Den hører ikke under «Når ingen er i rummet» — den gælder jo netop NÅR
+  // der er nogen. Slået fra som standard: et rum med en sensor, der opfører sig, skal ikke
+  // pludselig begynde at slukke (Martins ønske 21-09-2026).
+  _sekMaksTid(aut) {
+    const ind = this._kladde.indstillinger[String(aut.id)];
+    const valg = trinvalg(
+      [0, 0.5, 1, 2, 3, 4, 6, 8, 12, 16, 24],
+      // Et rum fra foer 0.14.0 har ikke feltet i sin gemte status foerend Rumlys har sat det.
+      ind.senest_sluk || 0,
+      (v) => (v === 0 ? this.t("aldrig") : v < 1 ? this.t("min", { n: v * 60 }) : this.t("timer", { n: v })),
+      (v) => {
+        ind.senest_sluk = v;
+        this._aendret();
+      }
+    );
+    return this._sektion(
+      "mdi:timer-alert-outline",
+      this.t("maks_tid"),
+      this.t("maks_tid_hint"),
+      h(
+        "div",
+        { class: "naar", style: { borderTop: "0" } },
+        h("div", { class: "tx" }, h("b", {}, this.t("maks_tid_titel")), h("small", {}, this.t("maks_tid_sub"))),
+        valg
+      )
     );
   }
 

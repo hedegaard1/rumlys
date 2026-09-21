@@ -61,6 +61,7 @@ from .const import (
     LYS_SCENE,
     LYSTYPER,
     SLUK_EFTER_BEVAEGELSE,
+    SENEST_SLUK,
     SLUK_EFTER_TRYK,
     STANDARD_LYS,
 )
@@ -304,6 +305,7 @@ INDSTILLINGER = vol.Schema(
         vol.Optional(SLUK_EFTER_BEVAEGELSE): vol.All(vol.Coerce(int), vol.Range(min=0, max=1800)),
         vol.Optional(SLUK_EFTER_TRYK): vol.All(vol.Coerce(int), vol.Range(min=0, max=120)),
         vol.Optional(HOLD_TID): vol.All(vol.Coerce(float), vol.Range(min=0.5, max=24)),
+        vol.Optional(SENEST_SLUK): vol.All(vol.Coerce(float), vol.Range(min=0, max=24)),
     }
 )
 

@@ -295,8 +295,8 @@ const WS = {
       lamper: 2,
       uden_automatik: [],
       automatik: [
-        { id: 1, navn: "Kontor Loftspots", tilstand: "bevaegelse", slukker: null, hold_slutter: null, bevaegelse: true, tidsrum: "Aften", husket: false, indstillinger: { sluk_efter_bevaegelse: 30, sluk_efter_tryk: 5, hold_tid: 4 } },
-        { id: 2, navn: "Kontor Bord Lysbånd", tilstand: "slukket", slukker: null, hold_slutter: null, bevaegelse: false, tidsrum: null, husket: false, indstillinger: { sluk_efter_bevaegelse: 0, sluk_efter_tryk: 0, hold_tid: 4 } },
+        { id: 1, navn: "Kontor Loftspots", tilstand: "bevaegelse", slukker: null, hold_slutter: null, bevaegelse: true, tidsrum: "Aften", husket: false, indstillinger: { sluk_efter_bevaegelse: 30, sluk_efter_tryk: 5, hold_tid: 4, senest_sluk: 0 } },
+        { id: 2, navn: "Kontor Bord Lysbånd", tilstand: "slukket", slukker: null, hold_slutter: null, bevaegelse: false, tidsrum: null, husket: false, indstillinger: { sluk_efter_bevaegelse: 0, sluk_efter_tryk: 0, hold_tid: 4, senest_sluk: 4 } },
       ],
       haendelser: [
         { tid: om(-47), hvad: "valgt" },

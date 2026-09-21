@@ -208,6 +208,8 @@ async def test_hent_og_gem(hass: HomeAssistant, hass_ws_client: WebSocketGenerat
         "sluk_efter_bevaegelse": 30,
         "sluk_efter_tryk": 5,
         "hold_tid": 4,
+        # 0 = aldrig. Sikkerhedsnettet er slaaet fra som standard.
+        "senest_sluk": 0,
     }
 
     data = svar["result"]["data"] | {

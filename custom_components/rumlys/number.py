@@ -14,7 +14,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import RumlysConfigEntry
-from .const import HOLD_TID, SLUK_EFTER_BEVAEGELSE, SLUK_EFTER_TRYK
+from .const import HOLD_TID, SENEST_SLUK, SLUK_EFTER_BEVAEGELSE, SLUK_EFTER_TRYK
 from .entity import AutomatikEntitet
 from .rum import Automatik
 
@@ -45,6 +45,16 @@ BESKRIVELSER = (
         entity_category=EntityCategory.CONFIG,
         mode=NumberMode.SLIDER,
         native_min_value=0.5,
+        native_max_value=24,
+        native_step=0.5,
+        native_unit_of_measurement=UnitOfTime.HOURS,
+    ),
+    NumberEntityDescription(
+        key=SENEST_SLUK,
+        device_class=NumberDeviceClass.DURATION,
+        entity_category=EntityCategory.CONFIG,
+        mode=NumberMode.SLIDER,
+        native_min_value=0,
         native_max_value=24,
         native_step=0.5,
         native_unit_of_measurement=UnitOfTime.HOURS,

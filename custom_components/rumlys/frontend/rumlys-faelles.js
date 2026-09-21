@@ -9,7 +9,7 @@
 // relativt, så Rumlys' egne ikoner også virker på testsiden og i node-testen.
 import "./ikoner/rumlys-ikoner.js";
 
-export const VERSION = "0.13.2";
+export const VERSION = "0.14.0";
 // Mappen, filen selv ligger i — i Home Assistant med versionen i stien, på testsiden repoets egen.
 export const FILER = new URL("./", import.meta.url).href;
 // Scenerne ligger i Rumlys selv. I Home Assistant har de en fast adresse uden version, så et kort,
@@ -117,6 +117,10 @@ const TEKSTER = {
     lamper_hint: "Alle lamper i området. Er der en gruppe, skjules dens pærer, så de ikke styres to gange. En lampe styres først af sig selv, når den ligger i en automatik nedenfor.",
     fjern_lampe: "Fjern lampen fra rummet",
     taendes_automatisk: "Tændes automatisk",
+    maks_tid: "Sluk under alle omstændigheder",
+    maks_tid_hint: "Et sikkerhedsnet: hvor længe lyset højst må være tændt, uanset hvad der holder det tændt. Det er den eneste tid, der slukker, mens sensoren stadig ser nogen — sat op mod en sensor, der hænger fast, og mod et lys valgt i hånden, som aldrig slukker af sig selv.",
+    maks_tid_titel: "Slukker senest efter",
+    maks_tid_sub: "Regnet fra lyset tændte, og den stilles ikke om undervejs. «Aldrig» slår nettet fra.",
     aut_lamper_auto_hint: "«Tændes automatisk» gælder både bevægelse og «hold lys». Slået fra slukker lampen med gruppen, men tænder ikke af sig selv.",
     bevaegelse_uden_sensor: "Der er ingen bevægelsessensor i området, så ingen af lamperne kan tændes af bevægelse. De kan stadig tændes af et tidsrum eller i hånden.",
     sensor_ikke_valgt: "Ingen sensor er valgt, så ingen af lamperne tændes af bevægelse. Sæt flueben ved en sensor under «Sensorer», så kommer valget frem.",
@@ -422,6 +426,10 @@ const TEKSTER = {
     lamper_hint: "Every light in the area. When there is a group, its bulbs are hidden so they are not controlled twice. A light is only driven automatically once it is in an automation below.",
     fjern_lampe: "Remove the light from the room",
     taendes_automatisk: "Turns on by itself",
+    maks_tid: "Turn off no matter what",
+    maks_tid_hint: "A safety net: the longest the light may stay on, whatever is keeping it on. It is the only timer that turns the light off while the sensor still sees someone — meant for a sensor that gets stuck, and for a hand-picked light that never turns itself off.",
+    maks_tid_titel: "Turns off after at most",
+    maks_tid_sub: "Counted from when the light came on, and never reset along the way. \"Never\" switches the net off.",
     aut_lamper_auto_hint: "\"Turns on by itself\" covers both motion and \"keep the light on\". Switched off, the lamp goes off with the group but never turns on by itself.",
     bevaegelse_uden_sensor: "There is no motion sensor in the area, so none of the lights can turn on with motion. They can still turn on from a period or by hand.",
     sensor_ikke_valgt: "No sensor is chosen, so none of the lights turn on with motion. Tick a sensor under «Sensors» and the option appears.",

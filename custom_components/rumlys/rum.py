@@ -114,6 +114,7 @@ from .const import (
     LYS_HVID,
     LYS_SCENE,
     SLUK_EFTER_BEVAEGELSE,
+    SENEST_SLUK,
     SLUK_EFTER_TRYK,
     SLUKKET,
     STANDARD_INDSTILLINGER,
@@ -278,6 +279,8 @@ class Automatik:
         self.kilde: str | None = gemt.get("kilde")
         self.slukker = _tidspunkt(gemt.get("slukker"))
         self.hold_slutter = _tidspunkt(gemt.get("hold_slutter"))
+        # Hvornår lyset senest skal være slukket. Se SENEST_SLUK.
+        self.senest = _tidspunkt(gemt.get("senest"))
         # Aftrykket af den opsætning, mindet blev skrevet under. Se lysaftryk().
         self._lysaftryk = lysaftryk(data)
         self.husket: dict[str, Any] | None = gemt.get("husket")
@@ -343,6 +346,7 @@ class Automatik:
             "kilde": self.kilde,
             "slukker": self.slukker and self.slukker.isoformat(),
             "hold_slutter": self.hold_slutter and self.hold_slutter.isoformat(),
+            "senest": self.senest and self.senest.isoformat(),
             "husket": self.husket,
         }
 
@@ -554,15 +558,40 @@ class Automatik:
         self.nulstil()
 
     @callback
+    def _senest_udloebet(self, _nu: datetime) -> None:
+        """Den maksimale tændtid er brugt op — sikkerhedsnettet under alle de andre tider.
+
+        Det er den eneste tid, der slukker, mens sensoren stadig ser nogen. Derfor står den som
+        «maks_tid» i hændelsesloggen: skal nogen finde ud af, hvorfor lyset gik ud midt i det
+        hele, skal svaret være til at læse.
+        """
+        self.rum._log("slukket", kilde="maks_tid", automatik=self.id)
+        self.rum._kald("turn_off", {}, self.lys)
+        self.nulstil()
+
+    @callback
     def _hold_udloebet(self, _nu: datetime) -> None:
         self.hold_fra(udloebet=True)
 
     @callback
     def opdater(self) -> None:
         """Sæt nedtællingerne efter tiderne, gem, og fortæl entiteterne det."""
+        # Den maksimale tændtid løber fra automatikken tændte, og den stilles ikke om undervejs:
+        # skifter kilden fra bevægelse til hånd, bliver fristen stående. Det er LYSETS tid, der
+        # tælles, ikke kildens — ellers kunne et tryk nulstille sikkerhedsnettet i det uendelige.
+        if self.kilde is None:
+            self.senest = None
+        elif self.senest is None:
+            self.senest = self.senest_frist()
         self._timer("slukker", self.slukker, self._slukketid)
         self._timer("hold", self.hold_slutter, self._hold_udloebet)
+        self._timer("senest", self.senest, self._senest_udloebet)
         self.rum._opdater()
+
+    def senest_frist(self) -> datetime | None:
+        """Hvornår lyset senest skal være slukket. None, når der ikke er sat nogen grænse."""
+        timer = self.indstillinger[SENEST_SLUK]
+        return dt_util.utcnow() + timedelta(hours=timer) if timer else None
 
     @callback
     def _timer(self, navn: str, tidspunkt: datetime | None, handling: Callable[[datetime], None]) -> None:
@@ -629,6 +658,7 @@ class Automatik:
             "tilstand": self.tilstand,
             "slukker": self.slukker and self.slukker.isoformat(),
             "hold_slutter": self.hold_slutter and self.hold_slutter.isoformat(),
+            "senest": self.senest and self.senest.isoformat(),
             "bevaegelse": self.bevaegelse,
             "tidsrum": tidsrum[CONF_NAVN] if tidsrum else None,
             "husket": self.husket_lys() is not None,

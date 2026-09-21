@@ -262,7 +262,11 @@ async def test_hver_automatik_taendes_af_sine_egne_sensorer(hus: Hus) -> None:
     hus.hass.states.async_set(sensor2, "off")
     await hus.hass.async_block_till_done()
     await hus.vent(31)
-    assert [k.data["entity_id"] for k in hus.sluk] == [[SPOTS], [STENLAMPE]]
+    # Raekkefoelgen er ikke garanteret: uret staar stille i proeven, saa begge automatikker faar
+    # noejagtig samme frist, og hvem der fyrer foerst afgoeres af registreringen. Det, der skal
+    # bindes fast, er at hver automatik slukker SINE EGNE lamper i sit eget kald - ikke rummet
+    # som een blok, som foer 0.7.0.
+    assert sorted(k.data["entity_id"] for k in hus.sluk) == sorted([[SPOTS], [STENLAMPE]])
 
 
 async def test_sensor_uden_egne_lamper_taender_dem_alle(hus: Hus) -> None:
@@ -1641,3 +1645,51 @@ async def test_taender_ved_bevaegelse_afgoer_ogsaa_hvad_hold_lys_taender(hus: Hu
 
     taendte = {e for k in hus.taend for e in k.data["entity_id"]}
     assert taendte == {SPOTS}
+async def test_maksimal_taendtid_slukker_selv_om_sensoren_ser_nogen(hus: Hus) -> None:
+    """Den eneste tid, der slukker mens sensoren stadig ser nogen — sikkerhedsnettet.
+
+    Alrums FP2 sad skævt 21-09-2026 og meldte tilstede i 16 minutter i et tomt rum. Rumlys gjorde
+    det rigtige: nedtællingen begynder først, når sensoren slipper. Men så slukker lyset aldrig,
+    så længe sensoren tager fejl, og det er præcis hullet her lukker.
+    """
+    await hus.saet_op(RUMMET, gemt={"indstillinger": {"senest_sluk": 1}})
+    await hus.bevaegelse("on")
+    await hus.lampen_svarer()
+
+    # Bevægelse standser den almindelige nedtælling, så intet andet kan slukke her.
+    await hus.vent(3000)
+    assert not hus.sluk
+    await hus.vent(601)
+
+    assert len(hus.sluk) == 1
+    assert hus.tilstand() == "slukket"
+
+
+async def test_uden_maksimal_taendtid_bliver_lyset(hus: Hus) -> None:
+    """Standarden er 0 = aldrig. Et rum med en sensor, der opfører sig, skal ikke begynde at slukke."""
+    await hus.saet_op(RUMMET)
+    await hus.bevaegelse("on")
+    await hus.lampen_svarer()
+
+    await hus.vent(7200)
+
+    assert not hus.sluk
+
+
+async def test_et_haandvalg_nulstiller_ikke_den_maksimale_taendtid(hus: Hus) -> None:
+    """Fristen løber fra lyset tændte, ikke fra sidste gang nogen rørte det.
+
+    Ellers kunne man holde sikkerhedsnettet væk i det uendelige ved at vælge lyset igen — og så
+    beskytter det netop ikke mod det, det er sat op imod.
+    """
+    await hus.saet_op(RUMMET, gemt={"indstillinger": {"senest_sluk": 1}})
+    await hus.bevaegelse("on")
+    await hus.lampen_svarer()
+    await hus.vent(1800)
+
+    # Nogen vælger selv lyset undervejs: kilden skifter, men fristen står.
+    await hus.lys("on", Context(user_id="martin"), brightness=200)
+    assert hus.tilstand() == "haand"
+
+    await hus.vent(1801)
+    assert len(hus.sluk) == 1

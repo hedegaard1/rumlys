@@ -71,11 +71,17 @@ ALLE_DAGE = (0, 1, 2, 3, 4, 5, 6)
 SLUK_EFTER_BEVAEGELSE = "sluk_efter_bevaegelse"  # sekunder
 SLUK_EFTER_TRYK = "sluk_efter_tryk"  # minutter, 0 = aldrig
 HOLD_TID = "hold_tid"  # timer
+# Sikkerhedsnet, ikke en sluk-tid: hvor længe lyset HØJST må være tændt, uanset hvad der
+# holder det tændt. En tilstedeværelsessensor, der hænger fast, og et lys valgt i hånden med
+# «slukker aldrig» er begge ting, ingen af de andre tider fanger. 0 = aldrig, og det er
+# standarden — et rum med en sensor, der opfører sig, skal ikke pludselig begynde at slukke.
+SENEST_SLUK = "senest_sluk"  # timer, 0 = aldrig
 
 STANDARD_INDSTILLINGER = {
     SLUK_EFTER_BEVAEGELSE: 30,
     SLUK_EFTER_TRYK: 5,
     HOLD_TID: 4,
+    SENEST_SLUK: 0,
 }
 
 # Rummets tilstand. Med flere automatikker er rummets egen tilstand en opsummering: den
