@@ -1621,3 +1621,23 @@ async def test_en_automatik_uden_lamper_lader_knappen_styre_hele_rummet(hus: Hus
 
     taendte = {e for k in hus.taend for e in k.data["entity_id"]}
     assert taendte == {SPOTS, STENLAMPE}
+async def test_taender_ved_bevaegelse_afgoer_ogsaa_hvad_hold_lys_taender(hus: Hus) -> None:
+    """Fluebenet gælder ikke kun bevægelse: det afgør også, hvilke lamper «hold lys» tænder.
+
+    `hold_til` bruger `self.foelger` — altså lamperne med «tænder ved bevægelse» — når holdet
+    slås til i et slukket rum. Det virker uden nogen sensor, og derfor må kontakten ikke skjules,
+    bare fordi automatikken ingen sensorer har: den har stadig en virkning (målt 21-09-2026).
+    """
+    rummet = RUMMET | {
+        "sensorer": [],
+        "lamper": [
+            {"entity_id": SPOTS, "bevaegelse": True},
+            {"entity_id": STENLAMPE, "bevaegelse": False},
+        ],
+    }
+    await hus.saet_op(rummet)
+
+    await hus.tjeneste("switch", "turn_on", entity_id=HOLD)
+
+    taendte = {e for k in hus.taend for e in k.data["entity_id"]}
+    assert taendte == {SPOTS}

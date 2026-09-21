@@ -2074,6 +2074,23 @@ class RumlysPanel extends HTMLElement {
         this._aendret();
         this._genTegn("automatik");
       });
+      // Tændes lampen af sig selv? Det gælder både bevægelse og «hold lys», så kontakten står
+      // der, også når automatikken ingen sensorer har — `hold_til` bruger den samme liste.
+      // Slået fra: lampen slukker med gruppen, men tænder ikke af sig selv.
+      let auto = null;
+      if (valgt) {
+        const lampe = d.lamper.find((l) => l.entity_id === entityId);
+        const til = !lampe || lampe.bevaegelse !== false;
+        const kontakt = h("button", {
+          class: "kontakt" + (til ? " til" : ""), type: "button", "aria-pressed": String(til),
+        });
+        kontakt.addEventListener("click", () => {
+          if (lampe) lampe.bevaegelse = !til;
+          this._aendret();
+          this._genTegn("automatik");
+        });
+        auto = h("label", { class: "kontaktfelt" }, this.t("taendes_automatisk"), kontakt);
+      }
       liste.appendChild(
         h(
           "div",
@@ -2084,7 +2101,8 @@ class RumlysPanel extends HTMLElement {
             { class: "tx" },
             h("b", {}, this._lampeNavn(entityId)),
             h("small", {}, spaerret ? this.t("hoerer_til", { navn: this._autNavn(ejer) }) : "")
-          )
+          ),
+          auto
         )
       );
     });
@@ -2092,7 +2110,8 @@ class RumlysPanel extends HTMLElement {
       "mdi:lightbulb-group-outline",
       this.t("lamper"),
       d.lamper.length ? this.t("aut_lamper_hint") : this.t("aut_ingen_lamper"),
-      liste
+      liste,
+      aut.lamper.length ? h("p", { class: "hint" }, this.t("aut_lamper_auto_hint")) : null
     );
   }
 
@@ -2229,8 +2248,6 @@ class RumlysPanel extends HTMLElement {
     // står derfor kun ud for en lampe, der IKKE er i området: en, der blev valgt ind fra et andet
     // område, dengang det kunne lade sig gøre. Den skal kunne komme af igen.
     const raekke = (entityId, navn, under, kanFravaelges) => {
-      const lampe = valgte.get(entityId) || { entity_id: entityId, bevaegelse: true };
-      const valgt = true;
       let flueben = null;
       if (kanFravaelges) {
         flueben = h("button", { class: "flueben til", "aria-pressed": "true", type: "button", title: this.t("fjern_lampe") }, ikon("mdi:check"));
@@ -2239,17 +2256,9 @@ class RumlysPanel extends HTMLElement {
           this._lamperAendret();
         });
       }
-      let foelger = null;
-      if (valgt) {
-        const kontakt = h("button", { class: "kontakt" + (lampe.bevaegelse ? " til" : ""), type: "button", "aria-pressed": String(lampe.bevaegelse) });
-        kontakt.addEventListener("click", () => {
-          lampe.bevaegelse = !lampe.bevaegelse;
-          this._genTegn("lamper");
-        });
-        // Uden en sensor er der intet, der tænder ved bevægelse, så kontakten står der ikke. Valget er gemt og
-        // kommer frem igen, den dag rummet får en sensor — vi slår det ikke fra, for så tændte lyset ikke.
-        foelger = udenSensor ? null : h("label", { class: "kontaktfelt" }, this.t("taender_ved_bevaegelse"), kontakt);
-      }
+      // «Tændes automatisk» stod her før. Den hører til automatikken: det er DEN, der afgør,
+      // om lampen tændes af sig selv, og kontakten siger ingenting om en lampe, man endnu ikke
+      // har lagt i en gruppe (Martin 21-09-2026).
       // Lampens eget ikon. Tryk skifter det i Home Assistant — kun for lamper i entitetsregistret.
       let vist = rummetsIkoner(this._hass, [entityId], null)[0];
       const ikonEl = ikon(vist);
@@ -2264,7 +2273,7 @@ class RumlysPanel extends HTMLElement {
         // Rummets ikon under «Rummet» viser lampernes egne ikoner.
         setTimeout(() => this._genTegn("rummet"));
       });
-      return h("div", { class: "raekke" }, flueben, ikonKnap, h("div", { class: "tx" }, h("b", {}, navn), under ? h("small", {}, under) : null), this._evneMaerker(entityId), foelger);
+      return h("div", { class: "raekke" }, flueben, ikonKnap, h("div", { class: "tx" }, h("b", {}, navn), under ? h("small", {}, under) : null), this._evneMaerker(entityId));
     };
     omraade.lamper.forEach((l) => {
       if (medlemmer.has(l.entity_id) && !valgte.has(l.entity_id)) return;
