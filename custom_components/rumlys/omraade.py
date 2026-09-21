@@ -52,9 +52,17 @@ LYSSTYRKETILSTANDE = frozenset(
         "ColorMode.XY",
     }
 )
-# En vægknap melder sig som «opening»: IHC giver alle sine indgange den klasse, og en rigtig
-# dør- eller vinduessensor siger «door» eller «window». Det er det nærmeste, der findes.
-KNAPKLASSER = ("opening",)
+# Der findes ingen knap-klasse for en binary_sensor, så vi tager de klasser, IHC faktisk giver
+# sine indgange. «opening» var længe den eneste — men IHC giver dem IKKE alle den samme.
+#
+# Målt på Martins anlæg 21-09-2026, 80 vægknapper: 64 melder «opening» og 16 melder «power».
+# Hvilken af dem en indgang får, følger IHC-projektets egen opsætning, ikke noget Rumlys kan se.
+# Og de 16 var ikke til at tage i brug overhovedet: både områdets liste og «vis knapper fra andre
+# områder» filtrerer på den her regel, så der var ingen vej udenom.
+#
+# Listen er kandidater, ikke en påstand — ingenting sker, før nogen sætter flueben ved en knap.
+# En rigtig dør- eller vinduessensor siger i øvrigt «door» eller «window».
+KNAPKLASSER = ("opening", "power")
 
 
 @callback
