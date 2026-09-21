@@ -1076,8 +1076,6 @@ class RumlysPanel extends HTMLElement {
       del(this._kortIkon(k.id, hele ? lamper : valgte));
       // Kortets scener.
       iDel(h("div", { class: "felt" }, h("label", {}, this.t("scener_paa_kortet"))), this._kortScener(k.id, hele ? lamper : valgte));
-      // Og kortets vægknapper. De hører til kortet, ikke til rummet: det er kortet, de betjener.
-      del(this._somGruppe(this._sekKortKnapper(k.id)));
 
       if (k.steder.length === 1 && f.skrivbar) {
         del(h("button", { class: "knap farlig", type: "button", onclick: () => this._fjernKort(f) }, ikon("mdi:close"), this.t("fjern_kort")));
@@ -1431,6 +1429,8 @@ class RumlysPanel extends HTMLElement {
       ["sensorer", () => this._sekSensorer()],
       ["automatik", () => this._sekAutomatik()],
       ["kort", () => this._sekKort()],
+      // Vægknapperne er rummets egne: en knap skal kunne sættes op i et rum uden kort.
+      ["knapper", () => this._sekKnapper()],
       ["haendelser", () => this._sekHaendelser()],
     ].forEach(([noegle, bygger]) => {
       const el = bygger();
@@ -1449,8 +1449,10 @@ class RumlysPanel extends HTMLElement {
     noegler = noegler.map((n) => (["tidsplan", "ingen", "hold"].indexOf(n) >= 0 ? "automatik" : n === "scener" ? "kort" : n));
     if (noegler.indexOf("lamper") >= 0) noegler = noegler.concat(["automatik"]);
     if (noegler.indexOf("sensorer") >= 0) noegler = noegler.concat(["automatik"]);
-    // Knapperne hører til kortet fra 0.7.0 og tegnes med det.
-    if (noegler.indexOf("knapper") >= 0) noegler = noegler.concat(["kort"]);
+    // Knapperne har deres egen sektion fra 0.13.0. De viser lampernes navne og automatikkernes,
+    // så de skal tegnes om, når en af de to lister ændrer sig.
+    if (noegler.indexOf("lamper") >= 0) noegler = noegler.concat(["knapper"]);
+    if (noegler.indexOf("automatik") >= 0) noegler = noegler.concat(["knapper"]);
     noegler = [...new Set(noegler)];
     noegler.forEach((noegle) => {
       const sek = this._sektioner[noegle];
@@ -1680,34 +1682,53 @@ class RumlysPanel extends HTMLElement {
   // Ét mærke pr. tryk, knappen gør noget ved. Ikonerne er de tre bevægelser, de hører til, så de
   // læses som ét sæt: et tryk, et tryk holdt nede, to tryk. Et tryk gør altid noget, så det mærke
   // står der altid; de to andre kun, når de er slået til.
-  _knapMaerker(entityId, kortId) {
+  _knapMaerker(entityId) {
     const maal = (this._kladde.data.knap_maal || {})[entityId] || {};
     const maerker = [["mdi:gesture-tap", this.t("knap_tryk")]];
-    if (maal.daemp !== false && this._kanDaempe(kortId)) maerker.push(["mdi:gesture-tap-hold", this.t("knap_daemp")]);
+    if (maal.daemp !== false && this._kanDaempe(entityId)) maerker.push(["mdi:gesture-tap-hold", this.t("knap_daemp")]);
     if (maal.hold !== false) maerker.push(["mdi:gesture-double-tap", this.t("knap_hold")]);
     return h("span", { class: "knapmaerker" }, ...maerker.map(([navn, titel]) =>
       h("span", { class: "knapmaerke", role: "img", title: titel, "aria-label": titel }, ikon(navn))));
   }
 
-  // Kan kortets lamper dæmpes? Uden det er «hold nede dæmper» hverken vist eller slået til.
-  _kanDaempe(kortId) {
+  // Lamperne en knap styrer — samme regel som Rumlys' egen `_knappens_lamper`, så panelet og
+  // driften siger det samme. Intet mål er hele rummet: en knap på væggen skal altid gøre noget.
+  _knapLamper(entityId) {
     const d = this._kladde.data;
-    const kortet = (this._kladde.kort || {})[kortId] || {};
-    const lamper = (kortet.lamper || []).length ? kortet.lamper : d.lamper.map((l) => l.entity_id);
-    return lamper.some((l) => lampensEvner(this._hass, l).daemp);
+    const alle = d.lamper.map((l) => l.entity_id);
+    const maal = (d.knap_maal || {})[entityId];
+    if (!maal) return alle;
+    if (maal.lamper && maal.lamper.length) return maal.lamper.filter((l) => alle.indexOf(l) >= 0);
+    if (maal.automatik != null) {
+      const aut = (d.automatik || []).find((a) => a.id === maal.automatik);
+      return (aut && aut.lamper && aut.lamper.length) ? aut.lamper : alle;
+    }
+    if (maal.kort) {
+      const kortet = (this._kladde.kort || {})[maal.kort] || {};
+      if ((kortet.lamper || []).length) return kortet.lamper;
+      if ((kortet.undtagen || []).length) return alle.filter((l) => kortet.undtagen.indexOf(l) < 0);
+    }
+    return alle;
+  }
+
+  // Kan knappens egne lamper dæmpes? Uden det er «hold nede dæmper» hverken vist eller slået til.
+  // Før spurgte den om KORTETS lamper, og det var forkert, så snart knappen pegede et andet sted.
+  _kanDaempe(entityId) {
+    return this._knapLamper(entityId).some((l) => lampensEvner(this._hass, l).daemp);
   }
 
   // Hvad knappen må: et tryk tænder og slukker (altid), et hold dæmper, et dobbeltklik holder
   // lyset. De to sidste kan slås fra, og hver har et tandhjul til sine egne tal. Standarden er
   // dét, knapperne gjorde før 0.9.0, så en knap, ingen har rørt, opfører sig som før.
-  _knapvalg(entityId, kortId) {
+  _knapvalg(entityId) {
     const d = this._kladde.data;
     const maal = (d.knap_maal || {})[entityId] || {};
     const saet = (aendring) => {
       d.knap_maal = Object.assign({}, d.knap_maal, { [entityId]: Object.assign({}, maal, aendring) });
-      this._genTegn("kort");
+      this._aendret();
+      this._genTegn("knapper");
     };
-    const kanDaempe = this._kanDaempe(kortId);
+    const kanDaempe = this._kanDaempe(entityId);
     const haendelse = entityId.indexOf("event.") === 0;
 
     const laast = h("div", { class: "naar" },
@@ -1781,21 +1802,107 @@ class RumlysPanel extends HTMLElement {
     });
   }
 
-  _sekKortKnapper(kortId) {
+  // Knappens mål som tekst. «Alt lys» er standarden, og den er ikke en genvej: hver automatik
+  // tænder sine egne lamper med sit eget lys, så man behøver ikke en automatik med alle i.
+  _knapMaalTekst(entityId) {
+    const d = this._kladde.data;
+    const maal = (d.knap_maal || {})[entityId] || {};
+    if (maal.automatik != null) {
+      const aut = (d.automatik || []).find((a) => a.id === maal.automatik);
+      return aut ? this._autNavn(aut) : this.t("hele_rummet");
+    }
+    if (maal.kort) {
+      const kortet = (this._kladde.kort || {})[maal.kort];
+      const lamper = (kortet && kortet.lamper) || [];
+      return this.t("foelger_kortet", {
+        navn: lamper.length ? lamper.map((l) => this._lampeNavn(l)).join(", ") : this.t("hele_rummet"),
+      });
+    }
+    if ((maal.lamper || []).length) return maal.lamper.map((l) => this._lampeNavn(l)).join(", ");
+    return this.t("hele_rummet");
+  }
+
+  _knapMaalRaekke(entityId) {
+    const knap = h(
+      "button",
+      { class: "lysvalg", type: "button" },
+      h("span", { class: "tx" }, h("b", {}, this.t("knap_maal")), h("small", {}, this._knapMaalTekst(entityId))),
+      ikon("mdi:chevron-right")
+    );
+    knap.addEventListener("click", () => this._vaelgKnapMaal(entityId));
+    return h("div", { class: "knapvalg", style: { paddingLeft: "34px" } }, knap);
+  }
+
+  // Kun det, der giver mening, står på listen: en automatik uden lamper ville i virkeligheden
+  // betyde «alt lys», og så er valget en løgn. «Følg et kort» tilbydes ikke som nyt valg — det
+  // bliver kun stående, hvis knappen allerede gør det, så gamle opsætninger ikke går i stykker.
+  _vaelgKnapMaal(entityId) {
+    const d = this._kladde.data;
+    const maal = (d.knap_maal || {})[entityId] || {};
+    const valgbare = [{ id: null, navn: this.t("hele_rummet"), under: this.t("knap_maal_alt") }].concat(
+      (d.automatik || [])
+        .filter((a) => (a.lamper || []).length)
+        .map((a) => {
+          // Automatikken hedder det, den styrer, så lampelisten ville stå to gange. Den står
+          // kun som undertekst, når den siger noget nyt — altså når automatikken har et navn.
+          const navn = this._autNavn(a);
+          const lamper = (a.lamper || []).map((l) => this._lampeNavn(l)).join(", ");
+          return { id: a.id, navn, under: lamper === navn ? "" : lamper };
+        })
+    );
+    let valgt = maal.automatik != null ? maal.automatik : null;
+    const liste = h("div", { class: "liste" });
+    const tegn = () => {
+      liste.textContent = "";
+      valgbare.forEach((o) => {
+        const er = o.id === valgt;
+        const raekke = h(
+          "div",
+          { class: "raekke", style: { cursor: "pointer" } },
+          h("span", { class: "flueben" + (er ? " til" : "") }, er ? ikon("mdi:check") : null),
+          h("div", { class: "tx" }, h("b", {}, o.navn), o.under ? h("small", {}, o.under) : null)
+        );
+        raekke.addEventListener("click", () => {
+          valgt = o.id;
+          tegn();
+        });
+        liste.appendChild(raekke);
+      });
+    };
+    tegn();
+    this._dialog({
+      titel: this.t("knap_maal"),
+      indhold: [h("p", { class: "hint" }, this.t("knap_maal_hint")), liste],
+      knapper: [
+        { tekst: this.t("annuller"), handling: () => {} },
+        {
+          tekst: this.t("gem"),
+          primaer: true,
+          handling: () => {
+            const nyt = Object.assign({}, maal);
+            delete nyt.kort;
+            delete nyt.lamper;
+            delete nyt.automatik;
+            if (valgt != null) nyt.automatik = valgt;
+            d.knap_maal = Object.assign({}, d.knap_maal, { [entityId]: nyt });
+            this._aendret();
+            this._genTegn("knapper");
+            return true;
+          },
+        },
+      ],
+    });
+  }
+
+  // Rummets vægknapper. De hører til rummet, ikke til et kort: en knap på væggen skal kunne
+  // sættes op i et rum, der slet ikke har et kort på et dashboard (Martins ønske 21-09-2026).
+  _sekKnapper() {
     const d = this._kladde.data;
     const knapper = d.knapper || [];
-    const maal = d.knap_maal || {};
     const omraadets = this._omraade(d.omraade).knapper || [];
-    const kortNavn = (id) => {
-      const k = (this._kladde.kort || {})[id];
-      const lamper = (k && k.lamper) || [];
-      return lamper.length ? lamper.map((l) => this._lampeNavn(l)).join(", ") : this.t("hele_rummet");
-    };
     const liste = h("div", { class: "knapliste" });
     const raekke = (entityId, navn, under) => {
-      const peger = (maal[entityId] || {}).kort;
-      const valgt = peger === kortId;
-      const andet = peger && peger !== kortId ? peger : null;
+      const valgt = knapper.indexOf(entityId) >= 0;
       const flueben = h(
         "button",
         { class: "flueben" + (valgt ? " til" : ""), type: "button", "aria-pressed": String(valgt), "aria-label": navn },
@@ -1804,12 +1911,12 @@ class RumlysPanel extends HTMLElement {
       flueben.addEventListener("click", () => {
         if (valgt) {
           d.knapper = knapper.filter((k) => k !== entityId);
-          d.knap_maal = uden(maal, entityId);
+          d.knap_maal = uden(d.knap_maal || {}, entityId);
         } else {
-          if (knapper.indexOf(entityId) < 0) d.knapper = knapper.concat([entityId]);
-          d.knap_maal = Object.assign({}, maal, { [entityId]: { kort: kortId } });
+          d.knapper = knapper.concat([entityId]);
         }
-        this._genTegn("kort");
+        this._aendret();
+        this._genTegn("knapper");
       });
       // Tryk på knappen i rummet for at se, hvilken række den er. Navnene siger det sjældent selv.
       const pille = h("span", { class: "pille", style: { display: "none" } }, h("i", {}), this.t("knap_nede"));
@@ -1817,36 +1924,49 @@ class RumlysPanel extends HTMLElement {
         const st = hass.states[entityId];
         pille.style.display = st && st.state === "on" ? "" : "none";
       });
-      const forklaring = andet ? this.t("foelger_kortet", { navn: kortNavn(andet) }) : under || "";
       const selve = h(
         "div",
         { class: "raekke", style: { flexWrap: "wrap" } },
         flueben,
-        h("div", { class: "tx", style: { minWidth: "140px" } }, h("b", {}, navn), forklaring ? h("small", {}, forklaring) : null),
+        h(
+          "div",
+          { class: "tx", style: { minWidth: "140px" } },
+          h("b", {}, navn),
+          h("small", {}, valgt ? this._knapMaalTekst(entityId) : under || "")
+        ),
         pille
       );
-      // Knappens egne valg står kun frem, når knappen faktisk er valgt til dette kort — og de er
-      // foldet sammen, så en side med fire knapper ikke bliver uendelig lang (Martins ønske
-      // 19-09-2026). Mærkerne ud for knappen siger, hvad der er slået til inde under.
+      // Knappens egne valg er foldet sammen, så en side med fire knapper ikke bliver uendelig
+      // lang (Martins ønske 19-09-2026). Mærkerne ud for knappen siger, hvad der er slået til.
       if (!valgt) return selve;
       if (!this._aabneKnapper) this._aabneKnapper = new Set();
       const aaben = this._aabneKnapper.has(entityId);
-      const chev = h("button", {
-        class: "raekkechev", type: "button", "aria-expanded": String(aaben),
-        title: this.t(aaben ? "knap_skjul_valg" : "knap_vis_valg"),
-        "aria-label": this.t(aaben ? "knap_skjul_valg" : "knap_vis_valg"),
-      }, ikon(aaben ? "mdi:chevron-down" : "mdi:chevron-right"));
+      const chev = h(
+        "button",
+        {
+          class: "raekkechev",
+          type: "button",
+          "aria-expanded": String(aaben),
+          title: this.t(aaben ? "knap_skjul_valg" : "knap_vis_valg"),
+          "aria-label": this.t(aaben ? "knap_skjul_valg" : "knap_vis_valg"),
+        },
+        ikon(aaben ? "mdi:chevron-down" : "mdi:chevron-right")
+      );
       chev.addEventListener("click", () => {
         if (aaben) this._aabneKnapper.delete(entityId);
         else this._aabneKnapper.add(entityId);
-        this._genTegn("kort");
+        this._genTegn("knapper");
       });
-      selve.appendChild(this._knapMaerker(entityId, kortId));
+      selve.appendChild(this._knapMaerker(entityId));
       selve.appendChild(chev);
-      // «display: contents» på indpakningen, så rækken bliver ved med at være søskende med de andre
-      // rækker: ellers er den `:first-child` i sin egen kasse og mister stregen over sig, og kassen
-      // giver den sit eget mellemrum, så rækkerne ikke står lige langt fra hinanden (Martin 19-09-2026).
-      return h("div", { class: "raekkepar" }, selve, aaben ? this._knapvalg(entityId, kortId) : null);
+      // «display: contents» på indpakningen, så rækkerne bliver ved med at være søskende.
+      return h(
+        "div",
+        { class: "raekkepar" },
+        selve,
+        aaben ? this._knapMaalRaekke(entityId) : null,
+        aaben ? this._knapvalg(entityId) : null
+      );
     };
     omraadets.forEach((k) => liste.appendChild(raekke(k.entity_id, k.navn)));
     knapper.forEach((k) => {

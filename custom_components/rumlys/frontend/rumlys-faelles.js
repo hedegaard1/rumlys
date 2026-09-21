@@ -9,7 +9,7 @@
 // relativt, så Rumlys' egne ikoner også virker på testsiden og i node-testen.
 import "./ikoner/rumlys-ikoner.js";
 
-export const VERSION = "0.12.4";
+export const VERSION = "0.13.0";
 // Mappen, filen selv ligger i — i Home Assistant med versionen i stien, på testsiden repoets egen.
 export const FILER = new URL("./", import.meta.url).href;
 // Scenerne ligger i Rumlys selv. I Home Assistant har de en fast adresse uden version, så et kort,
@@ -304,6 +304,9 @@ const TEKSTER = {
     en_knap: "1 knap",
     n_knapper: "{n} knapper",
     foelger_kortet: "Følger kortet {navn}",
+    knap_maal: "Hvad knappen styrer",
+    knap_maal_hint: "Vælg alt lys i rummet, eller én automatik. Knappens egne valg og tider følger den automatik, lamperne hører til.",
+    knap_maal_alt: "Hver automatik tænder sine egne lamper med sit eget lys",
     scenefelter: "Scenefelter",
     automatisk: "Automatisk",
     mindst: "Mindst",
@@ -605,6 +608,9 @@ const TEKSTER = {
     en_knap: "1 button",
     n_knapper: "{n} buttons",
     foelger_kortet: "Follows the card {navn}",
+    knap_maal: "What the button controls",
+    knap_maal_hint: "Choose all the lights in the room, or one automation. The button's own timings come from the automation its lamps belong to.",
+    knap_maal_alt: "Each automation turns on its own lamps with its own light",
     scenefelter: "Scene tiles",
     automatisk: "Automatic",
     mindst: "Smallest",
