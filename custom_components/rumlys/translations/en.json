@@ -157,6 +157,9 @@
       "hold_tid": {
         "name": "Keep light on for"
       },
+      "senest_sluk": {
+        "name": "Turns off after at most"
+      },
       "automatik_sluk_efter_bevaegelse": {
         "name": "Automation {nr} · automatic light turns off after"
       },
@@ -165,6 +168,9 @@
       },
       "automatik_hold_tid": {
         "name": "Automation {nr} · keep light on for"
+      },
+      "automatik_senest_sluk": {
+        "name": "Automation {nr} · turns off after at most"
       }
     },
     "sensor": {

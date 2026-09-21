@@ -157,6 +157,9 @@
       "hold_tid": {
         "name": "Hold lys i"
       },
+      "senest_sluk": {
+        "name": "Slukker senest efter"
+      },
       "automatik_sluk_efter_bevaegelse": {
         "name": "Automatik {nr} · automatisk lys slukker efter"
       },
@@ -165,6 +168,9 @@
       },
       "automatik_hold_tid": {
         "name": "Automatik {nr} · hold lys i"
+      },
+      "automatik_senest_sluk": {
+        "name": "Automatik {nr} · slukker senest efter"
       }
     },
     "sensor": {
