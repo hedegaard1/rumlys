@@ -473,6 +473,31 @@ class Automatik:
             self.rum._log("taendt", lys="automatik", automatik=self.id)
 
     @callback
+    def taendt_paa_knap(self, lamper: list[str]) -> None:
+        """Et tryk har tændt lyset. Ser automatikkens egen sensor nogen, bestemmer SENSOREN igen.
+
+        Ellers blev et tryk på sluk til en overstyring uden ende: sensoren reagerer kun på et
+        skift, så stod den allerede `on`, kom lyset først tilbage, når man havde forladt rummet —
+        og en tilstedeværelsessensor kan holde i mange minutter. Nu er vejen ud et tryk mere
+        (Martins ønske 21-09-2026).
+
+        Et tryk vælger ikke noget bestemt lys, det tænder bare. Derfor huskes lyset ikke her, som
+        `valgt_i_haanden` gør: der er ingenting nyt at huske.
+
+        Uden sensorer er `bevaegelse` altid falsk, og så opfører et knap-rum sig præcis som før.
+        """
+        if not self.bevaegelse:
+            self.valgt_i_haanden()
+            return
+        if self.kilde != BEVAEGELSE:
+            self.rum._log("taendt", lys="knap", automatik=self.id)
+        self.kilde = BEVAEGELSE
+        # Sensoren ser nogen, så der er ingen nedtælling — den begynder, når den slipper.
+        self.slukker = None
+        self._sidst_taendt = lamper
+        self.opdater()
+
+    @callback
     def valgt_i_haanden(self) -> None:
         """Nogen har selv valgt lyset — på kortet, med en scene, i appen eller på væggen."""
         if self.kilde != HAAND:
@@ -1115,7 +1140,7 @@ class Rum:
             husket = aut.husket_lys()
             if husket is None or not self._gendan(husket, egne):
                 self._anvend(aut.scenarie(), egne)
-            aut.valgt_i_haanden()
+            aut.taendt_paa_knap(egne)
         # Lamper uden automatik har intet lys at tænde med. De tændes, som de var.
         if frie := [l for l in maal if self.automatik_for(l) is None]:
             self._kald("turn_on", {}, frie)

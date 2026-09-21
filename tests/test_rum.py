@@ -1693,3 +1693,46 @@ async def test_et_haandvalg_nulstiller_ikke_den_maksimale_taendtid(hus: Hus) -> 
 
     await hus.vent(1801)
     assert len(hus.sluk) == 1
+async def test_et_tryk_der_taender_giver_sensoren_styringen_igen(hus: Hus) -> None:
+    """Martins tilfælde 21-09-2026: sluk med knappen mens du står der, og tænd igen.
+
+    Før blev et tryk på sluk til en overstyring uden ende — sensoren reagerer kun på et skift, så
+    stod den allerede `on`, kom lyset først tilbage, når man havde forladt rummet. Med en
+    tilstedeværelsessensor kan det være mange minutter. Nu er vejen ud et tryk mere.
+    """
+    await hus.saet_op(KNAPRUMMET)
+    await hus.bevaegelse("on")
+    await hus.lampen_svarer()
+    assert hus.tilstand() == "bevaegelse"
+
+    # Et tryk slukker, selv om sensoren stadig ser nogen.
+    await hus.tryk()
+    await hus.vent(0.4)
+    assert hus.sluk
+    assert hus.tilstand() == "slukket"
+    await hus.lys("off")
+
+    # Et tryk mere tænder igen — og nu er det sensoren, der bestemmer, ikke hånden.
+    await hus.tryk()
+    await hus.vent(0.4)
+    assert hus.tilstand() == "bevaegelse"
+    await hus.lampen_svarer()
+
+    # Altså gælder «automatisk lys slukker efter» (30 sek.), ikke «valgt lys slukker efter» (5 min.).
+    antal = len(hus.sluk)
+    await hus.bevaegelse("off")
+    await hus.vent(31)
+    assert len(hus.sluk) == antal + 1
+
+
+async def test_et_tryk_uden_sensor_er_stadig_haand(hus: Hus) -> None:
+    """Et rum uden sensorer er ren håndbetjening, og det skal knappen ikke lave om på.
+
+    `bevaegelse` er altid falsk uden sensorer, så kilden bliver hånd — præcis som før.
+    """
+    await hus.saet_op(KNAPRUMMET | {"sensorer": []})
+
+    await hus.tryk()
+    await hus.vent(0.4)
+
+    assert hus.tilstand() == "haand"
