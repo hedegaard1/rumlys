@@ -9,7 +9,7 @@
 // relativt, så Rumlys' egne ikoner også virker på testsiden og i node-testen.
 import "./ikoner/rumlys-ikoner.js";
 
-export const VERSION = "0.14.1";
+export const VERSION = "0.14.2";
 // Mappen, filen selv ligger i — i Home Assistant med versionen i stien, på testsiden repoets egen.
 export const FILER = new URL("./", import.meta.url).href;
 // Scenerne ligger i Rumlys selv. I Home Assistant har de en fast adresse uden version, så et kort,
@@ -117,6 +117,8 @@ const TEKSTER = {
     lamper_hint: "Alle lamper i området. Er der en gruppe, skjules dens pærer, så de ikke styres to gange. En lampe styres først af sig selv, når den ligger i en automatik nedenfor.",
     fjern_lampe: "Fjern lampen fra rummet",
     taendes_automatisk: "Tændes automatisk",
+    hold_prik_til: "Hold lys er slået til — holdes tændt til {tid}",
+    hold_prik_fra: "Hold lys er slået fra",
     maks_tid: "Sluk under alle omstændigheder",
     maks_tid_hint: "Et sikkerhedsnet: hvor længe lyset højst må være tændt, uanset hvad der holder det tændt. Det er den eneste tid, der slukker, mens sensoren stadig ser nogen — sat op mod en sensor, der hænger fast, og mod et lys valgt i hånden, som aldrig slukker af sig selv.",
     maks_tid_titel: "Slukker senest efter",
@@ -426,6 +428,8 @@ const TEKSTER = {
     lamper_hint: "Every light in the area. When there is a group, its bulbs are hidden so they are not controlled twice. A light is only driven automatically once it is in an automation below.",
     fjern_lampe: "Remove the light from the room",
     taendes_automatisk: "Turns on by itself",
+    hold_prik_til: "Keep the light on is switched on — held until {tid}",
+    hold_prik_fra: "Keep the light on is switched off",
     maks_tid: "Turn off no matter what",
     maks_tid_hint: "A safety net: the longest the light may stay on, whatever is keeping it on. It is the only timer that turns the light off while the sensor still sees someone — meant for a sensor that gets stuck, and for a hand-picked light that never turns itself off.",
     maks_tid_titel: "Turns off after at most",

@@ -135,15 +135,17 @@ button { font: inherit; color: inherit; }
 .paere-prik.taendt { border-color: transparent; }
 /* Sensoren som sin egen runde boks ved siden af lamperne (Martins ønske 20-09-2026). Slukket er
    den temaets tekstfarve i en tom ring; ser den nogen, fyldes den med temaets farve, og en ring
-   pulser udad. Pulsen er det eneste, der siger «lige nu» uden at man skal læse noget. */
-.sensor-prik {
+   pulser udad. Pulsen er det eneste, der siger «lige nu» uden at man skal læse noget.
+   Holdprikken deler udseendet: det er den samme slags oplysning — en tilstand, der gælder lige
+   nu — og to prikker, der betyder det samme, skal se ens ud (Martins ønske 21-09-2026). */
+.sensor-prik, .hold-prik {
   width: 32px; height: 32px; border-radius: 50%; flex: none; box-sizing: border-box;
   display: grid; place-items: center; --mdc-icon-size: 18px; position: relative;
   border: 2px solid var(--rl-linje); color: var(--primary-text-color);
   transition: background .3s, color .3s, border-color .3s;
 }
-.sensor-prik.aktiv { border-color: transparent; background: var(--rl-p); color: var(--rl-paa-p); }
-.sensor-prik.aktiv::after {
+.sensor-prik.aktiv, .hold-prik.aktiv { border-color: transparent; background: var(--rl-p); color: var(--rl-paa-p); }
+.sensor-prik.aktiv::after, .hold-prik.aktiv::after {
   content: ""; position: absolute; inset: -2px; border-radius: 50%;
   border: 2px solid var(--rl-p); animation: sensorpuls 1.6s ease-out infinite;
 }
@@ -152,7 +154,7 @@ button { font: inherit; color: inherit; }
   100% { transform: scale(1.7); opacity: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .sensor-prik.aktiv::after { animation: none; opacity: .35; }
+  .sensor-prik.aktiv::after, .hold-prik.aktiv::after { animation: none; opacity: .35; }
 }
 /* Hvad lampen kan, som små runde mærker ud for den: en cirkel fra gult til køligt hvidt for lys,
    der kan stilles, farvehjulet for farver, og en enkelt gul bolle for en pære, der hverken kan
@@ -1527,6 +1529,11 @@ class RumlysPanel extends HTMLElement {
     // Sensorprikkerne bor for sig selv og bygges aldrig om: en replaceChildren river
     // elementet ud af DOM'en, og saa starter pulsanimationen forfra hvert 15. sekund.
     const sensorprikker = h("div", { class: "paerer" });
+    // Holdet som sin egen prik. Det er den eneste tilstand, der sætter både sensoren og
+    // nedtællingen ud af spil, og det er nemt at glemme slået til — så det skal kunne ses
+    // uden at læse statuslinjen (Martins ønske 21-09-2026). Den bygges her og opdateres kun
+    // med klasser, af samme grund som sensorprikkerne: en ombygning starter pulsen forfra.
+    const holdprik = h("span", { class: "hold-prik" }, ikon("mdi:lock-clock"));
     const sensorElementer = new Map();
     this._levende.push((hass) => {
       const lamper = this._kladde.data.lamper.map((l) => l.entity_id);
@@ -1547,6 +1554,11 @@ class RumlysPanel extends HTMLElement {
       if (s.lamper) dele.push(this.t("taendte_lamper", { n: s.taendte || 0, i: s.lamper }));
       const aut = (s.automatik || []).filter((a) => a.tilstand !== "slukket").length;
       if ((s.automatik || []).length > 1) dele.push(this.t("taendte_automatikker", { n: aut, i: s.automatik.length }));
+      const holder = !!s.hold_slutter;
+      holdprik.classList.toggle("aktiv", holder);
+      holdprik.title = holder
+        ? this.t("hold_prik_til", { tid: klokken(hass, s.hold_slutter) })
+        : this.t("hold_prik_fra");
       if (s.bevaegelse) dele.push(this.t("bevaegelse_nu"));
       if (s.tidsrum) dele.push(this.t("tidsrum") + ": " + s.tidsrum);
       if ((s.uden_automatik || []).length) dele.push(this.t("uden_automatik", { n: s.uden_automatik.length }));
@@ -1564,6 +1576,7 @@ class RumlysPanel extends HTMLElement {
         omraadeIkon,
         h("div", { class: "hovedtekst" }, h("h1", {}, this._detalje.navn), status, detaljer),
         sensorprikker,
+        h("div", { class: "paerer" }, holdprik),
         prikker)
     );
   }
