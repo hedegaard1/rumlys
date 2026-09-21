@@ -384,3 +384,59 @@ async def test_skjulte_lamper_kan_ikke_vaelges(hass: HomeAssistant, hass_ws_clie
 
     svar = await kommando(klient, type="rumlys/omraader")
     assert svar["result"][1]["lamper"] == []
+BAAND = "light.gang_baand"
+GANGKNAP = "binary_sensor.gang_knap"
+
+
+async def test_en_slettet_automatik_efterlader_ikke_knappen_i_det_blaa(
+    hass: HomeAssistant, hass_ws_client: WebSocketGenerator
+) -> None:
+    """Peger en knap på en automatik, der slettes, overtager knappen automatikkens lamper.
+
+    Samme regel som for et kort, der ryddes væk: en knap på væggen skal blive ved med at gøre
+    det, den plejer. Og knappens egne valg følger med — det er kun målet, der fryses.
+    """
+    await opsaet(hass)
+    entiteter = er.async_get(hass)
+    entiteter.async_get_or_create("light", "test", "baand", suggested_object_id="gang_baand")
+    entiteter.async_update_entity(BAAND, area_id="gang")
+    hass.states.async_set(BAAND, "off", {"friendly_name": "Gang Bånd"})
+    entiteter.async_get_or_create("binary_sensor", "test", "knap", suggested_object_id="gang_knap")
+    entiteter.async_update_entity(GANGKNAP, area_id="gang")
+    hass.states.async_set(GANGKNAP, "off")
+    klient = await hass_ws_client(hass)
+
+    aut = lambda nr, lampe: {
+        "id": nr,
+        "lamper": [lampe],
+        "sensorer": [],
+        "lys": dict(STANDARD_LYS),
+        "overgang": 0,
+        "tidsrum": [],
+    }
+    data = (await kommando(klient, type="rumlys/rum/hent", rum_id="gang"))["result"]["data"]
+    med_to = data | {
+        "lamper": [{"entity_id": SPOTS, "bevaegelse": True}, {"entity_id": BAAND, "bevaegelse": True}],
+        "automatik": [aut(1, SPOTS), aut(2, BAAND)],
+        "knapper": [GANGKNAP],
+        "knap_maal": {GANGKNAP: {"automatik": 2, "hold": False}},
+    }
+    svar = await kommando(klient, type="rumlys/rum/gem", rum_id="gang", data=med_to)
+    assert svar["success"], svar
+    await hass.async_block_till_done()
+
+    data = (await kommando(klient, type="rumlys/rum/hent", rum_id="gang"))["result"]["data"]
+    assert data["knap_maal"][GANGKNAP]["automatik"] == 2
+
+    # Automatik 2 slettes — knappen står tilbage uden noget at pege på.
+    svar = await kommando(
+        klient, type="rumlys/rum/gem", rum_id="gang", data=data | {"automatik": [data["automatik"][0]]}
+    )
+    assert svar["success"], svar
+    await hass.async_block_till_done()
+
+    maal = (await kommando(klient, type="rumlys/rum/hent", rum_id="gang"))["result"]["data"]["knap_maal"]
+    assert maal[GANGKNAP]["lamper"] == [BAAND]
+    assert "automatik" not in maal[GANGKNAP]
+    # Og knappens eget valg er ikke gået tabt undervejs.
+    assert maal[GANGKNAP]["hold"] is False

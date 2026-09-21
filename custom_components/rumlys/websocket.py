@@ -18,6 +18,7 @@ from homeassistant.helpers import (
 )
 
 from .const import (
+    AUT_ID,
     CONF_AUTOMATIK,
     CONF_ENTITY_ID,
     CONF_IKON,
@@ -267,8 +268,9 @@ def ws_gem(
             if str(aut.id) == aut_id:
                 for noegle, vaerdi in tider.items():
                     aut.saet(noegle, vaerdi)
+    # Knapperne fryses altid: en automatik kan forsvinde uden at kortene er med i gemningen.
+    data = _frys_knapper(rum, data, msg.get("kort"))
     if "kort" in msg:
-        data = _frys_knapper(rum, data, msg["kort"])
         # Mod lamperne, som de gemmes nu: en lampe, der lige er valgt i rummet, kan også vælges til et kort.
         rum.saet_kort(msg["kort"], [lampe[CONF_ENTITY_ID] for lampe in data[CONF_LAMPER]])
     hass.config_entries.async_update_subentry(
@@ -278,17 +280,34 @@ def ws_gem(
 
 
 def _frys_knapper(
-    rum: Rum, data: dict[str, Any], kort: dict[str, Any]
+    rum: Rum, data: dict[str, Any], kort: dict[str, Any] | None
 ) -> dict[str, Any]:
-    """Fjernes et kort, en knap følger, overtager knappen kortets lamper.
+    """Forsvinder det, en knap peger på, overtager knappen dets lamper.
 
-    Ellers holdt knappen på væggen op med at gøre det, den plejer, fordi nogen ryddede op på
-    et betjeningspanel. Er kortet hele rummet, styrer knappen hele rummet — og så er valget væk."""
+    Ellers holdt knappen på væggen op med at gøre det, den plejer, fordi nogen ryddede op på et
+    betjeningspanel eller delte rummet op på en ny måde. Er målet hele rummet, styrer knappen
+    hele rummet — og så er der ikke noget valg at fryse.
+
+    `kort` er None, når gemningen ikke rører kortene; så er det kun automatikkerne, der tjekkes.
+    """
+    aut_lamper = {aut.id: aut.lys for aut in rum.automatik}
+    beholdte = {aut[AUT_ID] for aut in data.get(CONF_AUTOMATIK) or []}
     maal = {}
     for knap, hvad in data.get(CONF_KNAP_MAAL, {}).items():
-        if CONF_KORT in hvad and hvad[CONF_KORT] not in kort:
+        # Knappens egne valg følger med: det er kun MÅLET, der fryses. Ellers mistede knappen
+        # sin dæmpning og sit dobbeltklik, fordi nogen slettede et kort.
+        egne = {n: v for n, v in hvad.items() if n not in (CONF_KORT, CONF_AUTOMATIK)}
+        if kort is not None and CONF_KORT in hvad and hvad[CONF_KORT] not in kort:
             if lamper := rum.kortets_lamper(hvad[CONF_KORT]):
-                maal[knap] = {CONF_LAMPER: lamper}
+                maal[knap] = egne | {CONF_LAMPER: lamper}
+            else:
+                maal[knap] = egne
+            continue
+        if (aut_id := hvad.get(CONF_AUTOMATIK)) is not None and aut_id not in beholdte:
+            if lamper := aut_lamper.get(aut_id):
+                maal[knap] = egne | {CONF_LAMPER: lamper}
+            else:
+                maal[knap] = egne
             continue
         maal[knap] = hvad
     return data | {CONF_KNAP_MAAL: maal}

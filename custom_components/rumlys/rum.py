@@ -938,6 +938,13 @@ class Rum:
             return None
         if CONF_LAMPER in maal:
             return self.lamperne(maal[CONF_LAMPER]) or None
+        # Peger knappen på en automatik, er det dens lamper. Automatikken er den gruppe, modellen
+        # selv bygger på, så knappen følger med, når gruppen ændrer sig.
+        if (aut_id := maal.get(CONF_AUTOMATIK)) is not None:
+            for aut in self.automatik:
+                if aut.id == aut_id:
+                    return aut.lys or None
+            return None
         # Fra 0.9.0 kan et mål være knappens egne valg alene, uden hverken kort eller lamper.
         # Så styrer knappen hele rummet, præcis som en knap uden mål.
         if kort := maal.get(CONF_KORT):

@@ -1550,3 +1550,74 @@ async def test_et_minde_uden_aftryk_kasseres(hus: Hus) -> None:
     await hus.bevaegelse("on")
 
     assert hus.taend[-1].data["brightness_pct"] == 10
+# To automatikker med hver sin lampe og hver sit lys — Martins Alrum i lille format.
+TO_AUTOMATIKKER = KNAPRUMMET | {
+    "lamper": [
+        {"entity_id": SPOTS, "bevaegelse": True},
+        {"entity_id": STENLAMPE, "bevaegelse": True},
+    ],
+    "automatik": [
+        {
+            "id": 1,
+            "lamper": [SPOTS],
+            "sensorer": [SENSOR],
+            "lys": {"type": "hvid", "lysstyrke": 100, "kelvin": 3500},
+            "overgang": 0,
+            "tidsrum": [],
+        },
+        {
+            "id": 2,
+            "lamper": [STENLAMPE],
+            "sensorer": [SENSOR],
+            "lys": {"type": "hvid", "lysstyrke": 40, "kelvin": 2700},
+            "overgang": 0,
+            "tidsrum": [],
+        },
+    ],
+}
+
+
+async def test_knappen_styrer_en_automatiks_lamper(hus: Hus) -> None:
+    """En knap kan pege på en automatik og styrer så præcis dens lamper.
+
+    Automatikken er den gruppe, modellen selv bygger på — en lampe hører til én — så knappen
+    følger med, når gruppen ændrer sig, i stedet for at have sin egen lampeliste ved siden af.
+    """
+    await hus.saet_op(TO_AUTOMATIKKER | {"knap_maal": {KNAP: {"automatik": 2}}})
+
+    await hus.tryk()
+    await hus.vent(0.4)
+
+    assert [k.data["entity_id"] for k in hus.taend] == [[STENLAMPE]]
+    assert hus.taend[-1].data["brightness_pct"] == 40
+
+
+async def test_knappen_uden_maal_taender_alt_med_hver_automatiks_eget_lys(hus: Hus) -> None:
+    """«Alt lys»: en knap uden mål rammer hele rummet — og hver automatik tænder sit eget.
+
+    Det er dét, der gør at man ikke behøver en automatik med alle lamperne i for at kunne tænde
+    alt. Martin spurgte præcis om det 21-09-2026.
+    """
+    await hus.saet_op(TO_AUTOMATIKKER)
+
+    await hus.tryk()
+    await hus.vent(0.4)
+
+    lys = {tuple(k.data["entity_id"]): k.data["brightness_pct"] for k in hus.taend}
+    assert lys == {(SPOTS,): 100, (STENLAMPE,): 40}
+
+
+async def test_en_automatik_uden_lamper_lader_knappen_styre_hele_rummet(hus: Hus) -> None:
+    """Peger knappen på en automatik, der ikke har nogen lamper, falder den tilbage på rummet.
+
+    En knap på væggen skal altid gøre noget — det er den samme regel som for et kort, der er væk.
+    """
+    rummet = TO_AUTOMATIKKER | {"knap_maal": {KNAP: {"automatik": 2}}}
+    rummet["automatik"] = [rummet["automatik"][0], rummet["automatik"][1] | {"lamper": []}]
+    await hus.saet_op(rummet)
+
+    await hus.tryk()
+    await hus.vent(0.4)
+
+    taendte = {e for k in hus.taend for e in k.data["entity_id"]}
+    assert taendte == {SPOTS, STENLAMPE}

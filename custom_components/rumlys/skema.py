@@ -180,6 +180,10 @@ def _kun_rummets(rum: dict[str, Any]) -> dict[str, Any]:
         for knap, maal in rum.get(CONF_KNAP_MAAL, {}).items()
         if knap in rum[CONF_KNAPPER]
     }
+    # En knap, der peger paa en automatik, roeres IKKE her. Bliver automatikken slettet, laver
+    # _frys_knapper pegepinden om til dens lamper, saa knappen goer det samme som foer - og den
+    # rettelse skal have lov at komme foerst. Skemaet koerer foer den. Findes automatikken alligevel
+    # ikke i drift, falder _knappens_lamper tilbage paa hele rummet.
     for knap, maal in list(knapper.items()):
         if CONF_LAMPER not in maal:
             continue
@@ -261,6 +265,12 @@ RUM_DATA = vol.All(
                 cv.entity_domain(["binary_sensor", "event"]): vol.Schema(
                     {
                         vol.Exclusive(CONF_KORT, "maal"): cv.string,
+                        # Automatikken er den gruppe, modellen selv bygger på: en lampe
+                        # hører til én, og gruppen ejer lysets opførsel. Uden mål styrer
+                        # knappen hele rummet — altså alle automatikker, hver med sit.
+                        vol.Exclusive(CONF_AUTOMATIK, "maal"): vol.All(
+                            vol.Coerce(int), vol.Range(min=1)
+                        ),
                         vol.Exclusive(CONF_LAMPER, "maal"): [cv.entity_domain("light")],
                         # Knappens egne valg. Udeladt betyder standard, og standarden er dét,
                         # knapperne gjorde før 0.9.0 — en knap, ingen har rørt, skifter ikke.
