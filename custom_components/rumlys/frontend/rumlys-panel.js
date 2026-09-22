@@ -1551,7 +1551,8 @@ class RumlysPanel extends HTMLElement {
       prikker.replaceChildren(...lamper.map((id) => this._lampeprik(hass, id)));
       const s = this._detalje.status || {};
       const dele = [];
-      if (s.lamper) dele.push(this.t("taendte_lamper", { n: s.taendte || 0, i: s.lamper }));
+      const taendte = lamper.filter((id) => rummetsFarver(hass, [id]).length).length;
+      if (lamper.length) dele.push(this.t("taendte_lamper", { n: taendte, i: lamper.length }));
       const aut = (s.automatik || []).filter((a) => a.tilstand !== "slukket").length;
       if ((s.automatik || []).length > 1) dele.push(this.t("taendte_automatikker", { n: aut, i: s.automatik.length }));
       const holder = !!s.hold_slutter;
@@ -1559,7 +1560,6 @@ class RumlysPanel extends HTMLElement {
       holdprik.title = holder
         ? this.t("hold_prik_til", { tid: klokken(hass, s.hold_slutter) })
         : this.t("hold_prik_fra");
-      if (s.bevaegelse) dele.push(this.t("bevaegelse_nu"));
       if (s.tidsrum) dele.push(this.t("tidsrum") + ": " + s.tidsrum);
       if ((s.uden_automatik || []).length) dele.push(this.t("uden_automatik", { n: s.uden_automatik.length }));
       detaljer.textContent = dele.join(" · ");

@@ -1348,7 +1348,7 @@ class Rum:
             "lamper": len(self.lys),
             "uden_automatik": [l for l in self.lys if self.automatik_for(l) is None],
             "automatik": [aut.status() for aut in self.automatik],
-            "haendelser": list(self.haendelser),
+            "haendelser": [_i_lokaltid(h) for h in self.haendelser],
         }
 
     @callback
@@ -1367,6 +1367,8 @@ class Rum:
 
     @callback
     def _log(self, hvad: str, **detaljer: Any) -> None:
+        # Gemmes i UTC — det er dét, der ikke flytter sig, når sommertiden skifter. Ud af
+        # huset skrives det om til lokaltid, se _i_lokaltid().
         self.haendelser.append(
             {"tid": dt_util.utcnow().isoformat(), "hvad": hvad} | detaljer
         )
@@ -1664,6 +1666,22 @@ def _aftryk(tilstand: State) -> tuple[Any, ...]:
         hs and tuple(round(v) for v in hs),
         attributter.get("effect"),
     )
+
+
+def _i_lokaltid(haendelse: dict[str, Any]) -> dict[str, Any]:
+    """Hændelsen med sit tidspunkt skrevet i lokaltid.
+
+    Tidspunktet gemmes i UTC og har altid båret sin forskydning, så det har aldrig været
+    tvetydigt. Men en liste, hvor alt andet i svaret står i lokaltid, er nem at læse forkert —
+    det skete 21-09-2026 midt i en fejlsøgning, hvor en tidslinje blev stillet op efter et
+    klokkeslæt, der var to timer ved siden af.
+
+    Samme øjeblik, anden skrivemåde. Lageret bliver ved med at være UTC.
+    """
+    tid = _tidspunkt(haendelse.get("tid"))
+    if tid is None:
+        return haendelse
+    return haendelse | {"tid": dt_util.as_local(tid).isoformat()}
 
 
 def _tidspunkt(tekst: str | None) -> datetime | None:
