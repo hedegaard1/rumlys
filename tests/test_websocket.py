@@ -12,6 +12,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import area_registry as ar, entity_registry as er
 
 from custom_components.rumlys.const import DOMAIN, RUM, STANDARD_LYS
+from custom_components.rumlys.rum import rummets_lamper
 
 SPOTS = "light.gang_spots"
 
@@ -386,6 +387,60 @@ async def test_skjulte_lamper_kan_ikke_vaelges(hass: HomeAssistant, hass_ws_clie
 
     svar = await kommando(klient, type="rumlys/omraader")
     assert svar["result"][1]["lamper"] == []
+
+
+RELAE = "light.gang_relae"
+
+
+def gang_med_relae(i_automatik: list[str]) -> dict[str, Any]:
+    """Gang, gemt med både spots og relæ — sådan ser et rum ud, når panelet har gemt det."""
+    return {
+        "omraade": "gang",
+        "lamper": [
+            {"entity_id": SPOTS, "bevaegelse": True},
+            {"entity_id": RELAE, "bevaegelse": True},
+        ],
+        "automatik": [
+            {
+                "id": 1,
+                "lamper": i_automatik,
+                "sensorer": [],
+                "lys": dict(STANDARD_LYS),
+                "overgang": 0,
+                "tidsrum": [],
+            }
+        ],
+    }
+
+
+async def skjult_relae(hass: HomeAssistant) -> None:
+    await opsaet(hass)
+    entiteter = er.async_get(hass)
+    entiteter.async_get_or_create("light", "test", "relae", suggested_object_id="gang_relae")
+    entiteter.async_update_entity(RELAE, area_id="gang", hidden_by=er.RegistryEntryHider.USER)
+    hass.states.async_set(RELAE, "on", {"friendly_name": "Gang Relæ"})
+
+
+async def test_en_gemt_lampe_der_skjules_falder_ud_af_rummet(hass: HomeAssistant) -> None:
+    """At skjule en lampe skal virke, også når rummet allerede er gemt med den.
+
+    Siden 0.12.1 gemmer panelet hele områdets lampeliste, så efter første gemning stod en lampe i
+    det gemte — og det gemte blev aldrig kastet væk. Et skjult relæ blev derfor i rummet, og en
+    knap uden mål slukkede det med resten: sluk går til alle rummets lamper, tænd kun gennem
+    automatikkerne, så strømmen til den smarte pære kom aldrig tilbage. Fundet på Alrums
+    loftudtag 26-09-2026, som lk_ihc havde lagt i rummet.
+    """
+    await skjult_relae(hass)
+    lamper = rummets_lamper(hass, gang_med_relae(i_automatik=[SPOTS]))
+    assert [lampe["entity_id"] for lampe in lamper] == [SPOTS]
+
+
+async def test_en_skjult_lampe_i_en_automatik_bliver_i_rummet(hass: HomeAssistant) -> None:
+    """Har nogen lagt lampen i en automatik, er den valgt med vilje — den skal ikke forsvinde under
+    automatikken, fordi den er skjult et andet sted."""
+    await skjult_relae(hass)
+    lamper = rummets_lamper(hass, gang_med_relae(i_automatik=[SPOTS, RELAE]))
+    assert [lampe["entity_id"] for lampe in lamper] == [SPOTS, RELAE]
 BAAND = "light.gang_baand"
 GANGKNAP = "binary_sensor.gang_knap"
 

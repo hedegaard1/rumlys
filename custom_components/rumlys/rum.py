@@ -43,6 +43,7 @@ from homeassistant.core import (
     State,
     callback,
 )
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.event import (
     async_call_later,
     async_track_point_in_utc_time,
@@ -188,8 +189,27 @@ def rummets_lamper(hass: HomeAssistant, data: Mapping[str, Any]) -> list[dict[st
 
     Det gemte kastes ikke væk. Lamper valgt fra et andet område, dengang det kunne lade sig gøre,
     bliver ved med at være med, og «tænder ved bevægelse» på en lampe huskes.
+
+    **Undtagen en lampe, der er skjult eller slået fra**, og som ingen automatik bruger. Områdets
+    opslag springer den over, men siden 0.12.1 gemmer panelet hele listen, så efter første
+    gemning stod den i det gemte og blev der. Så virkede det ikke at skjule et relæ, der giver
+    strøm til en smart pære — og en knap uden mål slukkede det med resten, for sluk går til alle
+    rummets lamper og tænd kun gennem automatikkerne. Alrums loftudtag 26-09-2026.
     """
-    gemte = list(data.get(CONF_LAMPER, []))
+    i_automatik = {
+        entity_id for aut in automatikkerne(dict(data)) for entity_id in aut.get(AUT_LAMPER, [])
+    }
+    register = er.async_get(hass)
+
+    def skjult(entity_id: str) -> bool:
+        entitet = register.async_get(entity_id)
+        return entitet is not None and bool(entitet.hidden_by or entitet.disabled_by)
+
+    gemte = [
+        lampe
+        for lampe in data.get(CONF_LAMPER, [])
+        if lampe[CONF_ENTITY_ID] in i_automatik or not skjult(lampe[CONF_ENTITY_ID])
+    ]
     omraade = data.get(CONF_OMRAADE)
     if not omraade:
         return gemte

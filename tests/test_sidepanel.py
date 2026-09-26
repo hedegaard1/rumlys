@@ -7,6 +7,9 @@ svaret kommer fra.
 """
 
 from typing import Any
+import json
+import re
+from pathlib import Path
 
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.typing import WebSocketGenerator
@@ -36,3 +39,19 @@ async def test_version_kraever_ikke_administrator(
     svar: dict[str, Any] = await kommando(klient, type="rumlys/version")
     assert svar["success"]
     assert svar["result"]["version"] == sidepanel.VERSION
+
+
+def test_siden_og_integrationen_har_samme_version() -> None:
+    """Versionen står to steder, og de skal følges ad.
+
+    `manifest.json` bestemmer, hvad serveren svarer, og hvilken adresse filerne hentes fra.
+    `VERSION` i rumlys-faelles.js er, hvad siden tror, den selv er. Står de forskelligt, melder
+    siden «opdateret» ved hver eneste indlæsning — også lige efter et tryk på «Genindlæs», for den
+    nye side tror stadig, den er den gamle. Det skete i 0.16.0, hvor kun manifestet blev rettet.
+    """
+    mappe = Path(sidepanel.__file__).parent
+    manifest = json.loads((mappe / "manifest.json").read_text(encoding="utf-8"))["version"]
+    faelles = (mappe / "frontend" / "rumlys-faelles.js").read_text(encoding="utf-8")
+    fundet = re.search(r'^export const VERSION = "([^"]+)";$', faelles, re.MULTILINE)
+    assert fundet is not None
+    assert fundet.group(1) == manifest
